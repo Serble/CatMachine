@@ -1,0 +1,26 @@
+
+; Hello World
+;mov @100 72
+;mov @101 101
+;mov @102 108
+;mov @103 108
+;mov @104 111
+;mov @105 0
+
+loop:
+jmp .afterdata
+int 0x81
+.afterdata:
+
+mov r1 hello_world2
+.epic:
+int 0x80
+jmp .epic
+
+hello_world:
+d8 'h' 'e' 'l' 'l' 'o' '\s' 'w' 'o' 'r' 'l' 'd' '!' '\n' 0
+
+hello_world2:
+dstr hello world!\n\0
+
+; int 0x81
