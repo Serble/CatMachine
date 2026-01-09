@@ -8,7 +8,7 @@ if (!File.Exists(romPath)) {
 // flags
 bool fastRun = false;
 int ops = 100_000;  // ops per seconds
-int memorySize = 1024 * 64; // 64 KB
+int memorySize = 1024 * 1024 * 16; // 16mb
 bool enableTimings = false;
 
 for (int i = 1; i < args.Length; i++) {
@@ -48,6 +48,8 @@ for (int i = 1; i < args.Length; i++) {
 CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     PrintInstructionTimes = enableTimings
 };
+
+_ = vm.RunRendering();
 
 if (fastRun) {
     vm.FastRun();

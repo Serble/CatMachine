@@ -6,8 +6,8 @@ public static class DivOperation {
     // destReg = destReg / remReg
     // remReg = destReg % remReg
     public static void DivRR(CatVM vm) {
-        byte destReg = vm.ReadByte();
-        byte remReg = vm.ReadByte();
+        byte destReg = vm.Read8();
+        byte remReg = vm.Read8();
         uint dividend = vm.Cpu.Get(destReg);
         uint divisor = vm.Cpu.Get(remReg);
         uint quotient = dividend / divisor;
@@ -17,8 +17,8 @@ public static class DivOperation {
     }
     
     public static void IDivRR(CatVM vm) {
-        byte destReg = vm.ReadByte();
-        byte remReg = vm.ReadByte();
+        byte destReg = vm.Read8();
+        byte remReg = vm.Read8();
         int dividend = (int)vm.Cpu.Get(destReg);
         int divisor = (int)vm.Cpu.Get(remReg);
         int quotient = dividend / divisor;

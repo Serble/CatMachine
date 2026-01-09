@@ -21,6 +21,11 @@ public static class InterruptHandlers {
     public static void ResetInterrupt(CatVM vm) {
         vm.Reset();
     }
+    
+    public static void GetDisplayBufferInterrupt(CatVM vm) {
+        // return pointer to display buffer in r1
+        vm.Cpu.Set(1, vm.DisplayBufferOffset);
+    }
 
     public static void DefaultHandler(CatVM vm, byte opcode) {
         if (opcode >= 0x10) return;  // ignore non errors

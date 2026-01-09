@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using CatVM.Ops;
 using Raylib_cs;
@@ -7,11 +8,17 @@ namespace CatVM;
 
 // a VM instance
 public class CatVM {
+    public const int DisplayWidth = 512;
+    public const int DisplayHeight = 512;
+    public const int DisplayBufferSize = DisplayHeight * DisplayWidth * 4;
+    
     public byte[] Memory { get; set; } = null!;
     public byte[] Rom { get; set; }
     public double InstructionsPerSecond { get; set; }
     public bool Paused { get; set; }
     public bool PrintInstructionTimes { get; set; }
+    public uint DisplayBufferOffset { get; set; }
+    private GCHandle? _memoryHandle;
     public CatCpu Cpu;
     private readonly int _memoryBytes;
 
@@ -19,6 +26,10 @@ public class CatVM {
         _memoryBytes = memoryBytes;
         Rom = rom ?? [];
         InstructionsPerSecond = instructionsPerSecond;
+
+        if (memoryBytes < Rom.Length + DisplayBufferSize) {
+            throw new Exception($"Not enough memory for Rom and Display Buffer, needed: {Rom.Length+DisplayBufferSize}, got: {memoryBytes}");
+        }
         
         Reset();
     }
@@ -26,7 +37,12 @@ public class CatVM {
     public void Reset(bool preserveMem = false) {
         Cpu = new CatCpu();
         if (!preserveMem) {
+            _memoryHandle?.Free();   // Release old memory array
             Memory = new byte[_memoryBytes];
+            _memoryHandle = GCHandle.Alloc(Memory, GCHandleType.Pinned);
+            
+            // get offset for display buffer (it will go at the end of memory)
+            DisplayBufferOffset = (uint)(_memoryBytes - DisplayBufferSize);
         }
         
         if (Rom.Length > 0) {
@@ -42,18 +58,34 @@ public class CatVM {
         Cpu.Ip = offset;
     }
     
-    public byte ReadByte() {
+    public byte Read8() {
         if (Cpu.Ip >= Memory.Length) {
             throw new MemoryOutOfRange(Cpu.Ip);
         }
         return Memory[Cpu.Ip++];
     }
     
-    public byte ReadByte(uint ptr) {
+    public byte Read8(uint ptr) {
         if (ptr >= Memory.Length) {
             throw new MemoryOutOfRange(ptr);
         }
         return Memory[ptr];
+    }
+    
+    public ushort Read16() {
+        if (Cpu.Ip + 2 > Memory.Length) {
+            throw new MemoryOutOfRange(Cpu.Ip);
+        }
+        ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Ip);
+        Cpu.Ip += 2;
+        return value;
+    }
+    
+    public ushort Read16(uint ptr) {
+        if (ptr + 2 > Memory.Length) {
+            throw new MemoryOutOfRange(ptr);
+        }
+        return BitConverter.ToUInt16(Memory, (int)ptr);
     }
     
     public uint ReadWord() {
@@ -75,7 +107,7 @@ public class CatVM {
     public string ReadString() {
         List<byte> bytes = [];
         while (true) {
-            byte b = ReadByte();
+            byte b = Read8();
             if (b == 0) break;
             bytes.Add(b);
         }
@@ -85,26 +117,53 @@ public class CatVM {
     public string ReadString(uint ptr) {
         List<byte> bytes = [];
         while (true) {
-            byte b = ReadByte(ptr++);
+            byte b = Read8(ptr++);
             if (b == 0) break;
             bytes.Add(b);
         }
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
-    public async Task RunRendering() {
-        if (Raylib.WindowShouldClose()) {
-            // close window
-            Raylib.CloseWindow();
-            Environment.Exit(0);
-        }
-        
-        Raylib.BeginDrawing();
-        Raylib.ClearBackground(Color.Black);
+    public Task RunRendering() {
+        return Task.Run((Action) (() => {
+            Raylib.InitWindow(DisplayWidth, DisplayHeight, "CatVM Display");
 
+            if (!_memoryHandle.HasValue) {
+                throw new Exception("Memory not initialized.");
+            }
+
+            Image image;
+            unsafe {
+                image = new Image {
+                    Data = (_memoryHandle!.Value.AddrOfPinnedObject() + (int)DisplayBufferOffset).ToPointer(),
+                    Width = DisplayWidth,
+                    Height = DisplayHeight,
+                    Mipmaps = 1,
+                    Format = PixelFormat.UncompressedR8G8B8A8
+                };
+            }
+            
+            Texture2D texture = Raylib.LoadTextureFromImage(image);
+
+            while (true) {
+                unsafe {
+                    if (Raylib.WindowShouldClose()) {
+                        // close window
+                        Raylib.CloseWindow();
+                        Environment.Exit(0);
+                    }
+                
+                    Raylib.UpdateTexture(texture, _memoryHandle!.Value.AddrOfPinnedObject().ToPointer());
         
+                    Raylib.BeginDrawing();
+                    Raylib.ClearBackground(Color.Black);
+
+                    Raylib.DrawTexture(texture, 0, 0, Color.White);
         
-        Raylib.EndDrawing();
+                    Raylib.EndDrawing();
+                }
+            }
+        }));
     }
 
     public void FastRun() {
@@ -145,7 +204,7 @@ public class CatVM {
     }
 
     public void ExecuteInstruction() {
-        byte opcode = ReadByte();
+        byte opcode = Read8();
 
         if (opcode > Operations.Length) {
             Interrupt(SpecialInterupts.InvalidInstruction);
@@ -200,6 +259,12 @@ public class CatVM {
                 InterruptHandlers.ResetInterrupt(this);
                 return;
             }
+            
+            case 0x84: {
+                // get display buffer
+                InterruptHandlers.GetDisplayBufferInterrupt(this);
+                return;
+            }
         }
         
         // User defined interrupt (or default)
@@ -210,11 +275,11 @@ public class CatVM {
         }
         
         // Find the handler
-        byte entryCount = ReadByte(Cpu.It);
+        byte entryCount = Read8(Cpu.It);
 
         uint entryPtr = Cpu.It + 1;
         for (int i = 0; i < entryCount; i++) {
-            byte code = ReadByte(entryPtr);
+            byte code = Read8(entryPtr);
             uint handlerPtr = ReadWord(entryPtr + 1);
             if (code == opcode) {
                 // found
@@ -238,9 +303,38 @@ public class CatVM {
         Array.Copy(bytes, 0, Memory, (int)Cpu.Sp, 4);
     }
     
+    public void StackPush(byte value) {
+        if (Cpu.Sp < 1) {
+            throw new MemoryOutOfRange(Cpu.Sp - 1);
+        }
+        Cpu.Sp -= 1;
+        Memory[Cpu.Sp] = value;
+    }
+    
+    public void StackPush(ushort value) {
+        if (Cpu.Sp < 2) {
+            throw new MemoryOutOfRange(Cpu.Sp - 2);
+        }
+        Cpu.Sp -= 2;
+        byte[] bytes = BitConverter.GetBytes(value);
+        Array.Copy(bytes, 0, Memory, (int)Cpu.Sp, 2);
+    }
+    
     public uint StackPop() {
         uint value = BitConverter.ToUInt32(Memory, (int)Cpu.Sp);
         Cpu.Sp += 4;
+        return value;
+    }
+    
+    public byte StackPop8() {
+        byte value = Memory[Cpu.Sp];
+        Cpu.Sp += 1;
+        return value;
+    }
+    
+    public ushort StackPop16() {
+        ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Sp);
+        Cpu.Sp += 2;
         return value;
     }
     
@@ -275,7 +369,13 @@ public class CatVM {
         IntOperation.IntI,
         StackOperation.PushR,
         StackOperation.PushI,
+        StackOperation.Push16R,
+        StackOperation.Push16I,
+        StackOperation.Push8R,
+        StackOperation.Push8I,
         StackOperation.PopR,
+        StackOperation.Pop16R,
+        StackOperation.Pop8R,
         OrOperation.OrRR,
         OrOperation.OrRI,
         AndOperation.AndRR,

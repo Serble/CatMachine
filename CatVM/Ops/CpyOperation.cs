@@ -3,8 +3,8 @@ namespace CatVM.Ops;
 public static class CpyOperation {
 
     public static void CpyRR(CatVM vm) {
-        byte sourceReg = vm.ReadByte();
-        byte lengthReg = vm.ReadByte();
+        byte sourceReg = vm.Read8();
+        byte lengthReg = vm.Read8();
         
         uint sourceAddr = vm.Cpu.Get(sourceReg);;
         uint length = vm.Cpu.Get(lengthReg);
@@ -13,7 +13,7 @@ public static class CpyOperation {
     }
     
     public static void CpyRI(CatVM vm) {
-        byte sourceReg = vm.ReadByte();
+        byte sourceReg = vm.Read8();
 
         uint sourceAddr = vm.Cpu.Get(sourceReg);
         uint length = vm.ReadWord();
@@ -23,7 +23,7 @@ public static class CpyOperation {
     
     public static void CpyIR(CatVM vm) {
         uint sourceAddr = vm.ReadWord();
-        byte lengthReg = vm.ReadByte();
+        byte lengthReg = vm.Read8();
         
         uint length = vm.Cpu.Get(lengthReg);
         

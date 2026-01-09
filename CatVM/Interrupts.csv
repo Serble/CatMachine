@@ -19,3 +19,4 @@ f,RESERVED,,,
 81,Halt,,false,Pause execution permanently
 82,Shutdown,,false,Poweroff
 83,Reset,,false,Restart (ip=0)
+84,Get Display Buf Start,,false,Returns the start address of the display buffer in r0

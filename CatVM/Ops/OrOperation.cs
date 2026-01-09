@@ -3,8 +3,8 @@ namespace CatVM.Ops;
 public static class OrOperation {
     
     public static void OrRR(CatVM vm) {
-        byte destReg = vm.ReadByte();
-        byte srcReg = vm.ReadByte();
+        byte destReg = vm.Read8();
+        byte srcReg = vm.Read8();
         uint left = vm.Cpu.Get(destReg);
         uint right = vm.Cpu.Get(srcReg);
         uint result = left | right;
@@ -12,7 +12,7 @@ public static class OrOperation {
     }
     
     public static void OrRI(CatVM vm) {
-        byte destReg = vm.ReadByte();
+        byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(destReg);
         uint result = left | immediate;

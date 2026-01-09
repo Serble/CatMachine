@@ -3,15 +3,15 @@ namespace CatVM.Ops;
 public static class AddOperation {
     
     public static void AddRR(CatVM vm) {
-        byte destReg = vm.ReadByte();
-        byte srcReg = vm.ReadByte();
+        byte destReg = vm.Read8();
+        byte srcReg = vm.Read8();
         uint left = vm.Cpu.Get(destReg);
         uint right = vm.Cpu.Get(srcReg);
         Add(vm, destReg, left, right);
     }
     
     public static void AddRI(CatVM vm) {
-        byte destReg = vm.ReadByte();
+        byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(destReg);
         Add(vm, destReg, left, immediate);

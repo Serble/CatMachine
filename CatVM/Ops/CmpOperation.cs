@@ -3,15 +3,15 @@ namespace CatVM.Ops;
 public static class CmpOperation {
     
     public static void CmpRR(CatVM vm) {
-        byte leftReg = vm.ReadByte();
-        byte rightReg = vm.ReadByte();
+        byte leftReg = vm.Read8();
+        byte rightReg = vm.Read8();
         uint left = vm.Cpu.Get(leftReg);
         uint right = vm.Cpu.Get(rightReg);
         Cmp(vm, left, right);
     }
     
     public static void CmpRI(CatVM vm) {
-        byte leftReg = vm.ReadByte();
+        byte leftReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(leftReg);
         Cmp(vm, left, immediate);
@@ -19,7 +19,7 @@ public static class CmpOperation {
     
     public static void CmpIR(CatVM vm) {
         uint immediate = vm.ReadWord();
-        byte rightReg = vm.ReadByte();
+        byte rightReg = vm.Read8();
         uint right = vm.Cpu.Get(rightReg);
         Cmp(vm, immediate, right);
     }

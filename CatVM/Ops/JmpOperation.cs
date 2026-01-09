@@ -15,7 +15,7 @@ public static class JmpOperation {
     public static void JbeRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.CarryFlag || v.Cpu.ZeroFlag);
     
     private static void ConditionalJmp(CatVM vm, Func<CatVM, bool> condition) {
-        byte addressReg = vm.ReadByte();
+        byte addressReg = vm.Read8();
         uint offset = vm.ReadWord();
         if (condition(vm)) {
             Jmp(vm, addressReg, offset);
