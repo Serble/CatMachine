@@ -6,7 +6,7 @@
 
 #include "CatSubtarget.h"
 #include "Cat.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 
 using namespace llvm;
 
