@@ -36,7 +36,7 @@ public:
   CatSubtarget(const Triple &TT, const std::string &CPU,
                const std::string &FS, const TargetMachine &TM);
 
-  void ParseSubtargetFeatures(StringRef CPU, StringRef FS);
+  void ParseSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
   const CatInstrInfo *getInstrInfo() const override { return &InstrInfo; }
   const CatRegisterInfo *getRegisterInfo() const override { return &RegInfo; }

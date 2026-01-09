@@ -20,5 +20,5 @@ void CatSubtarget::anchor() {}
 
 CatSubtarget::CatSubtarget(const Triple &TT, const std::string &CPU,
                            const std::string &FS, const TargetMachine &TM)
-    : CatGenSubtargetInfo(TT, CPU, FS), InstrInfo(), RegInfo(),
+    : CatGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(), RegInfo(),
       TLInfo(TM, *this), FrameLowering(*this) {}
