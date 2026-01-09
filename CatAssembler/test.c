@@ -15,6 +15,9 @@ int main() {
     
     int mystr = "Hello World!";
     print(mystr);
-    
+
+    while (1 == 1) {
+        // inf
+    }
     return 1;
 }
