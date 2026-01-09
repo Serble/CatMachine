@@ -53,7 +53,7 @@ def calltarget : Operand<i32> {
 
 def SDT_CatRet : SDTypeProfile<0, 0, []>;
 
-def ret : SDNode<"ISD::RETURN", SDT_CatRet,
+def ret : SDNode<"ISD::RET", SDT_CatRet,
                  [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 // Call sequence SDNodes
