@@ -12,4 +12,12 @@ public static class IntOperation {
         byte intNumber = vm.Read8();
         vm.Interrupt(intNumber);
     }
+    
+    public static void Di(CatVM vm) {
+        vm.InterruptsEnabled = false;
+    }
+    
+    public static void Ei(CatVM vm) {
+        vm.InterruptsEnabled = true;
+    }
 }

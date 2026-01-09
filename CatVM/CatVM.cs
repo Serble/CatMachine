@@ -13,6 +13,7 @@ public class CatVM {
     
     public byte[] Memory { get; set; } = null!;
     public byte[] Rom { get; set; }
+    public bool InterruptsEnabled { get; set; } = true;
     public double InstructionsPerSecond { get; set; }
     public bool Paused { get; set; }
     public bool PrintInstructionTimes { get; set; }
@@ -20,6 +21,7 @@ public class CatVM {
     public bool DumpErrors { get; set; }
     public uint DisplayBufferOffset { get; set; }
     public GCHandle? MemoryHandle { get; private set; }
+    public Queue<byte> InterruptQueue { get; } = [];
     public CatCpuState Cpu;
     private readonly int _memoryBytes;
 
@@ -170,6 +172,10 @@ public class CatVM {
     }
 
     public void ExecuteInstruction() {
+        if (InterruptsEnabled && InterruptQueue.TryDequeue(out byte waitingInterrupt)) {
+            HandleInterrupt(waitingInterrupt);
+        }
+        
         byte opcode = Read8();
 
         if (opcode > Operations.Length) {
@@ -201,11 +207,14 @@ public class CatVM {
         }
     }
 
-    public void Interrupt(byte opcode) => HandleInterrupt(opcode);
-    public void Interrupt(SpecialInterupts opcode) => HandleInterrupt((byte)opcode);
-    public void HandleInterrupt(byte opcode) {
+    public void Interrupt(SpecialInterupts id) => Interrupt((byte)id);
+    public void Interrupt(byte id) {
+        InterruptQueue.Enqueue(id);
+    }
+    
+    public void HandleInterrupt(byte id) {
         // System functions
-        switch (opcode) {
+        switch (id) {
             case 0x80: {
                 // print
                 InterruptHandlers.PrintInterrupt(this);
@@ -246,7 +255,7 @@ public class CatVM {
         // User defined interrupt (or default)
         if (Cpu.It == uint.MaxValue) {
             // default
-            InterruptHandlers.DefaultHandler(this, opcode);
+            InterruptHandlers.DefaultHandler(this, id);
             return;
         }
         
@@ -257,7 +266,7 @@ public class CatVM {
         for (int i = 0; i < entryCount; i++) {
             byte code = Read8(entryPtr);
             uint handlerPtr = ReadWord(entryPtr + 1);
-            if (code == opcode) {
+            if (code == id) {
                 // found
                 // push state
                 StackPush(Cpu.Ip);
@@ -269,7 +278,7 @@ public class CatVM {
         }
         
         // not found, default
-        InterruptHandlers.DefaultHandler(this, opcode);
+        InterruptHandlers.DefaultHandler(this, id);
     }
 
     public void StackPush(uint value) {
@@ -395,6 +404,8 @@ public class CatVM {
         CpyOperation.CpyRR,
         CpyOperation.CpyRI,
         CpyOperation.CpyIR,
-        CpyOperation.CpyII
+        CpyOperation.CpyII,
+        IntOperation.Di,
+        IntOperation.Ei
     ];
 }

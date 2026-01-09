@@ -68,3 +68,5 @@ OP Code,Instruction,Args,Description
 42,CPY,"rp, ip",
 43,CPY,"ip, rp",
 44,CPY,"ip, ip",
+45,DI, ,Disable interrupts
+46,EI, ,Enable interrupts
