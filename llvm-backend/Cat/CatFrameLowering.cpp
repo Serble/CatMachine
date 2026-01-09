@@ -39,20 +39,20 @@ void CatFrameLowering::emitPrologue(MachineFunction &MF,
     return;
 
   // Push callee-saved registers (R4-R7)
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(Cat::R4);
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(Cat::R5);
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(Cat::R6);
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(Cat::R7);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(R4);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(R5);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(R6);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::PUSH32)).addReg(R7);
 
   if (StackSize) {
     // Adjust stack pointer: SUB SP, StackSize
-    BuildMI(MBB, MBBI, DL, TII.get(Cat::SUB_RI), Cat::SP)
-        .addReg(Cat::SP)
+    BuildMI(MBB, MBBI, DL, TII.get(Cat::SUB_RI), SP)
+        .addReg(SP)
         .addImm(StackSize);
   }
 
   // Set frame pointer: MOV R7, SP
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::MOV32_RR), Cat::R7).addReg(Cat::SP);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::MOV32_RR), R7).addReg(SP);
 }
 
 void CatFrameLowering::emitEpilogue(MachineFunction &MF,
@@ -66,20 +66,20 @@ void CatFrameLowering::emitEpilogue(MachineFunction &MF,
   uint64_t StackSize = MFI.getStackSize();
 
   // Restore stack pointer: MOV SP, R7
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::MOV32_RR), Cat::SP).addReg(Cat::R7);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::MOV32_RR), SP).addReg(R7);
 
   if (StackSize) {
     // Restore stack pointer: ADD SP, StackSize
-    BuildMI(MBB, MBBI, DL, TII.get(Cat::ADD_RI), Cat::SP)
-        .addReg(Cat::SP)
+    BuildMI(MBB, MBBI, DL, TII.get(Cat::ADD_RI), SP)
+        .addReg(SP)
         .addImm(StackSize);
   }
 
   // Pop callee-saved registers (R7-R4, in reverse order)
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), Cat::R7);
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), Cat::R6);
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), Cat::R5);
-  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), Cat::R4);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), R7);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), R6);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), R5);
+  BuildMI(MBB, MBBI, DL, TII.get(Cat::POP32), R4);
 }
 
 MachineBasicBlock::iterator CatFrameLowering::eliminateCallFramePseudoInstr(
@@ -94,13 +94,13 @@ MachineBasicBlock::iterator CatFrameLowering::eliminateCallFramePseudoInstr(
     if (Amount != 0) {
       if (MI->getOpcode() == Cat::ADJCALLSTACKDOWN) {
         // SUB SP, Amount
-        BuildMI(MBB, MI, MI->getDebugLoc(), TII.get(Cat::SUB_RI), Cat::SP)
-            .addReg(Cat::SP)
+        BuildMI(MBB, MI, MI->getDebugLoc(), TII.get(Cat::SUB_RI), SP)
+            .addReg(SP)
             .addImm(Amount);
       } else {
         // ADD SP, Amount
-        BuildMI(MBB, MI, MI->getDebugLoc(), TII.get(Cat::ADD_RI), Cat::SP)
-            .addReg(Cat::SP)
+        BuildMI(MBB, MI, MI->getDebugLoc(), TII.get(Cat::ADD_RI), SP)
+            .addReg(SP)
             .addImm(Amount);
       }
     }
