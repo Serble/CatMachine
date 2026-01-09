@@ -7,11 +7,11 @@
 ;mov @104 111
 ;mov @105 0
 
-mov r0 @hello_world
-sub r0 1
-mov @hello_world r0
+mov r0, @hello_world
+sub r0, 1
+mov @hello_world, r0
 
-mov r1 hello_world
+mov r1, hello_world
 int 0x80
 int 0x81
 
@@ -26,7 +26,7 @@ int 0x81
 ;jmp .epic
 
 hello_world:
-d8 'h' 'e' 'l' 'l' 'o' '\s' 'w' 'o' 'r' 'l' 'd' '!' '\n' 0
+d8 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n', 0
 
 hello_world2:
 dstr hello world!\n\0

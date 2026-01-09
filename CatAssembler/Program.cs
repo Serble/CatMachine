@@ -34,7 +34,12 @@ class Program {
         foreach (string line in System.IO.File.ReadLines(args[0])) {
             LineNum++;
             
-            string[] split = line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+            string[] split = line.Split([' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries);
+            if (split.Length >= 2) {
+                split = ((string[])[split[0]])
+                    .Concat(split[1].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()))
+                    .ToArray();
+            }
             
             // Line Comments
             for (int i = 0; i < split.Length; i++) {
