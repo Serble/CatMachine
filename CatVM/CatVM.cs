@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using CatVM.Ops;
@@ -126,6 +127,11 @@ public class CatVM {
 
     public Task RunRendering() {
         return Task.Run((Action) (() => {
+            unsafe {
+                delegate* unmanaged[Cdecl]<int, sbyte*, sbyte*, void> ptr = &MyLogCallback;
+                Raylib.SetTraceLogCallback(ptr);
+            }
+            
             Raylib.InitWindow(DisplayWidth, DisplayHeight, "CatVM Display");
 
             if (!_memoryHandle.HasValue) {
@@ -164,6 +170,11 @@ public class CatVM {
                 }
             }
         }));
+    }
+    
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void MyLogCallback(int logLevel, sbyte* msg, sbyte* args) {
+        
     }
 
     public void FastRun() {
