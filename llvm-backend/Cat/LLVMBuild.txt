@@ -1,0 +1,23 @@
+;===- ./lib/Target/Cat/LLVMBuild.txt --------------------------*- Conf -*--===;
+;
+;                     The LLVM Compiler Infrastructure
+;
+; This file defines the Cat target build configuration.
+;
+;===------------------------------------------------------------------------===;
+
+[common]
+subdirectories = InstPrinter MCTargetDesc TargetInfo
+
+[component_0]
+type = TargetGroup
+name = Cat
+parent = Target
+has_asmprinter = 1
+
+[component_1]
+type = Library
+name = CatCodeGen
+parent = Cat
+required_libraries = Analysis AsmPrinter CodeGen Core MC CatDesc CatInfo SelectionDAG Support Target GlobalISel
+add_to_library_groups = Cat

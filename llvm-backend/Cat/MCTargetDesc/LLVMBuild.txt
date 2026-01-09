@@ -1,0 +1,14 @@
+;===- ./lib/Target/Cat/MCTargetDesc/LLVMBuild.txt -------------*- Conf -*--===;
+;
+;                     The LLVM Compiler Infrastructure
+;
+; This file defines the MCTargetDesc library.
+;
+;===------------------------------------------------------------------------===;
+
+[component_0]
+type = Library
+name = CatDesc
+parent = Cat
+required_libraries = MC CatInfo Support
+add_to_library_groups = Cat

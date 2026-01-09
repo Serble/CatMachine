@@ -1,0 +1,14 @@
+;===- ./lib/Target/Cat/TargetInfo/LLVMBuild.txt ---------------*- Conf -*--===;
+;
+;                     The LLVM Compiler Infrastructure
+;
+; This file defines the TargetInfo library.
+;
+;===------------------------------------------------------------------------===;
+
+[component_0]
+type = Library
+name = CatInfo
+parent = Cat
+required_libraries = Support
+add_to_library_groups = Cat

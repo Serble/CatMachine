@@ -1,0 +1,14 @@
+;===- ./lib/Target/Cat/InstPrinter/LLVMBuild.txt --------------*- Conf -*--===;
+;
+;                     The LLVM Compiler Infrastructure
+;
+; This file defines the InstPrinter library.
+;
+;===------------------------------------------------------------------------===;
+
+[component_0]
+type = Library
+name = CatAsmPrinter
+parent = Cat
+required_libraries = MC Support
+add_to_library_groups = Cat
