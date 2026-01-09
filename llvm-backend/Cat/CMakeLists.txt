@@ -22,6 +22,9 @@ tablegen(LLVM CatGenSubtargetInfo.inc -gen-subtarget)
 
 add_public_tablegen_target(CatCommonTableGen)
 
+# Create the Cat component group
+add_llvm_component_group(Cat)
+
 # Cat target sources
 add_llvm_target(CatCodeGen
   CatTargetMachine.cpp
