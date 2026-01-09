@@ -211,6 +211,25 @@ Should produce valid Cat assembly with `main:`, `MOV`, and `RET` instructions.
 
 ### Build Issues
 
+#### Problem: "Binary directory already used" or CMake errors about Cat target
+**Solution:** Clean the build directory and remove any leftover configuration:
+```bash
+# Remove the build directory
+rm -rf ~/llvm-cat-build/build
+
+# The build script now automatically handles this, but if you're
+# building manually, ensure no add_subdirectory(Cat) in CMakeLists.txt
+cd ~/llvm-cat-build/llvm-project/llvm/lib/Target
+grep -v "add_subdirectory(Cat)" CMakeLists.txt > CMakeLists.txt.tmp
+mv CMakeLists.txt.tmp CMakeLists.txt
+
+# Re-run the build script
+cd /path/to/llvm-backend
+./build-llvm-cat.sh
+```
+
+**Note:** The build script now automatically cleans stale builds and removes manual add_subdirectory lines.
+
 #### Problem: "Missing dependencies"
 **Solution:** Install the required packages as shown in the error message.
 

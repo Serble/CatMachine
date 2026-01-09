@@ -137,9 +137,25 @@ integrate_cat_backend() {
         exit 1
     fi
     
+    # Remove any existing Cat backend directory to ensure clean state
+    if [ -d "$cat_dst" ]; then
+        print_info "Removing existing Cat backend directory..."
+        rm -rf "$cat_dst"
+    fi
+    
     # Copy Cat backend
     print_info "Copying Cat backend to LLVM tree..."
     cp -r "$cat_src" "$cat_dst"
+    
+    # Remove any manual add_subdirectory(Cat) lines from previous runs
+    local cmake_file="$WORK_DIR/llvm-project/llvm/lib/Target/CMakeLists.txt"
+    if [ -f "$cmake_file" ]; then
+        if grep -q "add_subdirectory(Cat)" "$cmake_file"; then
+            print_warning "Found manual add_subdirectory(Cat) from previous run, removing..."
+            # Remove the line using sed
+            sed -i '/add_subdirectory(Cat)/d' "$cmake_file"
+        fi
+    fi
     
     # Note: We do NOT need to manually add add_subdirectory(Cat) to CMakeLists.txt
     # because LLVM_EXPERIMENTAL_TARGETS_TO_BUILD automatically handles this
@@ -151,6 +167,13 @@ integrate_cat_backend() {
 # Configure LLVM
 configure_llvm() {
     print_section "Configuring LLVM"
+    
+    # Clean build directory if it exists and contains CMakeCache.txt
+    # This prevents issues with stale build configurations
+    if [ -f "$WORK_DIR/build/CMakeCache.txt" ]; then
+        print_warning "Found existing CMake cache, cleaning build directory..."
+        rm -rf "$WORK_DIR/build"
+    fi
     
     mkdir -p "$WORK_DIR/build"
     cd "$WORK_DIR/build"
