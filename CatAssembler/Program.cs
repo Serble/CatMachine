@@ -129,6 +129,46 @@ class Program {
                     return;
                 }
 
+                case "cmp": {
+                    if (ParseTwoArgs.Parse(split, 0x2d, true)) break;
+                    return;
+                }
+
+                case "sub": {
+                    if (ParseTwoArgs.Parse(split, 0x12, false)) break;
+                    return;
+                }
+
+                case "add": {
+                    if (ParseTwoArgs.Parse(split, 0x10, false)) break;
+                    return;
+                }
+
+                case "umul": {
+                    if (ParseTwoArgs.Parse(split, 0x14, false)) break;
+                    return;
+                }
+                
+                case "imul": {
+                    if (ParseTwoArgs.Parse(split, 0x16, false)) break;
+                    return;
+                }
+                
+                case "or": {
+                    if (ParseTwoArgs.Parse(split, 0x25, false)) break;
+                    return;
+                }
+                
+                case "and": {
+                    if (ParseTwoArgs.Parse(split, 0x27, false)) break;
+                    return;
+                }
+                
+                case "xor": {
+                    if (ParseTwoArgs.Parse(split, 0x29, false)) break;
+                    return;
+                }
+
                 case "int": {
                     if (RegisterToId.TryGetValue(split[1].ToLower(), out byte register)) {
                         File.WriteByte(0x1a);

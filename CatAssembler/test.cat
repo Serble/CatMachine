@@ -7,15 +7,23 @@
 ;mov @104 111
 ;mov @105 0
 
-loop:
-jmp .afterdata
-int 0x81
-.afterdata:
+mov r0 @hello_world
+sub r0 1
+mov @hello_world r0
 
-mov r1 hello_world2
-.epic:
+mov r1 hello_world
 int 0x80
-jmp .epic
+int 0x81
+
+;loop:
+;jmp .afterdata
+;int 0x81
+;.afterdata:
+
+;mov r1 hello_world2
+;.epic:
+;int 0x80
+;jmp .epic
 
 hello_world:
 d8 'h' 'e' 'l' 'l' 'o' '\s' 'w' 'o' 'r' 'l' 'd' '!' '\n' 0
