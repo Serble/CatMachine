@@ -81,12 +81,7 @@ class Program {
                         
                         // has register and offset
                         if (split.Length == 3) {
-                            if (!Util.Parse32Int(split[2], out uint value)) {
-                                Console.WriteLine(LineNum + ": fuck up not a valid number");
-                                return;
-                            }
-                            
-                            File.Write(BitConverter.GetBytes(value));
+                            Util.WriteParsed(split[2]);
                         }
                         else {
                             File.Write(BitConverter.GetBytes((uint)0));
