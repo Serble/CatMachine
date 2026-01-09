@@ -339,6 +339,37 @@ class Program {
                     break;
                 }
 
+                case "res":
+                case "res8": {
+                    if (split.Length != 2 ||!Util.Parse32Int(split[1], out uint amount)) {
+                        Console.WriteLine($"{LineNum}: the argument of res8 must be an integer");
+                        return;
+                    }
+                    
+                    File.Write(new byte[amount]);
+                    break;
+                }
+                
+                case "res16": {
+                    if (split.Length != 2 ||!Util.Parse32Int(split[1], out uint amount)) {
+                        Console.WriteLine($"{LineNum}: the argument of res16 must be an integer");
+                        return;
+                    }
+                    
+                    File.Write(new byte[amount * 2]);
+                    break;
+                }
+                
+                case "res32": {
+                    if (split.Length != 2 || !Util.Parse32Int(split[1], out uint amount)) {
+                        Console.WriteLine($"{LineNum}: the argument of res32 must be an integer");
+                        return;
+                    }
+                    
+                    File.Write(new byte[amount * 4]);
+                    break;
+                }
+
                 default: {
                     // is it a label
                     if (split.Length == 1 && split[0][^1] == ':') {
