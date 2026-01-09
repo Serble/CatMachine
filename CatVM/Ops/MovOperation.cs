@@ -102,6 +102,21 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
+    public static void BMovIPI(CatVM vm) {
+        uint address = vm.ReadWord();
+        byte immediate = vm.Read8();
+        EnsureCapacity(vm, address, 1);
+        vm.Memory[address] = immediate;
+    }
+    
+    public static void BMovRPI(CatVM vm) {
+        byte ptrReg = vm.Read8();
+        uint address = vm.Cpu.Get(ptrReg);
+        byte immediate = vm.Read8();
+        EnsureCapacity(vm, address, 1);
+        vm.Memory[address] = immediate;
+    }
+    
     // Mov short sized values
     
     public static void SMovIPR(CatVM vm) {
@@ -136,6 +151,23 @@ public static class MovOperation {
         uint address = vm.Cpu.Get(ptrReg);
         ushort value = BitConverter.ToUInt16(vm.Memory, (int)address);
         vm.Cpu.Set(destReg, value);
+    }
+    
+    public static void SMovIPI(CatVM vm) {
+        uint address = vm.ReadWord();
+        ushort immediate = vm.Read16();
+        byte[] bytes = BitConverter.GetBytes(immediate);
+        EnsureCapacity(vm, address, 2);
+        Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
+    }
+    
+    public static void SMovRPI(CatVM vm) {
+        byte ptrReg = vm.Read8();
+        uint address = vm.Cpu.Get(ptrReg);
+        ushort immediate = vm.Read16();
+        byte[] bytes = BitConverter.GetBytes(immediate);
+        EnsureCapacity(vm, address, 2);
+        Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
     }
     
     private static void EnsureCapacity(CatVM vm, uint address, int size) {

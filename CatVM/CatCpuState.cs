@@ -1,6 +1,8 @@
+using System.Text;
+
 namespace CatVM;
 
-public struct CatCpu {
+public struct CatCpuState {
     public uint R0;
     public uint R1;
     public uint R2;
@@ -58,7 +60,7 @@ public struct CatCpu {
         }
     }
     
-    public CatCpu() {
+    public CatCpuState() {
         
     }
 
@@ -127,5 +129,39 @@ public struct CatCpu {
     public string Dump() {
         return $"R0: 0x{R0:X8} R1: 0x{R1:X8} R2: 0x{R2:X8} R3: 0x{R3:X8} R4: 0x{R4:X8} R5: 0x{R5:X8} R6: 0x{R6:X8} " +
                $"R7: 0x{R7:X8} Sp: 0x{Sp:X8} Ip: 0x{Ip:X8} Fl: 0x{Fl:X8} It: 0x{It:X8}";
+    }
+
+    public void SaveState(Stream stream) {
+        using BinaryWriter writer = new(stream, Encoding.UTF8, true);
+        writer.Write(R0);
+        writer.Write(R1);
+        writer.Write(R2);
+        writer.Write(R3);
+        writer.Write(R4);
+        writer.Write(R5);
+        writer.Write(R6);
+        writer.Write(R7);
+        writer.Write(Sp);
+        writer.Write(Ip);
+        writer.Write(Fl);
+        writer.Write(It);
+    }
+    
+    public static CatCpuState LoadState(Stream stream) {
+        CatCpuState state = new();
+        using BinaryReader reader = new(stream, Encoding.UTF8, true);
+        state.R0 = reader.ReadUInt32();
+        state.R1 = reader.ReadUInt32();
+        state.R2 = reader.ReadUInt32();
+        state.R3 = reader.ReadUInt32();
+        state.R4 = reader.ReadUInt32();
+        state.R5 = reader.ReadUInt32();
+        state.R6 = reader.ReadUInt32();
+        state.R7 = reader.ReadUInt32();
+        state.Sp = reader.ReadUInt32();
+        state.Ip = reader.ReadUInt32();
+        state.Fl = reader.ReadUInt32();
+        state.It = reader.ReadUInt32();
+        return state;
     }
 }

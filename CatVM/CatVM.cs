@@ -20,7 +20,7 @@ public class CatVM {
     public bool DumpErrors { get; set; }
     public uint DisplayBufferOffset { get; set; }
     public GCHandle? MemoryHandle { get; private set; }
-    public CatCpu Cpu;
+    public CatCpuState Cpu;
     private readonly int _memoryBytes;
 
     public CatVM(int memoryBytes, double instructionsPerSecond, byte[]? rom = null) {
@@ -36,7 +36,7 @@ public class CatVM {
     }
 
     public void Reset(bool preserveMem = false) {
-        Cpu = new CatCpu();
+        Cpu = new CatCpuState();
         if (!preserveMem) {
             MemoryHandle?.Free();   // Release old memory array
             Memory = new byte[_memoryBytes];
@@ -44,6 +44,7 @@ public class CatVM {
             
             // get offset for display buffer (it will go at the end of memory)
             DisplayBufferOffset = (uint)(_memoryBytes - DisplayBufferSize);
+            Cpu.Sp = DisplayBufferOffset;  // end of regular memory (non display buffer)
         }
         
         if (Rom.Length > 0) {
@@ -312,6 +313,16 @@ public class CatVM {
         Cpu.Sp += 2;
         return value;
     }
+
+    public void SaveState(Stream stream) {
+        stream.Write(Memory);
+        Cpu.SaveState(stream);
+    }
+    
+    public void LoadState(Stream stream) {
+        _ = stream.Read(Memory, 0, Memory.Length);
+        Cpu = CatCpuState.LoadState(stream);
+    }
     
     public static readonly Action<CatVM>[] Operations = [
         MovOperation.MovRR,
@@ -322,14 +333,18 @@ public class CatVM {
         MovOperation.MovRPI,
         MovOperation.MovIPR,
         MovOperation.MovIPI,
-        MovOperation.BMovIPR,
-        MovOperation.BMovRPR,
-        MovOperation.BMovRIP,
-        MovOperation.BMovRRP,
-        MovOperation.SMovIPR,
-        MovOperation.SMovRPR,
-        MovOperation.SMovRIP,
         MovOperation.SMovRRP,
+        MovOperation.SMovRIP,
+        MovOperation.SMovRPR,
+        MovOperation.SMovRPI,
+        MovOperation.SMovIPR,
+        MovOperation.SMovIPI,
+        MovOperation.BMovRRP,
+        MovOperation.BMovRIP,
+        MovOperation.BMovRPR,
+        MovOperation.BMovRPI,
+        MovOperation.BMovIPR,
+        MovOperation.BMovIPI,
         AddOperation.AddRR,
         AddOperation.AddRI,
         SubOperation.SubRR,
