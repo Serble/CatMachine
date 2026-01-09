@@ -15,8 +15,10 @@ c,RESERVED,,,
 d,RESERVED,,,
 e,RESERVED,,,
 f,RESERVED,,,
+70,Receive Input,"r1 - device id, r2 - input type, r3 - value",true,
 80,Write to sout,r1 - pointer to string (null terminated),false,
 81,Halt,,false,Pause execution permanently
 82,Shutdown,,false,Poweroff
 83,Reset,,false,Restart (ip=0)
 84,Get Display Buf Start,,false,Returns the start address of the display buffer in r0
+90,DEBUG: Print Number,r1 - number to print,false,"Prints a number with a \n, only possible in debug mode"

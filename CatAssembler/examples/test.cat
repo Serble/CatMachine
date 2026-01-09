@@ -20,7 +20,7 @@ int 0x2
 
 mov r1, hello_world1
 int 0x80  ; say hi
-int 0x82  ; shutdown
+int 0x81  ; halt
 
 ; the interrupt
 on_divide_by_zero:

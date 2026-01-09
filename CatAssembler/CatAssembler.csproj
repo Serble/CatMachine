@@ -8,19 +8,19 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <None Update="test.cat">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="testdata.cat">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
       <None Update="hello_world">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="examples\testdata.cat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="examples\test.cat">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 
     <ItemGroup>
-      <ClCompile Include="test.c" />
+      <ClCompile Include="examples\test.c" />
     </ItemGroup>
 
 </Project>
