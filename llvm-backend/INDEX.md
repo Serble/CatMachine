@@ -6,22 +6,37 @@ Start here based on your needs:
 
 ### 🚀 Quick Start
 1. **[OVERVIEW.md](OVERVIEW.md)** - Start here! Complete overview of the backend
-2. **[INTEGRATION.md](INTEGRATION.md)** - How to integrate with LLVM (step-by-step)
-3. **[USAGE.md](USAGE.md)** - How to compile C programs to Cat VM
-4. **[COMPLETE_EXAMPLE.md](COMPLETE_EXAMPLE.md)** - Full end-to-end example
+2. **[BUILD_AND_TEST.md](BUILD_AND_TEST.md)** - ⭐ Build and test the backend (NEW!)
+3. **[QUICKSTART.md](QUICKSTART.md)** - ⭐ Compile your first program (NEW!)
+4. **[INTEGRATION.md](INTEGRATION.md)** - How to integrate with LLVM (step-by-step)
+5. **[USAGE.md](USAGE.md)** - How to compile C programs to Cat VM
+6. **[COMPLETE_EXAMPLE.md](COMPLETE_EXAMPLE.md)** - Full end-to-end example
 
 ### 📚 Reference
 - **[README.md](README.md)** - Architecture and structure details
 - **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - What was implemented
 
+### 🛠️ Scripts
+- **[build-llvm-cat.sh](build-llvm-cat.sh)** - ⭐ Automated build script (NEW!)
+- **[test-cat-backend.sh](test-cat-backend.sh)** - ⭐ Comprehensive test suite (NEW!)
+
 ## 🎯 Quick Links by Task
 
 ### I want to...
 
+#### ...build the LLVM backend
+→ Follow [BUILD_AND_TEST.md](BUILD_AND_TEST.md) - run `./build-llvm-cat.sh`
+
+#### ...compile my first program
+→ See [QUICKSTART.md](QUICKSTART.md) for step-by-step guide
+
+#### ...test the backend
+→ Run `./test-cat-backend.sh` after building
+
 #### ...understand what this is
 → Start with [OVERVIEW.md](OVERVIEW.md)
 
-#### ...integrate this into LLVM
+#### ...integrate this into LLVM manually
 → Follow [INTEGRATION.md](INTEGRATION.md) step-by-step
 
 #### ...compile my C program
@@ -44,13 +59,19 @@ Start here based on your needs:
 ```
 llvm-backend/
 ├── 📖 Documentation
-│   ├── OVERVIEW.md              # Main documentation - START HERE
+│   ├── INDEX.md                 # This file - START HERE
+│   ├── OVERVIEW.md              # Main documentation
+│   ├── BUILD_AND_TEST.md        # ⭐ Build and test guide (NEW!)
+│   ├── QUICKSTART.md            # ⭐ First program guide (NEW!)
 │   ├── INTEGRATION.md           # Integration guide
 │   ├── USAGE.md                 # Usage examples
 │   ├── COMPLETE_EXAMPLE.md      # End-to-end example
 │   ├── README.md                # Architecture details
-│   ├── IMPLEMENTATION_SUMMARY.md # Summary
-│   └── INDEX.md                 # This file
+│   └── IMPLEMENTATION_SUMMARY.md # Summary
+│
+├── 🛠️ Scripts
+│   ├── build-llvm-cat.sh        # ⭐ Automated build (NEW!)
+│   └── test-cat-backend.sh      # ⭐ Test suite (NEW!)
 │
 ├── 💻 Source Code (Cat/)
 │   ├── *.td                     # TableGen definitions
@@ -100,13 +121,15 @@ CMake configuration files
 
 ### Beginner
 1. Read [OVERVIEW.md](OVERVIEW.md) to understand what this is
-2. Try the [examples/](examples/) to see sample programs
-3. Follow [COMPLETE_EXAMPLE.md](COMPLETE_EXAMPLE.md) for a guided tour
+2. Follow [BUILD_AND_TEST.md](BUILD_AND_TEST.md) to build LLVM
+3. Try [QUICKSTART.md](QUICKSTART.md) to compile your first program
+4. Run [test-cat-backend.sh](test-cat-backend.sh) to verify everything works
 
 ### Intermediate
-1. Follow [INTEGRATION.md](INTEGRATION.md) to set up LLVM
+1. Follow [BUILD_AND_TEST.md](BUILD_AND_TEST.md) to set up LLVM
 2. Use [USAGE.md](USAGE.md) to compile your own programs
 3. Experiment with optimization levels
+4. Study the generated assembly
 
 ### Advanced
 1. Study [README.md](README.md) for architecture details
@@ -159,12 +182,13 @@ A: Yes! It's a complete implementation ready for integration
 
 ## 📊 Statistics
 
-- **Total Files**: 45
-- **Documentation Pages**: 7
+- **Total Files**: 49 (updated!)
+- **Documentation Pages**: 10 (updated!)
+- **Scripts**: 2 (NEW!)
 - **Source Files**: 30
 - **Examples**: 4
 - **Lines of Code**: ~5,000
-- **Lines of Documentation**: ~2,500
+- **Lines of Documentation**: ~5,500 (updated!)
 
 ## ✨ Key Features
 
