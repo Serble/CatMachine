@@ -42,9 +42,6 @@ add_llvm_target(CatCodeGen
   Support
   Target
   GlobalISel
-
-  ADD_TO_COMPONENT
-  Cat
   )
 
 add_subdirectory(TargetInfo)
