@@ -42,8 +42,8 @@ public class RaylibRendering : IRenderer {
                         Raylib.CloseWindow();
                         Environment.Exit(0);
                     }
-                
-                    Raylib.UpdateTexture(texture, vm.MemoryHandle!.Value.AddrOfPinnedObject().ToPointer());
+
+                    Raylib.UpdateTexture(texture, (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (int)vm.DisplayBufferOffset).ToPointer());
         
                     Raylib.BeginDrawing();
                     Raylib.ClearBackground(Color.Black);
