@@ -38,6 +38,7 @@ public static class MovOperation {
         uint address = vm.Cpu.Get(ptrReg);
         uint value = vm.Cpu.Get(srcReg);
         byte[] bytes = BitConverter.GetBytes(value);
+        EnsureCapacity(vm, address, 4);
         Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
     }
     
@@ -46,6 +47,7 @@ public static class MovOperation {
         uint address = vm.Cpu.Get(ptrReg);
         uint immediate = vm.ReadWord();
         byte[] bytes = BitConverter.GetBytes(immediate);
+        EnsureCapacity(vm, address, 4);
         Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
     }
     
@@ -54,6 +56,7 @@ public static class MovOperation {
         byte srcReg = vm.Read8();
         uint value = vm.Cpu.Get(srcReg);
         byte[] bytes = BitConverter.GetBytes(value);
+        EnsureCapacity(vm, address, 4);
         Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
     }
     
@@ -61,6 +64,7 @@ public static class MovOperation {
         uint address = vm.ReadWord();
         uint immediate = vm.ReadWord();
         byte[] bytes = BitConverter.GetBytes(immediate);
+        EnsureCapacity(vm, address, 4);
         Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
     }
     
@@ -84,6 +88,7 @@ public static class MovOperation {
     public static void BMovRIP(CatVM vm) {
         byte destReg = vm.Read8();
         uint address = vm.ReadWord();
+        EnsureCapacity(vm, address, 1);
         byte value = vm.Memory[address];
         vm.Cpu.Set(destReg, value);
     }
@@ -92,6 +97,7 @@ public static class MovOperation {
         byte destReg = vm.Read8();
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
+        EnsureCapacity(vm, address, 1);
         byte value = vm.Memory[address];
         vm.Cpu.Set(destReg, value);
     }
@@ -103,6 +109,7 @@ public static class MovOperation {
         byte srcReg = vm.Read8();
         ushort value = (ushort)(vm.Cpu.Get(srcReg) & 0xFFFF);
         byte[] bytes = BitConverter.GetBytes(value);
+        EnsureCapacity(vm, address, 2);
         Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
     }
     
@@ -112,6 +119,7 @@ public static class MovOperation {
         uint address = vm.Cpu.Get(ptrReg);
         ushort value = (ushort)(vm.Cpu.Get(srcReg) & 0xFFFF);
         byte[] bytes = BitConverter.GetBytes(value);
+        EnsureCapacity(vm, address, 2);
         Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
     }
     
@@ -128,5 +136,11 @@ public static class MovOperation {
         uint address = vm.Cpu.Get(ptrReg);
         ushort value = BitConverter.ToUInt16(vm.Memory, (int)address);
         vm.Cpu.Set(destReg, value);
+    }
+    
+    private static void EnsureCapacity(CatVM vm, uint address, int size) {
+        if (address + size > vm.Memory.Length) {
+            throw new MemoryOutOfRange((uint)(address + size));
+        }
     }
 }

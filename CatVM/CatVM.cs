@@ -1,9 +1,7 @@
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using CatVM.Ops;
-using Raylib_cs;
 
 namespace CatVM;
 
@@ -18,8 +16,10 @@ public class CatVM {
     public double InstructionsPerSecond { get; set; }
     public bool Paused { get; set; }
     public bool PrintInstructionTimes { get; set; }
+    public bool EnableTestingInterrupts { get; set; }
+    public bool DumpErrors { get; set; }
     public uint DisplayBufferOffset { get; set; }
-    private GCHandle? _memoryHandle;
+    public GCHandle? MemoryHandle { get; private set; }
     public CatCpu Cpu;
     private readonly int _memoryBytes;
 
@@ -38,9 +38,9 @@ public class CatVM {
     public void Reset(bool preserveMem = false) {
         Cpu = new CatCpu();
         if (!preserveMem) {
-            _memoryHandle?.Free();   // Release old memory array
+            MemoryHandle?.Free();   // Release old memory array
             Memory = new byte[_memoryBytes];
-            _memoryHandle = GCHandle.Alloc(Memory, GCHandleType.Pinned);
+            MemoryHandle = GCHandle.Alloc(Memory, GCHandleType.Pinned);
             
             // get offset for display buffer (it will go at the end of memory)
             DisplayBufferOffset = (uint)(_memoryBytes - DisplayBufferSize);
@@ -125,58 +125,6 @@ public class CatVM {
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
-    public Task RunRendering() {
-        return Task.Run((Action) (() => {
-            unsafe {
-                delegate* unmanaged[Cdecl]<int, sbyte*, sbyte*, void> ptr = &MyLogCallback;
-                Raylib.SetTraceLogCallback(ptr);
-            }
-            
-            Raylib.InitWindow(DisplayWidth, DisplayHeight, "CatVM Display");
-
-            if (!_memoryHandle.HasValue) {
-                throw new Exception("Memory not initialized.");
-            }
-
-            Image image;
-            unsafe {
-                image = new Image {
-                    Data = (_memoryHandle!.Value.AddrOfPinnedObject() + (int)DisplayBufferOffset).ToPointer(),
-                    Width = DisplayWidth,
-                    Height = DisplayHeight,
-                    Mipmaps = 1,
-                    Format = PixelFormat.UncompressedR8G8B8A8
-                };
-            }
-            
-            Texture2D texture = Raylib.LoadTextureFromImage(image);
-
-            while (true) {
-                unsafe {
-                    if (Raylib.WindowShouldClose()) {
-                        // close window
-                        Raylib.CloseWindow();
-                        Environment.Exit(0);
-                    }
-                
-                    Raylib.UpdateTexture(texture, _memoryHandle!.Value.AddrOfPinnedObject().ToPointer());
-        
-                    Raylib.BeginDrawing();
-                    Raylib.ClearBackground(Color.Black);
-
-                    Raylib.DrawTexture(texture, 0, 0, Color.White);
-        
-                    Raylib.EndDrawing();
-                }
-            }
-        }));
-    }
-    
-    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    public static unsafe void MyLogCallback(int logLevel, sbyte* msg, sbyte* args) {
-        
-    }
-
     public void FastRun() {
         while (true) {
             if (Paused) {
@@ -214,6 +162,12 @@ public class CatVM {
         }
     }
 
+    private void DumpError(Exception e) {
+        if (DumpErrors) {
+            Console.WriteLine(e);
+        }
+    }
+
     public void ExecuteInstruction() {
         byte opcode = Read8();
 
@@ -225,19 +179,23 @@ public class CatVM {
         try {
             Operations[opcode](this);
         }
-        catch (DivideByZeroException) {
+        catch (DivideByZeroException e) {
+            DumpError(e);
             Interrupt(SpecialInterupts.DivideByZero);
         }
         catch (MemoryOutOfRange e) {
+            DumpError(e);
             try {
                 StackPush(e.Address);
                 Interrupt(SpecialInterupts.PageFault);
             }
-            catch (MemoryOutOfRange) {
+            catch (MemoryOutOfRange ex) {
+                DumpError(ex);
                 Interrupt(SpecialInterupts.PageFault);
             }
         }
-        catch (Exception) {
+        catch (Exception e) {
+            DumpError(e);
             Interrupt(SpecialInterupts.InvalidInstruction);
         }
     }
@@ -274,6 +232,12 @@ public class CatVM {
             case 0x84: {
                 // get display buffer
                 InterruptHandlers.GetDisplayBufferInterrupt(this);
+                return;
+            }
+            
+            case 0x90 when EnableTestingInterrupts: {
+                // print number
+                InterruptHandlers.PrintNumInterrupt(this);
                 return;
             }
         }
