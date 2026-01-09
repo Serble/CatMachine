@@ -66,7 +66,7 @@ To integrate this backend into LLVM:
 
 ```bash
 cd llvm-build
-cmake ../llvm -DLLVM_TARGETS_TO_BUILD="Cat" -DCMAKE_BUILD_TYPE=Release
+cmake ../llvm -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 ```
 

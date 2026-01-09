@@ -163,12 +163,13 @@ configure_llvm() {
     print_info "CMake configuration:"
     print_info "  Build type: $BUILD_TYPE"
     print_info "  Generator: $BUILD_TOOL"
-    print_info "  Targets: Cat, X86 (host)"
+    print_info "  Targets: Cat (experimental), X86 (host)"
     print_info "  Install prefix: $INSTALL_DIR"
     
     cmake -G "$BUILD_TOOL" \
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-        -DLLVM_TARGETS_TO_BUILD="Cat;X86" \
+        -DLLVM_TARGETS_TO_BUILD="X86" \
+        -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" \
         -DLLVM_ENABLE_PROJECTS="clang" \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DLLVM_OPTIMIZED_TABLEGEN=ON \

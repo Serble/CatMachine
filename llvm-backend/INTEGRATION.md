@@ -57,7 +57,8 @@ cd build
 
 # Configure with CMake (including Cat target)
 cmake -G Ninja ../llvm \
-    -DLLVM_TARGETS_TO_BUILD="Cat;X86" \
+    -DLLVM_TARGETS_TO_BUILD="X86" \
+    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_INSTALL_PREFIX=/usr/local/llvm-cat
@@ -119,7 +120,8 @@ If you only want to build the Cat target for testing:
 
 ```bash
 cmake -G Ninja ../llvm \
-    -DLLVM_TARGETS_TO_BUILD="Cat" \
+    -DLLVM_TARGETS_TO_BUILD="X86" \
+    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" \
     -DCMAKE_BUILD_TYPE=Debug \
     -DLLVM_OPTIMIZED_TABLEGEN=ON \
     -DLLVM_BUILD_TOOLS=OFF \
@@ -158,7 +160,8 @@ RUN echo 'add_subdirectory(Cat)' >> /workspace/llvm-project/llvm/lib/Target/CMak
 # Build
 WORKDIR /workspace/build
 RUN cmake -G Ninja ../llvm-project/llvm \
-    -DLLVM_TARGETS_TO_BUILD="Cat" \
+    -DLLVM_TARGETS_TO_BUILD="X86" \
+    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" \
     -DCMAKE_BUILD_TYPE=Release && \
     ninja llc
 

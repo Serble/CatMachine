@@ -120,7 +120,7 @@ cp -r llvm-backend/Cat /path/to/llvm/lib/Target/
 echo 'add_subdirectory(Cat)' >> /path/to/llvm/lib/Target/CMakeLists.txt
 
 # 3. Build LLVM
-cmake -DLLVM_TARGETS_TO_BUILD="Cat;X86" ../llvm
+cmake -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" ../llvm
 make -j$(nproc)
 ```
 
