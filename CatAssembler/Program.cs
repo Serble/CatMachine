@@ -41,7 +41,7 @@ class Program {
             string[] split = line.Split([' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries);
             if (split.Length >= 2) {
                 split = ((string[])[split[0]])
-                    .Concat(split[1].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()))
+                    .Concat(split[1].Split(',', StringSplitOptions.RemoveEmptyEntries))
                     .ToArray();
             }
             
@@ -61,11 +61,17 @@ class Program {
                 split = split[..(i + 1)];
                 break;
             }
+
+            for (int i = 0; i < split.Length; i++) {
+                split[i] = split[i].Trim();
+            }
             
             // Empty lines (including just comments)
             if (split.Length == 0) {
                 continue;
             }
+            
+            Console.WriteLine($"{File.Position:X}: {line}");
 
             switch (split[0].ToLower()) {
                 case "mov32":
@@ -243,7 +249,7 @@ class Program {
                         Console.WriteLine(LineNum + ": ret takes 0 arguments");
                         return 1;
                     }
-                    File.WriteByte(0x2f);
+                    File.WriteByte(0x40);
                     break;
                 }
 

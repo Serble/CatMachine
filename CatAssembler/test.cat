@@ -1,18 +1,31 @@
 
-; Hello World
-;mov @100 72
-;mov @101 101
-;mov @102 108
-;mov @103 108
-;mov @104 111
-;mov @105 0
-
 mov r1, hello_world3
 mov r0, @r1
 sub r0, 1
 mov @r1, r0
 
 int 0x80
-int 0x82
+; int 0x82
+
+; create table
+mov8 @1000, 2 ; entry count
+mov8 @1001, 0x92 ; divide by 0
+mov @1002, on_divide_by_zero ; handler
+mov8 @1001, 0x2 ; divide by 0
+mov @1002, on_divide_by_zero ; handler
+mov it, 1000
+
+; call interrupt
+int 0x2
+
+mov r1, hello_world1
+int 0x80  ; say hi
+int 0x82  ; shutdown
+
+; the interrupt
+on_divide_by_zero:
+mov r1, divide_by_0_msg
+int 0x80
+ret
 
 #include testdata.cat

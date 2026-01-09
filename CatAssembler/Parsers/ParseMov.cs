@@ -2,7 +2,7 @@ namespace CatAssembler.Parsers;
 
 public static class ParseMov {
     // 0: reg, 1: immediate, 2: reg pointer, 3: imm pointer
-    private static Dictionary<(int, int), byte> HashToOpcode = new() {
+    private static readonly Dictionary<(int, int), byte> HashToOpcode = new() {
         {(0, 0), 0},
         {(0, 1), 1},
         {(0, 2), 2},
@@ -13,7 +13,7 @@ public static class ParseMov {
         {(3, 1), 7}
     };
     
-    private static Dictionary<(int, int), byte> HashToSmallOpcodeOffset = new() {
+    private static readonly Dictionary<(int, int), byte> HashToSmallOpcodeOffset = new() {
         {(0, 2), 0},
         {(0, 3), 1},
         {(2, 0), 2},
@@ -81,7 +81,7 @@ public static class ParseMov {
             }
             else {
                 typeHash = 3;
-                Util.WriteParsed(arg, length);
+                Util.WriteParsed(arg);
             }
         }
 

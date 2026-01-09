@@ -264,6 +264,8 @@ public class CatVM {
                 Cpu.Ip = handlerPtr;
                 return;  // now executing the handler
             }
+
+            entryPtr += 5;
         }
         
         // not found, default

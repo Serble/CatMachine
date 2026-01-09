@@ -6,3 +6,7 @@ dstr hello world!\n\0
 
 hello_world3:
 dfile hello_world
+d8 0
+
+divide_by_0_msg:
+dstr oh no it happened they did the impossible, DIVIDE BY ZERO!!!\n\0
