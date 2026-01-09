@@ -7,12 +7,12 @@
 ;mov @104 111
 ;mov @105 0
 
-mov r0, @hello_world
+mov r1, hello_world3
+mov r0, @r1
 sub r0, 1
-mov @hello_world, r0
+mov @r1, r0
 
-mov r1, hello_world
 int 0x80
-int 0x81
+int 0x82
 
 #include testdata.cat

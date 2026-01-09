@@ -25,13 +25,18 @@ class Program {
     public static readonly Dictionary<string, List<NeededLabel>> NeededLabels = new();
 
     private static LineIterator iterator = null!;
-    public static int LineNum => iterator.LineNum;
+    public static string LineNum => iterator.LineNum;
     
     public static readonly FileStream File = System.IO.File.Open("a.out", FileMode.Create, FileAccess.Write);
-    
-    static void Main(string[] args) {
+
+    private static int Main(string[] args) {
         iterator = new LineIterator(args[0]);
-        
+        int ret = Run();
+        iterator.Dispose();
+        return ret;
+    }
+    
+    private static int Run() {
         foreach (string line in iterator) {
             string[] split = line.Split([' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries);
             if (split.Length >= 2) {
@@ -61,131 +66,129 @@ class Program {
             if (split.Length == 0) {
                 continue;
             }
-            
-            Console.WriteLine(string.Join(", ", split));
 
             switch (split[0].ToLower()) {
                 case "mov32":
                 case "mov": {
-                    if (!ParseMov.Parse(split)) return;
+                    if (!ParseMov.Parse(split)) return 1;
                     break;
                 }
                 
                 case "mov16": {
-                    if (!ParseMov.ParseSmall(split, 0x08, 2)) return;
+                    if (!ParseMov.ParseSmall(split, 0x08, 2)) return 1;
                     break;
                 }
                 
                 case "mov8": {
-                    if (!ParseMov.ParseSmall(split, 0x0e, 1)) return;
+                    if (!ParseMov.ParseSmall(split, 0x0e, 1)) return 1;
                     break;
                 }
 
                 case "jmp": {
                     if (ParseJmp.Parse(split, 0x30)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jz":
                 case "je": {
                     if (ParseJmp.Parse(split, 0x35)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jnz":
                 case "jne": {
                     if (ParseJmp.Parse(split, 0x36)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jul": {
                     if (ParseJmp.Parse(split, 0x37)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jule": {
                     if (ParseJmp.Parse(split, 0x38)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jug": {
                     if (ParseJmp.Parse(split, 0x39)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "juge": {
                     if (ParseJmp.Parse(split, 0x3a)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jil": {
                     if (ParseJmp.Parse(split, 0x3b)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jile": {
                     if (ParseJmp.Parse(split, 0x3c)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jig": {
                     if (ParseJmp.Parse(split, 0x3d)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "jige": {
                     if (ParseJmp.Parse(split, 0x3e)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "call": {
                     if (ParseJmp.Parse(split, 0x3f)) break;
-                    return;
+                    return 1;
                 }
 
                 case "cmp": {
                     if (ParseTwoArgs.Parse(split, 0x31, true)) break;
-                    return;
+                    return 1;
                 }
 
                 case "sub": {
                     if (ParseTwoArgs.Parse(split, 0x16, false)) break;
-                    return;
+                    return 1;
                 }
 
                 case "add": {
                     if (ParseTwoArgs.Parse(split, 0x14, false)) break;
-                    return;
+                    return 1;
                 }
 
                 case "umul": {
                     if (ParseTwoArgs.Parse(split, 0x18, false)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "imul": {
                     if (ParseTwoArgs.Parse(split, 0x1a, false)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "or": {
                     if (ParseTwoArgs.Parse(split, 0x29, false)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "and": {
                     if (ParseTwoArgs.Parse(split, 0x2b, false)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "xor": {
                     if (ParseTwoArgs.Parse(split, 0x2d, false)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "not": {
                     if (ParseSingleArg.Parse(split, 0x2f, false)) break;
-                    return;
+                    return 1;
                 }
 
                 case "int": {
@@ -195,12 +198,12 @@ class Program {
 
                 case "udiv": {
                     if (ParseTwoRegisters.Parse(split, 0x1c)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "idiv": {
                     if (ParseTwoRegisters.Parse(split, 0x1d)) break;
-                    return;
+                    return 1;
                 }
 
                 case "push":
@@ -222,23 +225,23 @@ class Program {
                 case "pop":
                 case "pop32": {
                     if (ParseSingleArg.Parse(split, 0x26, false)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "pop16": {
                     if (ParseSingleArg.Parse(split, 0x27, false)) break;
-                    return;
+                    return 1;
                 }
                 
                 case "pop8": {
                     if (ParseSingleArg.Parse(split, 0x28, false)) break;
-                    return;
+                    return 1;
                 }
 
                 case "ret": {
                     if (split.Length != 1) {
                         Console.WriteLine(LineNum + ": ret takes 0 arguments");
-                        return;
+                        return 1;
                     }
                     File.WriteByte(0x2f);
                     break;
@@ -247,12 +250,12 @@ class Program {
                 case "cpy": {
                     if (split.Length != 3) {
                         Console.WriteLine(LineNum + ": cpy must have 3 arguments");
-                        return;
+                        return 1;
                     }
                     
                     if (split[1][0] != '@' || split[2][0] != '@') {
                         Console.WriteLine(LineNum + ": All arguments in cpy must be a pointer");
-                        return;
+                        return 1;
                     }
 
                     // remove pointers
@@ -260,7 +263,7 @@ class Program {
                     split[2] = split[2][1..];
                     
                     if (ParseTwoArgs.Parse(split, 0x41, true)) break;
-                    return;
+                    return 1;
                 }
 
                 case "d8": {
@@ -268,7 +271,7 @@ class Program {
                         Util.WriteParsed(text, 1, value => {
                             if ((int)value < -127 || (int)value > 255) {
                                 Console.WriteLine(LineNum + ": number is not a 8 bit integer");
-                                Environment.Exit(0);
+                                Environment.Exit(1);
                             }
 
                             return (byte[])[(byte)value];
@@ -282,7 +285,7 @@ class Program {
                         Util.WriteParsed(text, 2, value => {
                             if ((int)value < short.MinValue || (int)value > ushort.MaxValue) {
                                 Console.WriteLine(LineNum + ": number is not a 16 bit integer");
-                                Environment.Exit(0);
+                                Environment.Exit(1);
                             }
 
                             return BitConverter.GetBytes((ushort)value);
@@ -326,7 +329,7 @@ class Program {
 
                         if (ch == null) {
                             Console.WriteLine(LineNum + ": Invalid escape code: \\" + str[i + 1]);
-                            return;
+                            return 1;
                         }
                         
                         output.Append(ch);
@@ -338,11 +341,26 @@ class Program {
                     break;
                 }
 
+                case "dfile": {
+                    if (split.Length != 2) {
+                        Console.WriteLine($"{LineNum}: includes must have one argument");
+                        return 1;
+                    }
+
+                    if (!System.IO.File.Exists(split[1])) {
+                        Console.WriteLine($"{LineNum}: the file {split[1]} does not exist");
+                        return 1;
+                    }
+                    
+                    File.Write(System.IO.File.ReadAllBytes(split[1]));
+                    break;
+                }
+
                 case "res":
                 case "res8": {
-                    if (split.Length != 2 ||!Util.Parse32Int(split[1], out uint amount)) {
+                    if (split.Length != 2 || !Util.Parse32Int(split[1], out uint amount)) {
                         Console.WriteLine($"{LineNum}: the argument of res8 must be an integer");
-                        return;
+                        return 1;
                     }
                     
                     File.Write(new byte[amount]);
@@ -350,9 +368,9 @@ class Program {
                 }
                 
                 case "res16": {
-                    if (split.Length != 2 ||!Util.Parse32Int(split[1], out uint amount)) {
+                    if (split.Length != 2 || !Util.Parse32Int(split[1], out uint amount)) {
                         Console.WriteLine($"{LineNum}: the argument of res16 must be an integer");
-                        return;
+                        return 1;
                     }
                     
                     File.Write(new byte[amount * 2]);
@@ -362,7 +380,7 @@ class Program {
                 case "res32": {
                     if (split.Length != 2 || !Util.Parse32Int(split[1], out uint amount)) {
                         Console.WriteLine($"{LineNum}: the argument of res32 must be an integer");
-                        return;
+                        return 1;
                     }
                     
                     File.Write(new byte[amount * 4]);
@@ -372,12 +390,12 @@ class Program {
                 case "#include": {
                     if (split.Length != 2) {
                         Console.WriteLine($"{LineNum}: includes must have one argument");
-                        return;
+                        return 1;
                     }
 
                     if (!System.IO.File.Exists(split[1])) {
                         Console.WriteLine($"{LineNum}: the file {split[1]} does not exist");
-                        return;
+                        return 1;
                     }
                     
                     iterator.AddFile(split[1]);
@@ -390,12 +408,12 @@ class Program {
                         string labelName = split[0][..^1];
                         if (labelName.Length == 0) {
                             Console.WriteLine(LineNum + ": Label name cannot be empty");
-                            return;
+                            return 1;
                         }
                         
                         if ("0123456789".Contains(split[0][0]) || RegisterToId.ContainsKey(labelName)) {
                             Console.WriteLine(LineNum + ": Labels cannot start with numbers or be a register");
-                            return;
+                            return 1;
                         }
                         
                         // fill all needed stuffs
@@ -413,7 +431,7 @@ class Program {
                         if (split[0][0] == '.') {
                             if (LocalLabels.ContainsKey(labelName)) {
                                 Console.WriteLine(LineNum + $": local label {labelName} already exists!");
-                                return;
+                                return 1;
                             }
                             
                             LocalLabels[labelName] = (uint)File.Position;
@@ -422,12 +440,12 @@ class Program {
                         
                         if (Labels.ContainsKey(labelName)) {
                             Console.WriteLine(LineNum + $": label {labelName} already exists!");
-                            return;
+                            return 1;
                         }
 
                         if (NeededLabels.Keys.Any(label => label[0] == '.')) {
                             Console.WriteLine(LineNum + $": local label {labelName} does not exist!");
-                            return;
+                            return 1;
                         }
                         
                         Labels[labelName] = (uint)File.Position;
@@ -436,7 +454,7 @@ class Program {
                     }
 
                     Console.WriteLine(LineNum + ": Invalid token: " + line);
-                    return;
+                    return 1;
                 }
             }
         }
@@ -445,9 +463,11 @@ class Program {
             Console.WriteLine("There are jumps with unknown labels:\n" + string.Join("\n", 
                 NeededLabels.Select(label => 
                     $"{label.Key}: [{string.Join(", ", label.Value.Select(l => l.LineNum))}]")));
-            return;
+            return 1;
         }
         
         File.Close();
+        Console.WriteLine("Success!");
+        return 0;
     }
 }

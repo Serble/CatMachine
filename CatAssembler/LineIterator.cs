@@ -3,8 +3,13 @@ using System.Collections;
 namespace CatAssembler;
 
 public class LineIterator : IEnumerable<string>, IDisposable {
-    public int LineNum => files[^1].LineNum;
-    
+    public string LineNum {
+        get {
+            InternalLineIterator file = files[^1];
+            return $"{file.FileName}; {file.LineNum}";
+        }
+    }
+
     private List<InternalLineIterator> files = [];
     
     public LineIterator(string fileName) {
@@ -32,7 +37,7 @@ public class LineIterator : IEnumerable<string>, IDisposable {
         IEnumerable<string> enumerable = File.ReadLines(fileName);
         
         // ReSharper disable once GenericEnumeratorNotDisposed
-        files.Add(new InternalLineIterator(enumerable.GetEnumerator(), 1));
+        files.Add(new InternalLineIterator(enumerable.GetEnumerator(), 1, fileName));
     }
     
     public void Dispose() {
@@ -41,8 +46,9 @@ public class LineIterator : IEnumerable<string>, IDisposable {
         }
     }
     
-    private class InternalLineIterator(IEnumerator<string> file, int lineNum) {
+    private class InternalLineIterator(IEnumerator<string> file, int lineNum, string fileName) {
         public readonly IEnumerator<string> File = file;
         public int LineNum = lineNum;
+        public string FileName = fileName;
     }
 }
