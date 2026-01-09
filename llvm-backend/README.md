@@ -55,12 +55,13 @@ Cat VM is a 32-bit architecture with the following characteristics:
 To integrate this backend into LLVM:
 
 1. Copy the `Cat` directory to `llvm/lib/Target/`
-2. Add `Cat` to `llvm/lib/Target/CMakeLists.txt`:
-   ```cmake
-   add_subdirectory(Cat)
+2. Configure CMake with experimental target flag (no manual CMakeLists.txt edit needed):
+   ```bash
+   cmake -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" ../llvm
    ```
-3. Add to the target list in `llvm/lib/Target/LLVMBuild.txt`
-4. Rebuild LLVM
+3. Rebuild LLVM
+
+**Note:** When using `LLVM_EXPERIMENTAL_TARGETS_TO_BUILD`, LLVM automatically includes the target. Manual `add_subdirectory(Cat)` is not needed.
 
 ## Building
 

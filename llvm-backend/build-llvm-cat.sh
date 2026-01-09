@@ -141,14 +141,9 @@ integrate_cat_backend() {
     print_info "Copying Cat backend to LLVM tree..."
     cp -r "$cat_src" "$cat_dst"
     
-    # Update CMakeLists.txt
-    local cmake_file="$WORK_DIR/llvm-project/llvm/lib/Target/CMakeLists.txt"
-    if ! grep -q "add_subdirectory(Cat)" "$cmake_file"; then
-        print_info "Adding Cat to CMakeLists.txt..."
-        echo "add_subdirectory(Cat)" >> "$cmake_file"
-    else
-        print_info "Cat already in CMakeLists.txt"
-    fi
+    # Note: We do NOT need to manually add add_subdirectory(Cat) to CMakeLists.txt
+    # because LLVM_EXPERIMENTAL_TARGETS_TO_BUILD automatically handles this
+    print_info "Cat backend will be automatically included via LLVM_EXPERIMENTAL_TARGETS_TO_BUILD"
     
     print_success "Cat backend integrated"
 }

@@ -38,15 +38,7 @@ subdirectories =
 
 ### Edit `lib/Target/CMakeLists.txt`
 
-Add the Cat subdirectory:
-
-```cmake
-add_subdirectory(AArch64)
-add_subdirectory(AMDGPU)
-add_subdirectory(ARM)
-# ... other targets ...
-add_subdirectory(Cat)   # <-- Add this line
-```
+**Note:** When using `LLVM_EXPERIMENTAL_TARGETS_TO_BUILD`, you do NOT need to manually add `add_subdirectory(Cat)` to `lib/Target/CMakeLists.txt`. LLVM's build system automatically includes experimental targets.
 
 ## Step 3: Configure LLVM Build
 
@@ -55,7 +47,7 @@ add_subdirectory(Cat)   # <-- Add this line
 mkdir build
 cd build
 
-# Configure with CMake (including Cat target)
+# Configure with CMake (Cat as experimental target)
 cmake -G Ninja ../llvm \
     -DLLVM_TARGETS_TO_BUILD="X86" \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" \
@@ -154,8 +146,8 @@ RUN git clone --depth=1 --branch=release/15.x https://github.com/llvm/llvm-proje
 # Copy Cat backend
 COPY llvm-backend/Cat /workspace/llvm-project/llvm/lib/Target/Cat
 
-# Patch LLVM build files
-RUN echo 'add_subdirectory(Cat)' >> /workspace/llvm-project/llvm/lib/Target/CMakeLists.txt
+# Copy Cat backend (experimental targets don't need manual add_subdirectory)
+COPY llvm-backend/Cat /workspace/llvm-project/llvm/lib/Target/Cat
 
 # Build
 WORKDIR /workspace/build

@@ -41,10 +41,7 @@ This is a full LLVM compiler backend that enables compiling C/C++ (and any LLVM-
 # Copy backend to LLVM source
 cp -r llvm-backend/Cat /path/to/llvm/lib/Target/
 
-# Add to LLVM build
-echo 'add_subdirectory(Cat)' >> /path/to/llvm/lib/Target/CMakeLists.txt
-
-# Build LLVM
+# Build LLVM with experimental target (no manual CMakeLists.txt edit needed)
 cd llvm-build
 cmake -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" ../llvm
 make -j$(nproc)

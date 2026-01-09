@@ -116,10 +116,7 @@ A **complete, production-ready LLVM compiler backend** for the Cat VM architectu
 # 1. Copy backend to LLVM
 cp -r llvm-backend/Cat /path/to/llvm/lib/Target/
 
-# 2. Update LLVM build files
-echo 'add_subdirectory(Cat)' >> /path/to/llvm/lib/Target/CMakeLists.txt
-
-# 3. Build LLVM
+# 2. Build LLVM with experimental target (no manual CMakeLists.txt edit needed)
 cmake -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="Cat" ../llvm
 make -j$(nproc)
 ```
