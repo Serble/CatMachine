@@ -11,17 +11,23 @@ public class ParseTwoArgs {
         long startPos = Program.File.Position;
         Program.File.WriteByte(0); // will be set later
 
-        if (Program.RegisterToId.TryGetValue(split[1].ToLower(), out byte register) || !allowFirstImmediate) {
-            if (register == 0xff) {
+        byte register;
+        if (allowFirstImmediate) {
+            if (Program.RegisterToId.TryGetValue(split[1].ToLower(), out register)) {
+                Program.File.WriteByte(register);
+            }
+            else {
+                opCodeOffset = 0b10;
+                Util.WriteParsed(split[1]);
+            }            
+        }
+        else {
+            if (!Program.RegisterToId.TryGetValue(split[1].ToLower(), out register)) {
                 Console.WriteLine($"{Program.LineNum}: First argument must be a register");
                 return false;
             }
             
             Program.File.WriteByte(register);
-        }
-        else {
-            opCodeOffset = 0b10;
-            Util.WriteParsed(split[1]);
         }
         
         if (Program.RegisterToId.TryGetValue(split[2].ToLower(), out register)) {

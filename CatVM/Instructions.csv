@@ -60,7 +60,7 @@ f,MOV16,"r, rp",
 3a,JIGE,"r, i",Signed >=
 3b,CALL,"r, i",
 3c,RET, ,
-3d,CPY,"r, r","source, length, r0 = destination"
-3e,CPY,"r, i",
-3f,CPY,"i, r",
-40,CPY,"i, i",
+3d,CPY,"rp, rp","source, length, r0 = destination"
+3e,CPY,"rp, ip",
+3f,CPY,"ip, rp",
+40,CPY,"ip, ip",

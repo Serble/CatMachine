@@ -168,17 +168,70 @@ class Program {
                     if (ParseTwoArgs.Parse(split, 0x29, false)) break;
                     return;
                 }
+                
+                case "not": {
+                    if (ParseSingleArg.Parse(split, 0x2b, false)) break;
+                    return;
+                }
 
                 case "int": {
-                    if (RegisterToId.TryGetValue(split[1].ToLower(), out byte register)) {
-                        File.WriteByte(0x1a);
-                        File.WriteByte(register);
-                    }
-                    else {
-                        File.WriteByte(0x1b);
-                        Util.WriteParsed(split[1], 1);
+                    ParseSingleArg.Parse(split, 0x1a, true, 1);
+                    break;
+                }
+
+                case "udiv": {
+                    if (ParseTwoRegisters.Parse(split, 0x18)) break;
+                    return;
+                }
+                
+                case "idiv": {
+                    if (ParseTwoRegisters.Parse(split, 0x19)) break;
+                    return;
+                }
+
+                case "push":
+                case "push32": {
+                    ParseSingleArg.Parse(split, 0x1c, true);
+                    break;
+                }
+                
+                case "push16": {
+                    ParseSingleArg.Parse(split, 0x1e, true, 2);
+                    break;
+                }
+                
+                case "push8": {
+                    ParseSingleArg.Parse(split, 0x20, true, 1);
+                    break;
+                }
+                
+                case "pop":
+                case "pop32": {
+                    if (ParseSingleArg.Parse(split, 0x22, false)) break;
+                    return;
+                }
+                
+                case "pop16": {
+                    if (ParseSingleArg.Parse(split, 0x23, false)) break;
+                    return;
+                }
+                
+                case "pop8": {
+                    if (ParseSingleArg.Parse(split, 0x24, false)) break;
+                    return;
+                }
+
+                case "ret": {
+                    if (split.Length != 1) {
+                        Console.WriteLine(LineNum + ": ret takes 0 arguments");
+                        return;
                     }
                     break;
+                }
+
+                case "cpy": {
+                    if (ParseTwoArgs.Parse(split, 0x3d, true)) break;
+                    return;
                 }
 
                 case "d8": {
