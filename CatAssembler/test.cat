@@ -15,20 +15,4 @@ mov r1, hello_world
 int 0x80
 int 0x81
 
-;loop:
-;jmp .afterdata
-;int 0x81
-;.afterdata:
-
-;mov r1 hello_world2
-;.epic:
-;int 0x80
-;jmp .epic
-
-hello_world:
-d8 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n', 0
-
-hello_world2:
-dstr hello world!\n\0
-
-; int 0x81
+#include testdata.cat

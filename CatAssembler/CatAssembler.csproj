@@ -11,6 +11,9 @@
       <None Update="test.cat">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="testdata.cat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
     <ItemGroup>

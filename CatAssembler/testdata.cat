@@ -1,0 +1,5 @@
+hello_world:
+d8 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n', 0
+
+hello_world2:
+dstr hello world!\n\0

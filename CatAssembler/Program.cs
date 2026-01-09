@@ -23,17 +23,16 @@ class Program {
     public static readonly Dictionary<string, uint> Labels = new();
     public static readonly Dictionary<string, uint> LocalLabels = new();
     public static readonly Dictionary<string, List<NeededLabel>> NeededLabels = new();
-    
-    public static int LineNum;
+
+    private static LineIterator iterator = null!;
+    public static int LineNum => iterator.LineNum;
     
     public static readonly FileStream File = System.IO.File.Open("a.out", FileMode.Create, FileAccess.Write);
     
     static void Main(string[] args) {
-        LineNum = 0;
+        iterator = new LineIterator(args[0]);
         
-        foreach (string line in System.IO.File.ReadLines(args[0])) {
-            LineNum++;
-            
+        foreach (string line in iterator) {
             string[] split = line.Split([' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries);
             if (split.Length >= 2) {
                 split = ((string[])[split[0]])
@@ -367,6 +366,21 @@ class Program {
                     }
                     
                     File.Write(new byte[amount * 4]);
+                    break;
+                }
+
+                case "#include": {
+                    if (split.Length != 2) {
+                        Console.WriteLine($"{LineNum}: includes must have one argument");
+                        return;
+                    }
+
+                    if (!System.IO.File.Exists(split[1])) {
+                        Console.WriteLine($"{LineNum}: the file {split[1]} does not exist");
+                        return;
+                    }
+                    
+                    iterator.AddFile(split[1]);
                     break;
                 }
 
