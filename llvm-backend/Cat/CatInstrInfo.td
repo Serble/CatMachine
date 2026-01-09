@@ -56,6 +56,15 @@ def SDT_CatRet : SDTypeProfile<0, 0, []>;
 def ret : SDNode<"ISD::RETURN", SDT_CatRet,
                  [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
+// Call sequence SDNodes
+def SDT_CatCallSeqStart : SDTypeProfile<0, 2, [SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
+def SDT_CatCallSeqEnd : SDTypeProfile<0, 2, [SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
+
+def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_CatCallSeqStart,
+                           [SDNPHasChain, SDNPOutGlue]>;
+def callseq_end : SDNode<"ISD::CALLSEQ_END", SDT_CatCallSeqEnd,
+                         [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+
 //===----------------------------------------------------------------------===//
 // Instruction Classes
 //===----------------------------------------------------------------------===//
