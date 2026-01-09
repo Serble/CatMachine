@@ -13,4 +13,8 @@
       </None>
     </ItemGroup>
 
+    <ItemGroup>
+      <ClCompile Include="test.c" />
+    </ItemGroup>
+
 </Project>

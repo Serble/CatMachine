@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using CatVM.Ops;
+using Raylib_cs;
 
 namespace CatVM;
 
@@ -89,6 +90,21 @@ public class CatVM {
             bytes.Add(b);
         }
         return Encoding.UTF8.GetString(bytes.ToArray());
+    }
+
+    public async Task RunRendering() {
+        if (Raylib.WindowShouldClose()) {
+            // close window
+            Raylib.CloseWindow();
+            Environment.Exit(0);
+        }
+        
+        Raylib.BeginDrawing();
+        Raylib.ClearBackground(Color.Black);
+
+        
+        
+        Raylib.EndDrawing();
     }
 
     public void FastRun() {

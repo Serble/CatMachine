@@ -1,0 +1,21 @@
+Interrupt ID,Name,Args,Handleable,Description
+0,Page Fault,stack 32 bit pointer - accessed memory,true,
+1,Invalid Instruction,,true,
+2,Divide by zero,,true,
+3,RESERVED,,,
+4,RESERVED,,,
+5,RESERVED,,,
+6,RESERVED,,,
+7,RESERVED,,,
+8,RESERVED,,,
+9,RESERVED,,,
+a,RESERVED,,,
+b,RESERVED,,,
+c,RESERVED,,,
+d,RESERVED,,,
+e,RESERVED,,,
+f,RESERVED,,,
+80,Write to sout,r1 - pointer to string (null terminated),false,
+81,Halt,,false,Pause execution permanently
+82,Shutdown,,false,Poweroff
+83,Reset,,false,Restart (ip=0)
