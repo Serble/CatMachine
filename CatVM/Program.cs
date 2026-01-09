@@ -1,4 +1,6 @@
 ﻿
+using CatVM.Display;
+
 string romPath = args.Length > 0 ? args[0] : throw new ArgumentException("Please provide a path to a CatVM ROM file.");
 
 if (!File.Exists(romPath)) {
@@ -10,6 +12,10 @@ bool fastRun = false;
 int ops = 100_000;  // ops per seconds
 int memorySize = 1024 * 1024 * 16; // 16mb
 bool enableTimings = false;
+bool enableTestInts = false;
+bool dumpErrors = false;
+
+IRenderer renderer = new DummyRendering();
 
 for (int i = 1; i < args.Length; i++) {
     switch (args[i]) {
@@ -39,6 +45,28 @@ for (int i = 1; i < args.Length; i++) {
             enableTimings = true;
             break;
         
+        case "--renderer":
+            string rendererType = "raylib";
+            if (i + 1 < args.Length) {
+                rendererType = args[i + 1];
+                i++;
+            }
+
+            renderer = rendererType switch {
+                "raylib" => new RaylibRendering(),
+                "dummy" => new DummyRendering(),
+                _ => throw new ArgumentException($"Unknown rendering type: {rendererType}")
+            };
+            break;
+        
+        case "--test-ints":
+            enableTestInts = true;
+            break;
+        
+        case "--dump-errors":
+            dumpErrors = true;
+            break;
+        
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
@@ -46,10 +74,13 @@ for (int i = 1; i < args.Length; i++) {
 }
 
 CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
-    PrintInstructionTimes = enableTimings
+    PrintInstructionTimes = enableTimings,
+    EnableTestingInterrupts = enableTestInts,
+    DumpErrors = dumpErrors
 };
 
-_ = vm.RunRendering();
+renderer.Initialize(vm);
+_ = renderer.Start(vm);
 
 if (fastRun) {
     vm.FastRun();

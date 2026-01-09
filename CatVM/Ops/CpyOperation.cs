@@ -38,6 +38,15 @@ public static class CpyOperation {
     }
     
     private static void Cpy(CatVM vm, uint sourceAddr, uint length) {
+        // bounds check
+        if (sourceAddr + length > vm.Memory.Length) {
+            throw new MemoryOutOfRange(sourceAddr + length);
+        }
+
+        if (vm.Cpu.R0 + length > vm.Memory.Length) {
+            throw new MemoryOutOfRange(vm.Cpu.R0 + length);
+        }
+        
         Buffer.BlockCopy(vm.Memory, (int)sourceAddr, vm.Memory, (int)vm.Cpu.R0, (int)length);
     }
 }
