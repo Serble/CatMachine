@@ -1,20 +1,20 @@
 OP Code,Instruction,Args,Description
-0,MOV,"r, r",
-1,MOV,"r, i",
-2,MOV,"r, rp",
-3,MOV,"r, ip",
-4,MOV,"rp, r",
-5,MOV,"rp, i",
-6,MOV,"ip, r",
-7,MOV,"ip, i",
-8,BMOV,"ip, r",Move byte sized value
-9,BMOV,"rp, r",
-a,BMOV,"r, ip",
-b,BMOV,"r, rp",
-c,SMOV,"ip, r",Move short (16bit) sized value
-d,SMOV,"rp, r",
-e,SMOV,"r, ip",
-f,SMOV,"r, rp",
+0,MOV MOV32,"r, r",
+1,MOV MOV32,"r, i",
+2,MOV MOV32,"r, rp",
+3,MOV MOV32,"r, ip",
+4,MOV MOV32,"rp, r",
+5,MOV MOV32,"rp, i",
+6,MOV MOV32,"ip, r",
+7,MOV MOV32,"ip, i",
+8,MOV8,"ip, r",Move byte sized value
+9,MOV8,"rp, r",
+a,MOV8,"r, ip",
+b,MOV8,"r, rp",
+c,MOV16,"ip, r",Move short (16bit) sized value
+d,MOV16,"rp, r",
+e,MOV16,"r, ip",
+f,MOV16,"r, rp",
 10,ADD,"r, r",
 11,ADD,"r, i",
 12,SUB,"r, r",
@@ -26,35 +26,41 @@ f,SMOV,"r, rp",
 18,UDIV,"r, r","First arg is result (floor), second arg is remainder"
 19,IDIV,"r, r","Signed div, First arg is result (floor), second arg is remainder"
 1a,INT,rb,Masks r with 0xFF
-1b,INT,i,
-1c,PUSH,r,
-1d,PUSH,i,
-1e,POP,r,
-1f,OR,"r, r",
-20,OR,"r, i",
-21,AND,"r, r",
-22,AND,"r, i",
-23,XOR,"r, r",
-24,XOR,"r, i",
-25,NOT,r,
-26,JMP,"r, i",moves ip to r + i and if r is 0xFF then just move to i
-27,CMP,"r, r",
-28,CMP,"r, i",
-29,CMP,"i, r",
-2a,CMP,"i, i",silly
-2b,"JZ JE","r, i",jump if zero flag (also if numbers are equal)
-2c,"JNZ JNE","r, i",alias JNE
-31,JUL,"r, i",Unsigned <
-32,JULE,"r, i",Unsigned <=
-33,JUG,"r, i",Unsigned >
-34,JUGE,"r, i",Unsigned >=
-35,JIL,"r, i",Signed <
-36,JILE,"r, i",Signed <=
-37,JIG,"r, i",Signed >
-38,JIGE,"r, i",Signed >=
-39,CALL,"r, i",
-3a,RET, ,
-3b,CPY,"r, r","source, length, r0 = destination"
-3c,CPY,"r, i",
-3d,CPY,"i, r",
-3e,CPY,"i, i",
+1b,INT,i8,
+1c,PUSH PUSH32,r,
+1d,PUSH PUSH32,i,
+1e,PUSH16,r,
+1f,PUSH16,i16,
+20,PUSH8,r,
+21,PUSH8,i8,
+22,POP POP32,r,
+23,POP16,r,
+24,POP8,r,
+25,OR,"r, r",
+26,OR,"r, i",
+27,AND,"r, r",
+28,AND,"r, i",
+29,XOR,"r, r",
+2a,XOR,"r, i",
+2b,NOT,r,
+2c,JMP,"r, i",moves ip to r + i and if r is 0xFF then just move to i
+2d,CMP,"r, r",
+2e,CMP,"r, i",
+2f,CMP,"i, r",
+30,CMP,"i, i",silly
+31,"JZ JE","r, i",jump if zero flag (also if numbers are equal)
+32,"JNZ JNE","r, i",alias JNE
+33,JUL,"r, i",Unsigned <
+34,JULE,"r, i",Unsigned <=
+35,JUG,"r, i",Unsigned >
+36,JUGE,"r, i",Unsigned >=
+37,JIL,"r, i",Signed <
+38,JILE,"r, i",Signed <=
+39,JIG,"r, i",Signed >
+3a,JIGE,"r, i",Signed >=
+3b,CALL,"r, i",
+3c,RET, ,
+3d,CPY,"r, r","source, length, r0 = destination"
+3e,CPY,"r, i",
+3f,CPY,"i, r",
+40,CPY,"i, i",

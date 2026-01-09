@@ -85,7 +85,12 @@ public class Util {
     }
     
     public static void WriteParsed(string text, int length = 4, Func<uint, ReadOnlySpan<byte>>? transformer = null) {
-        transformer ??= u => BitConverter.GetBytes(u);
+        transformer ??= length switch {
+            1 => u => (byte[])[(byte)u],
+            2 => u => BitConverter.GetBytes((ushort)u),
+            4 => u => BitConverter.GetBytes(u),
+            _ => throw new ArgumentException("Must have transformer if length is not 1 2 or 4")
+        };
 
         if (!Parse32Int(text, out uint value)) {
             // is a label or invalid

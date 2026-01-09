@@ -61,47 +61,83 @@ class Program {
             Console.WriteLine(string.Join(", ", split));
 
             switch (split[0].ToLower()) {
+                case "mov32":
                 case "mov": {
-                    if (!ParseMov.Parse(File, split, LineNum)) {
-                        return;
-                    }
+                    if (!ParseMov.Parse(File, split, LineNum)) return;
                     break;
                 }
 
                 case "jmp": {
-                    if (split.Length != 2 && split.Length != 3) {
-                        Console.WriteLine(LineNum + ": Wrong argument count for jmp");
-                        return;
-                    }
-                    
-                    File.WriteByte(0x26);
-
-                    if (RegisterToId.TryGetValue(split[1].ToLower(), out byte register)) {
-                        File.WriteByte(register);
-                        
-                        // has register and offset
-                        if (split.Length == 3) {
-                            Util.WriteParsed(split[2]);
-                        }
-                        else {
-                            File.Write(BitConverter.GetBytes((uint)0));
-                        }
-                    }
-                    else {
-                        if (split.Length == 3) {
-                            Console.WriteLine(LineNum + ": register must be before immediate");
-                            return;
-                        }
-                        
-                        File.WriteByte(0xFF); // no register
-                        Util.WriteParsed(split[1]);
-                    }
-                    break;
+                    if (ParseJmp.Parse(split, 0x2c)) break;
+                    return;
+                }
+                
+                case "jz":
+                case "je": {
+                    if (ParseJmp.Parse(split, 0x31)) break;
+                    return;
+                }
+                
+                case "jnz":
+                case "jne": {
+                    if (ParseJmp.Parse(split, 0x32)) break;
+                    return;
+                }
+                
+                case "jul": {
+                    if (ParseJmp.Parse(split, 0x33)) break;
+                    return;
+                }
+                
+                case "jule": {
+                    if (ParseJmp.Parse(split, 0x34)) break;
+                    return;
+                }
+                
+                case "jug": {
+                    if (ParseJmp.Parse(split, 0x35)) break;
+                    return;
+                }
+                
+                case "juge": {
+                    if (ParseJmp.Parse(split, 0x36)) break;
+                    return;
+                }
+                
+                case "jil": {
+                    if (ParseJmp.Parse(split, 0x37)) break;
+                    return;
+                }
+                
+                case "jile": {
+                    if (ParseJmp.Parse(split, 0x38)) break;
+                    return;
+                }
+                
+                case "jig": {
+                    if (ParseJmp.Parse(split, 0x39)) break;
+                    return;
+                }
+                
+                case "jige": {
+                    if (ParseJmp.Parse(split, 0x3a)) break;
+                    return;
+                }
+                
+                case "call": {
+                    if (ParseJmp.Parse(split, 0x3b)) break;
+                    return;
                 }
 
                 case "int": {
-                    File.WriteByte(0x1b);
-                    Util.WriteParsed(split[1]);
+                    if (RegisterToId.TryGetValue(split[1].ToLower(), out byte register)) {
+                        File.WriteByte(0x1a);
+                        File.WriteByte(register);
+                    }
+                    else {
+                        File.WriteByte(0x1b);
+                        Util.WriteParsed(split[1], 1);
+                    }
                     break;
                 }
 
