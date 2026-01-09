@@ -274,11 +274,10 @@ def SELECT : CatInst<(outs GPR:$dst), (ins GPR:$lhs, GPR:$rhs, i32imm:$cond),
 //===----------------------------------------------------------------------===//
 
 // Shifts, division, and modulo need to be handled specially or emulated
-def : Pat<(shl GPR:$rs1, GPR:$rs2), (ADD_RR GPR:$rs1, GPR:$rs1)>;
+// Note: This only handles shift by 1 (left shift = multiply by 2)
+// For variable shifts, we would need to expand or use a library function
+def : Pat<(shl GPR:$rs1, (i32 1)), (ADD_RR GPR:$rs1, GPR:$rs1)>;
 
-// Select patterns
-def : Pat<(selectcc GPR:$lhs, GPR:$rhs, GPR:$t, GPR:$f, SETEQ),
-          (SELECT GPR:$t, GPR:$f, 0)>;
-
-// Frame index
-def : Pat<(i32 (frameindex tblockaddress:$label)), (MOV32_RI tblockaddress:$label)>;
+// Note: selectcc and frameindex patterns are commented out as they need
+// proper implementation with the correct instruction selection logic
+// These would require more complex pattern matching or custom lowering
