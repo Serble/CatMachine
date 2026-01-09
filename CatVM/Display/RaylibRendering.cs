@@ -35,12 +35,33 @@ public class RaylibRendering : IRenderer {
             
             Texture2D texture = Raylib.LoadTextureFromImage(image);
 
+            HashSet<KeyboardKey> pressedKeys = [];
+
             while (true) {
                 unsafe {
                     if (Raylib.WindowShouldClose()) {
                         // close window
                         Raylib.CloseWindow();
                         Environment.Exit(0);
+                    }
+
+                    pressedKeys.RemoveWhere(key => {
+                        if (!Raylib.IsKeyUp(key)) {
+                            return false;
+                        }
+                        
+                        SendInput(vm, 0, 1, (uint)key);
+                        return true;
+                    });
+                    
+                    while (true) {
+                        int key = Raylib.GetKeyPressed();
+                        if (key == 0) {
+                            break;
+                        }
+
+                        pressedKeys.Add((KeyboardKey) key);
+                        SendInput(vm, 0, 0, (uint)key);
                     }
 
                     Raylib.UpdateTexture(texture, (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (int)vm.DisplayBufferOffset).ToPointer());
@@ -54,6 +75,19 @@ public class RaylibRendering : IRenderer {
                 }
             }
         }));
+    }
+
+    private static void SendInput(CatVM vm, uint device, uint inputType, uint value) {
+        vm.StackPush(vm.Cpu.R1);
+        vm.StackPush(vm.Cpu.R2);
+        vm.StackPush(vm.Cpu.R3);
+        vm.Cpu.R1 = device;
+        vm.Cpu.R2 = inputType;
+        vm.Cpu.R3 = value;
+        vm.Interrupt(SpecialInterupts.HandleInput);
+        vm.Cpu.R3 = vm.StackPop();
+        vm.Cpu.R2 = vm.StackPop();
+        vm.Cpu.R1 = vm.StackPop();
     }
     
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

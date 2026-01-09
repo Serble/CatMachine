@@ -7,5 +7,6 @@ public enum SpecialInterupts : byte {
     
     // Everything < 0x10 is reserved for CPU exceptions
     
+    HandleInput = 0x70,
     FuncWriteStdout = 0x80
 }
