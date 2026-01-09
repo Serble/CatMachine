@@ -273,9 +273,19 @@ class Program {
                     // remove pointers
                     split[1] = split[1][1..];
                     split[2] = split[2][1..];
-                    
-                    if (ParseTwoArgs.Parse(split, 0x41, true)) break;
+
+                    ParseTwoArgs.Parse(split, 0x41, true);
+                    break;
+                }
+
+                case "in": {
+                    if (ParseTwoArgs.Parse(split, 0x47, false)) break;
                     return 1;
+                }
+                
+                case "out": {
+                    ParseTwoArgs.Parse(split, 0x47, true);
+                    break;
                 }
 
                 case "d8": {

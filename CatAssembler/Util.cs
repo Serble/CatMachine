@@ -69,6 +69,8 @@ public class Util {
             text = text.Substring(1);
         }
 
+        text = text.Replace("_", "");
+
         try {
             if (negative) {
                 value = (uint)(-Convert.ToInt32(text, numberBase));

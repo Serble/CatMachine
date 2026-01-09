@@ -5,11 +5,18 @@ using Raylib_cs;
 namespace CatVM.Display;
 
 public class RaylibRendering : IRenderer {
+    private Queue<uint> _serialQueue = [];
+    
     public void Initialize(CatVM vm) {
         
     }
 
     public Task Start(CatVM vm) {
+        vm.SerialDevices.Add(0, (
+            _ => _serialQueue.TryDequeue(out uint result) ? result : uint.MaxValue,
+            (_, _) => {}
+        ));
+        
         return Task.Run((Action) (() => {
             unsafe {
                 delegate* unmanaged[Cdecl]<int, sbyte*, sbyte*, void> ptr = &NopLogging;
@@ -77,17 +84,11 @@ public class RaylibRendering : IRenderer {
         }));
     }
 
-    private static void SendInput(CatVM vm, uint device, uint inputType, uint value) {
-        vm.StackPush(vm.Cpu.R1);
-        vm.StackPush(vm.Cpu.R2);
-        vm.StackPush(vm.Cpu.R3);
-        vm.Cpu.R1 = device;
-        vm.Cpu.R2 = inputType;
-        vm.Cpu.R3 = value;
+    private void SendInput(CatVM vm, uint device, uint inputType, uint value) {
+        _serialQueue.Enqueue(device);
+        _serialQueue.Enqueue(inputType);
+        _serialQueue.Enqueue(value);
         vm.Interrupt(SpecialInterupts.HandleInput);
-        vm.Cpu.R3 = vm.StackPop();
-        vm.Cpu.R2 = vm.StackPop();
-        vm.Cpu.R1 = vm.StackPop();
     }
     
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

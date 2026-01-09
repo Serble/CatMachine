@@ -1,0 +1,115 @@
+
+main:
+    ; mov it, interrupt_table
+    mov sp, 16_777_088
+    jmp loop
+
+loop:
+    call handle_input
+    
+    mov r0, @snake_parts  ; add x
+    mov r1, @move_dir_x
+    add r0, r1
+    mov @snake_parts, r0
+    mov r0, snake_parts   ; add y
+    add r0, 4
+    mov r1, @r0
+    mov r2, @move_dir_y
+    add r1, r2
+    mov @r0, r1
+    
+    int 0x84 ; get display buffer
+    
+    ; r0 += snake_parts[0] + snake_parts[1] * 512
+    mov r1, @snake_parts
+    umul r1, 4 ; 4 bytes per pixel
+    add r0, r1
+    
+    mov r1, snake_parts
+    add r1, 4
+    mov r2, @r1
+    umul r2, 2048 ; 512 * 4 bytes per row
+    add r0, r2
+    
+    mov @r0, 0xFF0000FF ; red
+    ; int 0x81
+    
+    jmp loop
+
+handle_input:
+    ; di
+    push r1
+    push r2
+    push r3
+    
+    in r1, 0
+    cmp r1, -1 ; is there any info
+    je .done   ; if not we r done
+    
+    in r2, 0
+    in r3, 0
+    
+    int 0x90
+    cmp r1, 0 ; is keyboard
+    jne .done
+    
+    mov r1, r2
+    int 0x90
+    cmp r2, 0 ; is pressed
+    jne .done
+
+    mov r1, r3
+    int 0x90
+    
+    cmp r3, 'D'
+    je .d
+    cmp r3, 'A'
+    je .a
+    cmp r3, 'W'
+    je .w
+    cmp r3, 'S'
+    je .s
+    
+    ; other key, do nothing
+    jmp .done
+    
+.d:
+    mov @move_dir_x, 1
+    mov @move_dir_y, 0
+    jmp .done
+
+.a:
+    mov @move_dir_x, -1
+    mov @move_dir_y, 0
+    jmp .done
+
+.w:
+    mov @move_dir_x, 0
+    mov @move_dir_y, -1
+    jmp .done
+
+.s:
+    mov @move_dir_x, 0
+    mov @move_dir_y, 1
+    jmp .done
+
+.done:
+    pop r3
+    pop r2
+    pop r1
+    ; ei
+    ret
+
+move_dir_x:
+    d32 0
+move_dir_y:
+    d32 1
+
+interrupt_table:
+    d8 1             ; entry count
+    d8 0x70          ; input
+    d32 handle_input
+
+snake_parts:
+    d32 128
+    res32 1024

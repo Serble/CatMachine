@@ -70,3 +70,9 @@ OP Code,Instruction,Args,Description
 44,CPY,"ip, ip",
 45,DI, ,Disable interrupts
 46,EI, ,Enable interrupts
+47,IN,"r, r","output reg, port"
+48,IN,"r, i",
+49,OUT,"r, r","port, data"
+4a,OUT,"r, i",
+4b,OUT,"i, r",
+4c,OUT,"i, i",

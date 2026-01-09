@@ -25,6 +25,8 @@ public class CatVM {
     public CatCpuState Cpu;
     private readonly int _memoryBytes;
 
+    public Dictionary<uint, (Func<CatVM, uint> input, Action<CatVM, uint> output)> SerialDevices = [];
+    
     public CatVM(int memoryBytes, double instructionsPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
         Rom = rom ?? [];
@@ -406,6 +408,12 @@ public class CatVM {
         CpyOperation.CpyIR,
         CpyOperation.CpyII,
         IntOperation.Di,
-        IntOperation.Ei
+        IntOperation.Ei,
+        SerialOperation.InRR,
+        SerialOperation.InRI,
+        SerialOperation.OutRR,
+        SerialOperation.OutRI,
+        SerialOperation.OutIR,
+        SerialOperation.OutII
     ];
 }
