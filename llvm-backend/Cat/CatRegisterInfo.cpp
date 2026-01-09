@@ -25,7 +25,7 @@ using namespace llvm;
 #define GET_REGINFO_TARGET_DESC
 #include "CatGenRegisterInfo.inc"
 
-CatRegisterInfo::CatRegisterInfo() : CatGenRegisterInfo(Cat::R0) {}
+CatRegisterInfo::CatRegisterInfo() : CatGenRegisterInfo(R0) {}
 
 const MCPhysReg *
 CatRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
@@ -36,16 +36,16 @@ BitVector CatRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
 
   // Reserve special registers
-  Reserved.set(Cat::SP);
-  Reserved.set(Cat::IP);
-  Reserved.set(Cat::FL);
-  Reserved.set(Cat::IT);
-  Reserved.set(Cat::R7); // Frame pointer
+  Reserved.set(SP);
+  Reserved.set(IP);
+  Reserved.set(FL);
+  Reserved.set(IT);
+  Reserved.set(R7); // Frame pointer
 
   return Reserved;
 }
 
-bool CatRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
+void CatRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                           int SPAdj, unsigned FIOperandNum,
                                           RegScavenger *RS) const {
   MachineInstr &MI_ref = *MI;
@@ -57,12 +57,10 @@ bool CatRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                MI->getOperand(FIOperandNum + 1).getImm();
   
   // Replace frame index with R7 (frame pointer) + offset
-  MI->getOperand(FIOperandNum).ChangeToRegister(Cat::R7, false);
+  MI->getOperand(FIOperandNum).ChangeToRegister(R7, false);
   MI->getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
-  
-  return false;
 }
 
 Register CatRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return Cat::R7;
+  return R7;
 }
