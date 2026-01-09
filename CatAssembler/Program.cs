@@ -444,7 +444,7 @@ class Program {
                         }
 
                         if (NeededLabels.Keys.Any(label => label[0] == '.')) {
-                            Console.WriteLine(LineNum + $": local label {labelName} does not exist!");
+                            Console.WriteLine(GetNeededLabelsString(NeededLabels.Where(l => l.Key[0] == '.')));
                             return 1;
                         }
                         
@@ -460,14 +460,17 @@ class Program {
         }
 
         if (NeededLabels.Count != 0) {
-            Console.WriteLine("There are jumps with unknown labels:\n" + string.Join("\n", 
-                NeededLabels.Select(label => 
-                    $"{label.Key}: [{string.Join(", ", label.Value.Select(l => l.LineNum))}]")));
+            Console.WriteLine(GetNeededLabelsString(NeededLabels));
             return 1;
         }
         
         File.Close();
         Console.WriteLine("Success!");
         return 0;
+    }
+
+    private static string GetNeededLabelsString(IEnumerable<KeyValuePair<string, List<NeededLabel>>> needed) {
+        return "There are jumps with unknown labels:\n" + string.Join("\n",
+            needed.Select(label => $"{label.Key}: [{string.Join(", ", label.Value.Select(l => l.LineNum))}]"));
     }
 }

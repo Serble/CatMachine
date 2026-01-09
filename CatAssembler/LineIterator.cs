@@ -6,7 +6,7 @@ public class LineIterator : IEnumerable<string>, IDisposable {
     public string LineNum {
         get {
             InternalLineIterator file = files[^1];
-            return $"{file.FileName}; {file.LineNum}";
+            return $"({file.FileName}: {file.LineNum})";
         }
     }
 
@@ -49,6 +49,6 @@ public class LineIterator : IEnumerable<string>, IDisposable {
     private class InternalLineIterator(IEnumerator<string> file, int lineNum, string fileName) {
         public readonly IEnumerator<string> File = file;
         public int LineNum = lineNum;
-        public string FileName = fileName;
+        public readonly string FileName = fileName;
     }
 }
