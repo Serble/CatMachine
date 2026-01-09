@@ -245,12 +245,18 @@ class Program {
                 }
 
                 case "ret": {
-                    if (split.Length != 1) {
-                        Console.WriteLine(LineNum + ": ret takes 0 arguments");
-                        return 1;
-                    }
-                    File.WriteByte(0x40);
-                    break;
+                    if (ParseNoArgs.Parse(split, 0x40)) break;
+                    return 1;
+                }
+                
+                case "di": {
+                    if (ParseNoArgs.Parse(split, 0x45)) break;
+                    return 1;
+                }
+                
+                case "ei": {
+                    if (ParseNoArgs.Parse(split, 0x46)) break;
+                    return 1;
                 }
 
                 case "cpy": {
