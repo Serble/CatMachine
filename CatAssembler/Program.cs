@@ -63,161 +63,171 @@ class Program {
             switch (split[0].ToLower()) {
                 case "mov32":
                 case "mov": {
-                    if (!ParseMov.Parse(File, split, LineNum)) return;
+                    if (!ParseMov.Parse(split)) return;
+                    break;
+                }
+                
+                case "mov16": {
+                    if (!ParseMov.ParseSmall(split, 0x08, 2)) return;
+                    break;
+                }
+                
+                case "mov8": {
+                    if (!ParseMov.ParseSmall(split, 0x0e, 1)) return;
                     break;
                 }
 
                 case "jmp": {
-                    if (ParseJmp.Parse(split, 0x2c)) break;
+                    if (ParseJmp.Parse(split, 0x30)) break;
                     return;
                 }
                 
                 case "jz":
                 case "je": {
-                    if (ParseJmp.Parse(split, 0x31)) break;
+                    if (ParseJmp.Parse(split, 0x35)) break;
                     return;
                 }
                 
                 case "jnz":
                 case "jne": {
-                    if (ParseJmp.Parse(split, 0x32)) break;
-                    return;
-                }
-                
-                case "jul": {
-                    if (ParseJmp.Parse(split, 0x33)) break;
-                    return;
-                }
-                
-                case "jule": {
-                    if (ParseJmp.Parse(split, 0x34)) break;
-                    return;
-                }
-                
-                case "jug": {
-                    if (ParseJmp.Parse(split, 0x35)) break;
-                    return;
-                }
-                
-                case "juge": {
                     if (ParseJmp.Parse(split, 0x36)) break;
                     return;
                 }
                 
-                case "jil": {
+                case "jul": {
                     if (ParseJmp.Parse(split, 0x37)) break;
                     return;
                 }
                 
-                case "jile": {
+                case "jule": {
                     if (ParseJmp.Parse(split, 0x38)) break;
                     return;
                 }
                 
-                case "jig": {
+                case "jug": {
                     if (ParseJmp.Parse(split, 0x39)) break;
                     return;
                 }
                 
-                case "jige": {
+                case "juge": {
                     if (ParseJmp.Parse(split, 0x3a)) break;
                     return;
                 }
                 
-                case "call": {
+                case "jil": {
                     if (ParseJmp.Parse(split, 0x3b)) break;
+                    return;
+                }
+                
+                case "jile": {
+                    if (ParseJmp.Parse(split, 0x3c)) break;
+                    return;
+                }
+                
+                case "jig": {
+                    if (ParseJmp.Parse(split, 0x3d)) break;
+                    return;
+                }
+                
+                case "jige": {
+                    if (ParseJmp.Parse(split, 0x3e)) break;
+                    return;
+                }
+                
+                case "call": {
+                    if (ParseJmp.Parse(split, 0x3f)) break;
                     return;
                 }
 
                 case "cmp": {
-                    if (ParseTwoArgs.Parse(split, 0x2d, true)) break;
+                    if (ParseTwoArgs.Parse(split, 0x31, true)) break;
                     return;
                 }
 
                 case "sub": {
-                    if (ParseTwoArgs.Parse(split, 0x12, false)) break;
+                    if (ParseTwoArgs.Parse(split, 0x16, false)) break;
                     return;
                 }
 
                 case "add": {
-                    if (ParseTwoArgs.Parse(split, 0x10, false)) break;
+                    if (ParseTwoArgs.Parse(split, 0x14, false)) break;
                     return;
                 }
 
                 case "umul": {
-                    if (ParseTwoArgs.Parse(split, 0x14, false)) break;
+                    if (ParseTwoArgs.Parse(split, 0x18, false)) break;
                     return;
                 }
                 
                 case "imul": {
-                    if (ParseTwoArgs.Parse(split, 0x16, false)) break;
+                    if (ParseTwoArgs.Parse(split, 0x1a, false)) break;
                     return;
                 }
                 
                 case "or": {
-                    if (ParseTwoArgs.Parse(split, 0x25, false)) break;
-                    return;
-                }
-                
-                case "and": {
-                    if (ParseTwoArgs.Parse(split, 0x27, false)) break;
-                    return;
-                }
-                
-                case "xor": {
                     if (ParseTwoArgs.Parse(split, 0x29, false)) break;
                     return;
                 }
                 
+                case "and": {
+                    if (ParseTwoArgs.Parse(split, 0x2b, false)) break;
+                    return;
+                }
+                
+                case "xor": {
+                    if (ParseTwoArgs.Parse(split, 0x2d, false)) break;
+                    return;
+                }
+                
                 case "not": {
-                    if (ParseSingleArg.Parse(split, 0x2b, false)) break;
+                    if (ParseSingleArg.Parse(split, 0x2f, false)) break;
                     return;
                 }
 
                 case "int": {
-                    ParseSingleArg.Parse(split, 0x1a, true, 1);
+                    ParseSingleArg.Parse(split, 0x1e, true, 1);
                     break;
                 }
 
                 case "udiv": {
-                    if (ParseTwoRegisters.Parse(split, 0x18)) break;
+                    if (ParseTwoRegisters.Parse(split, 0x1c)) break;
                     return;
                 }
                 
                 case "idiv": {
-                    if (ParseTwoRegisters.Parse(split, 0x19)) break;
+                    if (ParseTwoRegisters.Parse(split, 0x1d)) break;
                     return;
                 }
 
                 case "push":
                 case "push32": {
-                    ParseSingleArg.Parse(split, 0x1c, true);
+                    ParseSingleArg.Parse(split, 0x20, true);
                     break;
                 }
                 
                 case "push16": {
-                    ParseSingleArg.Parse(split, 0x1e, true, 2);
+                    ParseSingleArg.Parse(split, 0x22, true, 2);
                     break;
                 }
                 
                 case "push8": {
-                    ParseSingleArg.Parse(split, 0x20, true, 1);
+                    ParseSingleArg.Parse(split, 0x24, true, 1);
                     break;
                 }
                 
                 case "pop":
                 case "pop32": {
-                    if (ParseSingleArg.Parse(split, 0x22, false)) break;
+                    if (ParseSingleArg.Parse(split, 0x26, false)) break;
                     return;
                 }
                 
                 case "pop16": {
-                    if (ParseSingleArg.Parse(split, 0x23, false)) break;
+                    if (ParseSingleArg.Parse(split, 0x27, false)) break;
                     return;
                 }
                 
                 case "pop8": {
-                    if (ParseSingleArg.Parse(split, 0x24, false)) break;
+                    if (ParseSingleArg.Parse(split, 0x28, false)) break;
                     return;
                 }
 
@@ -226,11 +236,26 @@ class Program {
                         Console.WriteLine(LineNum + ": ret takes 0 arguments");
                         return;
                     }
+                    File.WriteByte(0x2f);
                     break;
                 }
 
                 case "cpy": {
-                    if (ParseTwoArgs.Parse(split, 0x3d, true)) break;
+                    if (split.Length != 3) {
+                        Console.WriteLine(LineNum + ": cpy must have 3 arguments");
+                        return;
+                    }
+                    
+                    if (split[1][0] != '@' || split[2][0] != '@') {
+                        Console.WriteLine(LineNum + ": All arguments in cpy must be a pointer");
+                        return;
+                    }
+
+                    // remove pointers
+                    split[1] = split[1][1..];
+                    split[2] = split[2][1..];
+                    
+                    if (ParseTwoArgs.Parse(split, 0x41, true)) break;
                     return;
                 }
 
