@@ -36,8 +36,8 @@ class CatSubtarget : public CatGenSubtargetInfo {
   bool HasStdExtM = false;
 
 public:
-  CatSubtarget(const Triple &TT, const std::string &CPU,
-               const std::string &FS, const TargetMachine &TM);
+  CatSubtarget(const Triple &TT, StringRef CPU,
+               StringRef FS, const TargetMachine &TM);
 
   void ParseSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 

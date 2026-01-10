@@ -18,7 +18,7 @@ using namespace llvm;
 
 void CatSubtarget::anchor() {}
 
-CatSubtarget::CatSubtarget(const Triple &TT, const std::string &CPU,
-                           const std::string &FS, const TargetMachine &TM)
+CatSubtarget::CatSubtarget(const Triple &TT, StringRef CPU,
+                           StringRef FS, const TargetMachine &TM)
     : CatGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(), RegInfo(),
       TLInfo(TM, *this), FrameLowering(*this) {}

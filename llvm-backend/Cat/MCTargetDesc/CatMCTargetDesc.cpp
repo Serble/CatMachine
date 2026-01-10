@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CatMCTargetDesc.h"
-#include "CatInstPrinter.h"
+#include "InstPrinter/CatInstPrinter.h"
 #include "CatMCAsmInfo.h"
 #include "TargetInfo/CatTargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
