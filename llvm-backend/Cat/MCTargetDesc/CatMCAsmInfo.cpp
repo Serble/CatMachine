@@ -13,7 +13,7 @@ void CatMCAsmInfo::anchor() {}
 
 CatMCAsmInfo::CatMCAsmInfo(const Triple &TT) {
   IsLittleEndian = true;
-  PointerSize = 4;
+  CodePointerSize = 4;
   CalleeSaveStackSlotSize = 4;
   
   CommentString = ";";
