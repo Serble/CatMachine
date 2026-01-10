@@ -32,6 +32,9 @@ class CatSubtarget : public CatGenSubtargetInfo {
   CatTargetLowering TLInfo;
   CatFrameLowering FrameLowering;
 
+  // Subtarget features
+  bool HasStdExtM = false;
+
 public:
   CatSubtarget(const Triple &TT, const std::string &CPU,
                const std::string &FS, const TargetMachine &TM);
