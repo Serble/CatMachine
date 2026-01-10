@@ -32,6 +32,7 @@ void CatInstPrinter::printInst(const MCInst *MI, uint64_t Address,
 }
 
 void CatInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
+                                   const MCSubtargetInfo &STI,
                                    raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
@@ -49,7 +50,8 @@ void CatInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
 }
 
 void CatInstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
+                                      const MCSubtargetInfo &STI,
                                       raw_ostream &O) {
   O << "@";
-  printOperand(MI, OpNo, O);
+  printOperand(MI, OpNo, STI, O);
 }
