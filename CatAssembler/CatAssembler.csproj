@@ -32,6 +32,12 @@
       <None Update="examples\platformer\levels.asm">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="examples\platformer\player.data">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="examples\platformer\utils.asm">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
     <ItemGroup>

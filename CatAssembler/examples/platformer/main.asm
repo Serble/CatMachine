@@ -11,12 +11,33 @@ title_screen:
 platform:
     dfile platform.data
 
+player:
+    dfile player.data
+
 current_level:          ; store level being played
+    d8 0
+player_x:
+    d32 0
+player_y:
+    d32 0
+last_draw_player_x:
+    d32 0
+last_draw_player_y:
+    d32 0
+held_left:
+    d8 0
+held_right:
+    d8 0
+held_up:
+    d8 0
+held_down:
     d8 0
 
 ; =================
 ; Code section
 ; =================
+
+#include utils.asm
 
 main:
     ; show title screen
@@ -32,13 +53,158 @@ main:
     mov r1, 7
     int 0x90
     
-    mov r1, 0x365235
+    mov r1, 0x365235            ; bg colour
     call fill_screen
     
     mov r1, 0
     call draw_level
-    int 0x81
     
+    
+.loop:                          ; MAIN GAME LOOP (60tps, )
+    int 0x85
+    mov r7, r0
+    
+    call read_inputs            ; get all user inputs
+    
+    mov8 r1, @held_left
+    mov8 r2, @held_right
+    sub r2, r1                  ; calculate x change
+    mov r1, @player_x
+    add r1, r2
+    mov @player_x, r1
+    
+    call redraw_player          ; remove and redraw player in new pos
+    
+    ; now that we've done everything for this frame
+    ; let's wait until the next frame needs to run
+    int 0x85
+    sub r0, r7                  ; r0 is now time taken for frame
+    
+    ; debug frame time
+    mov r1, r0
+    ;int 0x90                    ; print frame time in ms
+    
+    cmp r0, 32                  ; compare to target time (1/60 * 1000) for 60fps
+    juge .goodtiming            ; if it took 16 or longer then skip waiting
+    
+    ; wait some time to make it 60fps
+    mov r1, 32
+    sub r1, r0                  ; 16 - time taken ms = time to wait for
+    call sleep
+    
+.goodtiming:
+    jmp .loop
+
+
+redraw_player:
+    call unrender_player
+    call render_player
+    
+    mov r1, @player_x
+    mov @last_draw_player_x, r1
+    mov r1, @player_y
+    mov @last_draw_player_y, r1
+    ret
+
+
+; drain and handle user input
+read_inputs:
+    in r0, 0                    ; read from inp device
+    cmp r0, -1                  ; will be -1 if no data available
+    je .nodata
+    
+    ; okay there is data
+    ;  r0                         = device id (keyboard is 0), we'll ignore this
+    in r1, 0                    ; = type (0 is down, 1 is up)
+    in r2, 0                    ; = value (key code)
+    
+    mov r3, 0                   ; value to set to = unpressed
+    cmp r1, 0                   ; pressed
+    jne .keyup
+    
+    ; key down
+    mov r3, 1                   ; set value
+.keyup:
+    ; alright now set the key, get pointer to memory for key
+    cmp r2, 'W'
+    je .up
+    cmp r2, 'S'
+    je .down
+    cmp r2, 'A'
+    je .left
+    cmp r2, 'D'
+    je .right
+    
+    jmp .doneprocessing         ; not relevant to us
+.up:
+    mov r0, held_up
+    jmp .setkey
+.down:
+    mov r0, held_down
+    jmp .setkey
+.left:
+    mov r0, held_left
+    jmp .setkey
+.right:
+    mov r0, held_right
+    
+.setkey:
+    mov8 @r0, r3
+    
+.doneprocessing:
+    jmp read_inputs              ; keep handling until no data is available
+.nodata:
+    ret
+
+
+; paint background colour over where the player is
+unrender_player:
+    int 0x84                    ; buffer in r0
+
+    mov r1, @last_draw_player_y           ; player start y
+    mov r2, @last_draw_player_x           ; player start x
+    
+    umul r1, 2048               ; make it offset to start of row
+    add r0, r1                  ; add it
+    umul r2, 4
+    add r0, r2                  ; now we're at the correct start of img area
+    
+    mov r1, r0                  ; r1 can be start of first row
+    mov r2, r1                  ; current pos in row
+    mov r3, r2
+    add r3, 128                 ; end pos
+    
+.firstrowloop:
+    mov @r2, 0x365235           ; draw
+    add r2, 4
+    cmp r2, r3
+    jul .firstrowloop
+    
+    ; okay we did it, copy this row a bunch of times
+    
+    ; setup row loop
+    ; we're going to be copying
+    mov r3, 1                   ; rows done
+.rowloop:
+    cpy r1, 128                 ; copy row to destination in r0
+    add r0, 2048
+    add r3, 1
+    cmp r3, 32                  ; have we made it to 32 rows?
+    jule .rowloop
+    
+    ; done
+    ret
+
+
+render_player:
+    mov r1, @player_x
+    mov r2, @player_y
+    mov r3, 32
+    push 32
+    push player
+    call draw_recta
+    add sp, 8
+    ret
 
 
 ; draws a level to the screen (excluding player)
@@ -95,101 +261,4 @@ draw_level:
     pop r4
     ret
 
-
-; busy wait until input is available
-wait_for_input:
-.loop:
-    in r1, 0
-    cmp r1, -1
-    je .loop
-    ; got it, drain rest of input data
-    in r1, 0
-    in r1, 0
-    ret
-
-
-; img pointer in r1
-draw_screen:
-    int 0x84
-    cpy r1, 0x100000
-    ret
-
-
-; colour in r1
-fill_screen:
-    push r4
-    
-    int 0x84
-    mov r4, r0             ; place buffer start in r4 (to never change)
-    mov r2, 0x100000       ; buffer size
-    
-    ; fill one pixel so we can copy
-    mov @r0, r1
-    
-    mov r3, 4              ; size to copy
-    add r0, 4
-    sub r2, 4
-.loop:
-    cpy r4, r3             ; copies the amount we have written to the next position
-    add r0, r3             ; advance current buffer pos by amount we copied
-    sub r2, r3             ; remove the amount we copied from the remaining bytes
-    add r3, r3             ; we can now copy double
-    
-    cmp r2, 0              ; did we copy everything
-    jne .loop
-    
-    pop r4
-    ret
-
-
-; draws a rectangle of data onto the screen
-; x in r1
-; y in r2
-; w in r3
-; h in stack
-; data pointer in stack
-draw_rect:
-    ; prologue
-    push r7             ; 
-    push r6             ; line iterator
-    push r5             ; data pointer (will change)
-    push r4             ; height
-    
-    ; let's get our parameters from stack
-    mov r0, sp          ; use r0 as our modifiable stack pointer
-    add r0, 20          ; 4*5 bytes (point to start of data pointer value)
-    mov r5, @r0         ; place in r5
-    add r0, 4           ; move one back to height value
-    mov r4, @r0         ; place in r4
-    add r4, r2
-    
-    int 0x84            ; get disp buffer in r0
-    
-    umul r3, 4          ; multiply width by 4 to get line byte count (4 bytes per pixel)
-    
-    mov r6, r2          ; current line
-    umul r1, 4          ; turn x into pixel offset from left
-    add r0, r1          ; add it to start
-    
-    ; we need to add 512*y*4
-    mov r7, r2
-    umul r7, 2048
-    add r0, r7
-    
-.loop:                  ; loop through each line
-    ;int 0
-    cpy r5, r3          ; copy r3 bytes from r5 to addr in r0
-    add r0, 2048        ; set r0 to start of next line
-    add r6, 1           ; next line
-    add r5, r3          ; move pointer to next line
-    
-    cmp r6, r4          ; did we get to the end?
-    jul .loop           ; if not then keep looping
-    
-    ; done, run epilogue
-    pop r4
-    pop r5
-    pop r6
-    pop r7
-    ret
 

@@ -167,18 +167,19 @@ public class CatVM {
         if (InterruptsEnabled && InterruptQueue.TryDequeue(out byte waitingInterrupt)) {
             HandleInterrupt(waitingInterrupt);
         }
-        
-        byte opcode = Read8();
 
-        if (opcode > Operations.Length) {
-            Interrupt(SpecialInterupts.InvalidInstruction);
-            return;
-        }
-
-        (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
         Stopwatch sw = Stopwatch.StartNew();
-        
+        int instructionCycles = 0;
         try {
+            byte opcode = Read8();
+
+            if (opcode > Operations.Length) {
+                Interrupt(SpecialInterupts.InvalidInstruction);
+                return;
+            }
+
+            (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
+            instructionCycles = instruction.cycles;
             instruction.executor(this);
         }
         catch (DivideByZeroException e) {
@@ -206,7 +207,7 @@ public class CatVM {
         }
         
         // wait the required time
-        TimeSpan instructionPenalty = TimeSpan.FromSeconds(SecondsPerCycle * instruction.cycles) - sw.Elapsed;
+        TimeSpan instructionPenalty = TimeSpan.FromSeconds(SecondsPerCycle * instructionCycles) - sw.Elapsed;
         if (!fast && instructionPenalty > TimeSpan.Zero) {
             Thread.Sleep(instructionPenalty);
         }
