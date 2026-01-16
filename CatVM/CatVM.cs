@@ -206,8 +206,9 @@ public class CatVM {
         }
         
         // wait the required time
-        if (!fast) {
-            Thread.Sleep(TimeSpan.FromSeconds(SecondsPerCycle * instruction.cycles) - sw.Elapsed);
+        TimeSpan instructionPenalty = TimeSpan.FromSeconds(SecondsPerCycle * instruction.cycles) - sw.Elapsed;
+        if (!fast && instructionPenalty > TimeSpan.Zero) {
+            Thread.Sleep(instructionPenalty);
         }
     }
 
