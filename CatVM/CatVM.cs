@@ -14,7 +14,7 @@ public class CatVM {
     public byte[] Memory { get; set; } = null!;
     public byte[] Rom { get; set; }
     public bool InterruptsEnabled { get; set; } = true;
-    public double InstructionsPerSecond { get; set; }
+    public double CyclesPerSecond { get; set; }
     public bool PrintInstructionTimes { get; set; }
     public bool EnableTestingInterrupts { get; set; }
     public bool DumpErrors { get; set; }
@@ -37,12 +37,14 @@ public class CatVM {
         }
     }
 
+    public double SecondsPerCycle => 1 / CyclesPerSecond;
+
     public Dictionary<uint, (Func<CatVM, uint> input, Action<CatVM, uint> output)> SerialDevices { get; } = [];
     
-    public CatVM(int memoryBytes, double instructionsPerSecond, byte[]? rom = null) {
+    public CatVM(int memoryBytes, double cyclesPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
         Rom = rom ?? [];
-        InstructionsPerSecond = instructionsPerSecond;
+        CyclesPerSecond = cyclesPerSecond;
 
         if (memoryBytes < Rom.Length + DisplayBufferSize) {
             throw new Exception($"Not enough memory for Rom and Display Buffer, needed: {Rom.Length+DisplayBufferSize}, got: {memoryBytes}");
@@ -141,43 +143,17 @@ public class CatVM {
         }
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
-
-    public void FastRun() {
-        Runtime.Restart();
-        while (true) {
-            if (Paused) {
-                Thread.Yield();
-                continue;
-            }
-
-            ExecuteInstruction();
-        }
-    }
     
-    public void Run() {
+    public void Run(bool fast = false) {
         Runtime.Restart();
-        double instructionDelay = 1_000_000.0 / InstructionsPerSecond; // in microseconds
-        Stopwatch stopwatch = new();
         
         while (true) {
             if (Paused) {
                 Thread.Yield();
                 continue;
             }
-
-            stopwatch.Restart();
-            ExecuteInstruction();
-            stopwatch.Stop();
-
-            double elapsedMicroseconds = stopwatch.Elapsed.TotalMicroseconds;
-            if (PrintInstructionTimes) {
-                Console.WriteLine("Elapsed: " + elapsedMicroseconds + " us");
-            }
             
-            double sleepTime = instructionDelay - elapsedMicroseconds;
-            if (sleepTime > 0) {
-                Thread.Sleep((int)(sleepTime / 1000.0));
-            }
+            ExecuteInstruction(fast);
         }
     }
 
@@ -187,7 +163,7 @@ public class CatVM {
         }
     }
 
-    public void ExecuteInstruction() {
+    public void ExecuteInstruction(bool fast = false) {
         if (InterruptsEnabled && InterruptQueue.TryDequeue(out byte waitingInterrupt)) {
             HandleInterrupt(waitingInterrupt);
         }
@@ -198,9 +174,12 @@ public class CatVM {
             Interrupt(SpecialInterupts.InvalidInstruction);
             return;
         }
+
+        (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
+        Stopwatch sw = Stopwatch.StartNew();
         
         try {
-            Operations[opcode](this);
+            instruction.executor(this);
         }
         catch (DivideByZeroException e) {
             DumpError(e);
@@ -220,6 +199,15 @@ public class CatVM {
         catch (Exception e) {
             DumpError(e);
             Interrupt(SpecialInterupts.InvalidInstruction);
+        }
+
+        if (PrintInstructionTimes) {
+            Console.WriteLine("Actual OP execution took: " + sw.Elapsed.Microseconds + " us");
+        }
+        
+        // wait the required time
+        if (!fast) {
+            Thread.Sleep(TimeSpan.FromSeconds(SecondsPerCycle * instruction.cycles) - sw.Elapsed);
         }
     }
 
@@ -357,83 +345,83 @@ public class CatVM {
         Cpu = CatCpuState.LoadState(stream);
     }
     
-    public static readonly Action<CatVM>[] Operations = [
-        MovOperation.MovRR,
-        MovOperation.MovRI,
-        MovOperation.MovRRP,
-        MovOperation.MovRIP,
-        MovOperation.MovRPR,
-        MovOperation.MovRPI,
-        MovOperation.MovIPR,
-        MovOperation.MovIPI,
-        MovOperation.SMovRRP,
-        MovOperation.SMovRIP,
-        MovOperation.SMovRPR,
-        MovOperation.SMovRPI,
-        MovOperation.SMovIPR,
-        MovOperation.SMovIPI,
-        MovOperation.BMovRRP,
-        MovOperation.BMovRIP,
-        MovOperation.BMovRPR,
-        MovOperation.BMovRPI,
-        MovOperation.BMovIPR,
-        MovOperation.BMovIPI,
-        AddOperation.AddRR,
-        AddOperation.AddRI,
-        SubOperation.SubRR,
-        SubOperation.SubRI,
-        MulOperation.MulRR,
-        MulOperation.MulRI,
-        MulOperation.IMulRR,
-        MulOperation.IMulRI,
-        DivOperation.DivRR,
-        DivOperation.IDivRR,
-        IntOperation.IntR,
-        IntOperation.IntI,
-        StackOperation.PushR,
-        StackOperation.PushI,
-        StackOperation.Push16R,
-        StackOperation.Push16I,
-        StackOperation.Push8R,
-        StackOperation.Push8I,
-        StackOperation.PopR,
-        StackOperation.Pop16R,
-        StackOperation.Pop8R,
-        OrOperation.OrRR,
-        OrOperation.OrRI,
-        AndOperation.AndRR,
-        AndOperation.AndRI,
-        XorOperation.XorRR,
-        XorOperation.XorRI,
-        NotOperation.NotR,
-        JmpOperation.JmpRI,
-        CmpOperation.CmpRR,
-        CmpOperation.CmpRI,
-        CmpOperation.CmpIR,
-        CmpOperation.CmpII,
-        JmpOperation.JzRI,
-        JmpOperation.JnzRI,
-        JmpOperation.JbRI,
-        JmpOperation.JbeRI,
-        JmpOperation.JaRI,
-        JmpOperation.JaeRI,
-        JmpOperation.JlRI,
-        JmpOperation.JleRI,
-        JmpOperation.JgRI,
-        JmpOperation.JgeRI,
-        StackOperation.Call,
-        StackOperation.Ret,
-        CpyOperation.CpyRR,
-        CpyOperation.CpyRI,
-        CpyOperation.CpyIR,
-        CpyOperation.CpyII,
-        IntOperation.Di,
-        IntOperation.Ei,
-        SerialOperation.InRR,
-        SerialOperation.InRI,
-        SerialOperation.OutRR,
-        SerialOperation.OutRI,
-        SerialOperation.OutIR,
-        SerialOperation.OutII
+    public static readonly (Action<CatVM> executor, int cycles)[] Operations = [
+        (MovOperation.MovRR, 2),
+        (MovOperation.MovRI, 2),
+        (MovOperation.MovRRP, 6),
+        (MovOperation.MovRIP, 5),
+        (MovOperation.MovRPR, 8),
+        (MovOperation.MovRPI, 7),
+        (MovOperation.MovIPR, 7),
+        (MovOperation.MovIPI, 6),
+        (MovOperation.SMovRRP, 6),
+        (MovOperation.SMovRIP, 5),
+        (MovOperation.SMovRPR, 8),
+        (MovOperation.SMovRPI, 7),
+        (MovOperation.SMovIPR, 7),
+        (MovOperation.SMovIPI, 6),
+        (MovOperation.BMovRRP, 6),
+        (MovOperation.BMovRIP, 5),
+        (MovOperation.BMovRPR, 8),
+        (MovOperation.BMovRPI, 7),
+        (MovOperation.BMovIPR, 7),
+        (MovOperation.BMovIPI, 6),
+        (AddOperation.AddRR, 2),
+        (AddOperation.AddRI, 2),
+        (SubOperation.SubRR, 2),
+        (SubOperation.SubRI, 2),
+        (MulOperation.MulRR, 8),
+        (MulOperation.MulRI, 8),
+        (MulOperation.IMulRR, 8),
+        (MulOperation.IMulRI, 8),
+        (DivOperation.DivRR, 32),
+        (DivOperation.IDivRR, 32),
+        (IntOperation.IntR, 64),
+        (IntOperation.IntI, 64),
+        (StackOperation.PushR, 6),
+        (StackOperation.PushI, 6),
+        (StackOperation.Push16R, 6),
+        (StackOperation.Push16I, 6),
+        (StackOperation.Push8R, 6),
+        (StackOperation.Push8I, 6),
+        (StackOperation.PopR, 4),
+        (StackOperation.Pop16R, 4),
+        (StackOperation.Pop8R, 4),
+        (OrOperation.OrRR, 3),
+        (OrOperation.OrRI, 3),
+        (AndOperation.AndRR, 3),
+        (AndOperation.AndRI, 3),
+        (XorOperation.XorRR, 3),
+        (XorOperation.XorRI, 3),
+        (NotOperation.NotR, 2),
+        (JmpOperation.JmpRI, 2),
+        (CmpOperation.CmpRR, 2),
+        (CmpOperation.CmpRI, 2),
+        (CmpOperation.CmpIR, 2),
+        (CmpOperation.CmpII, 2),
+        (JmpOperation.JzRI, 3),
+        (JmpOperation.JnzRI, 3),
+        (JmpOperation.JbRI, 3),
+        (JmpOperation.JbeRI, 3),
+        (JmpOperation.JaRI, 3),
+        (JmpOperation.JaeRI, 3),
+        (JmpOperation.JlRI, 3),
+        (JmpOperation.JleRI, 3),
+        (JmpOperation.JgRI, 3),
+        (JmpOperation.JgeRI, 3),
+        (StackOperation.Call, 6),
+        (StackOperation.Ret, 4),
+        (CpyOperation.CpyRR, 256),
+        (CpyOperation.CpyRI, 256),
+        (CpyOperation.CpyIR, 256),
+        (CpyOperation.CpyII, 256),
+        (IntOperation.Di, 2),
+        (IntOperation.Ei, 2),
+        (SerialOperation.InRR, 12),
+        (SerialOperation.InRI, 12),
+        (SerialOperation.OutRR, 12),
+        (SerialOperation.OutRI, 12),
+        (SerialOperation.OutIR, 12),
+        (SerialOperation.OutII, 12)
     ];
 }

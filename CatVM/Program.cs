@@ -82,12 +82,7 @@ CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
 renderer.Initialize(vm);
 _ = renderer.Start(vm);
 
-if (fastRun) {
-    vm.FastRun();
-}
-else {
-    vm.Run();
-}
+vm.Run(fastRun);
 
 // should never exit
 Console.WriteLine("Exited?");
