@@ -17,16 +17,18 @@ public class LineIterator : IEnumerable<string>, IDisposable {
     }
     
     public IEnumerator<string> GetEnumerator() {
-        InternalLineIterator enumerator = files[^1];
-        while (enumerator.File.MoveNext()) {
-            yield return enumerator.File.Current;
-            enumerator.LineNum++;
+        while (files.Count > 0) {
+            InternalLineIterator enumerator = files[^1];
+            while (enumerator.File.MoveNext()) {
+                yield return enumerator.File.Current;
+                enumerator.LineNum++;
             
-            enumerator = files[^1];
-        }
+                enumerator = files[^1];
+            }
         
-        files.RemoveAt(files.Count - 1);
-        enumerator.File.Dispose();
+            files.RemoveAt(files.Count - 1);
+            enumerator.File.Dispose();   
+        }
     }
 
     IEnumerator IEnumerable.GetEnumerator() {

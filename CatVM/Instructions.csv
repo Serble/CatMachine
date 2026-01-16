@@ -64,10 +64,10 @@ OP Code,Instruction,Args,Description
 3e,JIGE,"r, i",Signed >=
 3f,CALL,"r, i",
 40,RET, ,
-41,CPY,"rp, rp","source, length, r0 = destination"
-42,CPY,"rp, ip",
-43,CPY,"ip, rp",
-44,CPY,"ip, ip",
+41,CPY,"r, r","source addr, length, r0 = destination addr"
+42,CPY,"r, i",
+43,CPY,"i, r",
+44,CPY,"i, i",
 45,DI, ,Disable interrupts
 46,EI, ,Enable interrupts
 47,IN,"r, r","output reg, port"

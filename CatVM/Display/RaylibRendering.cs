@@ -5,7 +5,7 @@ using Raylib_cs;
 namespace CatVM.Display;
 
 public class RaylibRendering : IRenderer {
-    private Queue<uint> _serialQueue = [];
+    private readonly Queue<uint> _serialQueue = [];
     
     public void Initialize(CatVM vm) {
         
@@ -28,6 +28,25 @@ public class RaylibRendering : IRenderer {
             if (!vm.MemoryHandle.HasValue) {
                 throw new Exception("Memory not initialized.");
             }
+            
+            Shader shader = Raylib.LoadShaderFromMemory(null, 
+                """
+                      #version 330
+                      
+                      in vec2 fragTexCoord;
+                      
+                      out vec4 finalColor;
+                      
+                      uniform sampler2D shaderData;
+                      
+                      vec3 frag() {
+                          return texture(shaderData, fragTexCoord).bgr;
+                      }
+                      
+                      void main() {
+                          finalColor = vec4(frag(), 1.0);
+                      }
+                      """);
 
             Image image;
             unsafe {
@@ -45,41 +64,43 @@ public class RaylibRendering : IRenderer {
             HashSet<KeyboardKey> pressedKeys = [];
 
             while (true) {
-                unsafe {
-                    if (Raylib.WindowShouldClose()) {
-                        // close window
-                        Raylib.CloseWindow();
-                        Environment.Exit(0);
-                    }
-
-                    pressedKeys.RemoveWhere(key => {
-                        if (!Raylib.IsKeyUp(key)) {
-                            return false;
-                        }
-                        
-                        SendInput(vm, 0, 1, (uint)key);
-                        return true;
-                    });
-                    
-                    while (true) {
-                        int key = Raylib.GetKeyPressed();
-                        if (key == 0) {
-                            break;
-                        }
-
-                        pressedKeys.Add((KeyboardKey) key);
-                        SendInput(vm, 0, 0, (uint)key);
-                    }
-
-                    Raylib.UpdateTexture(texture, (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (int)vm.DisplayBufferOffset).ToPointer());
-        
-                    Raylib.BeginDrawing();
-                    Raylib.ClearBackground(Color.Black);
-
-                    Raylib.DrawTexture(texture, 0, 0, Color.White);
-        
-                    Raylib.EndDrawing();
+                if (Raylib.WindowShouldClose()) {
+                    // close window
+                    Raylib.CloseWindow();
+                    Environment.Exit(0);
                 }
+
+                pressedKeys.RemoveWhere(key => {
+                    if (!Raylib.IsKeyUp(key)) {
+                        return false;
+                    }
+                        
+                    SendInput(vm, 0, 1, (uint)key);
+                    return true;
+                });
+                    
+                while (true) {
+                    int key = Raylib.GetKeyPressed();
+                    if (key == 0) {
+                        break;
+                    }
+
+                    pressedKeys.Add((KeyboardKey) key);
+                    SendInput(vm, 0, 0, (uint)key);
+                }
+
+                unsafe {
+                    Raylib.UpdateTexture(texture, (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (int)vm.DisplayBufferOffset).ToPointer());
+                }
+        
+                Raylib.BeginDrawing();
+                Raylib.ClearBackground(Color.Black);
+
+                Raylib.BeginShaderMode(shader);
+                Raylib.DrawTexture(texture, 0, 0, Color.White);
+                
+                Raylib.EndShaderMode();
+                Raylib.EndDrawing();
             }
         }));
     }

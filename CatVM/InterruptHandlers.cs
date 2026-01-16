@@ -4,8 +4,7 @@ public static class InterruptHandlers {
 
     // pointer to c style string in r1
     public static void PrintInterrupt(CatVM vm) {
-        uint strPtr = vm.Cpu.Get(1);
-        string message = vm.ReadString(strPtr);
+        string message = vm.ReadString(vm.Cpu.R1);
         Console.Write(message);
     }
     
@@ -24,11 +23,15 @@ public static class InterruptHandlers {
     
     public static void GetDisplayBufferInterrupt(CatVM vm) {
         // return pointer to display buffer in r1
-        vm.Cpu.Set(0, vm.DisplayBufferOffset);
+        vm.Cpu.R0 = vm.DisplayBufferOffset;
     }
 
     public static void PrintNumInterrupt(CatVM vm) {
-        Console.WriteLine(vm.Cpu.Get(1));
+        Console.WriteLine(vm.Cpu.R1);
+    }
+
+    public static void GetUptimeInterrupt(CatVM vm) {
+        vm.Cpu.R0 = (uint)vm.Runtime.ElapsedMilliseconds;
     }
 
     public static void DefaultHandler(CatVM vm, byte opcode) {

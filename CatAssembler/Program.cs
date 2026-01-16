@@ -30,7 +30,14 @@ class Program {
     public static readonly FileStream File = System.IO.File.Open("a.out", FileMode.Create, FileAccess.Write);
 
     private static int Main(string[] args) {
-        iterator = new LineIterator(args[0]);
+        if (args.Length == 0) {
+            Console.WriteLine("Usage: ./CatAssembler <main asm file>");
+            return 2;
+        }
+        
+        Directory.SetCurrentDirectory(Path.GetFullPath(Path.GetDirectoryName(args[0])!));
+        
+        iterator = new LineIterator(Path.GetFileName(args[0]));
         int ret = Run();
         iterator.Dispose();
         return ret;
@@ -265,15 +272,6 @@ class Program {
                         return 1;
                     }
                     
-                    if (split[1][0] != '@' || split[2][0] != '@') {
-                        Console.WriteLine(LineNum + ": All arguments in cpy must be a pointer");
-                        return 1;
-                    }
-
-                    // remove pointers
-                    split[1] = split[1][1..];
-                    split[2] = split[2][1..];
-
                     ParseTwoArgs.Parse(split, 0x41, true);
                     break;
                 }
@@ -480,7 +478,8 @@ class Program {
                 }
             }
         }
-
+        
+        Console.WriteLine("Exiting");
         if (NeededLabels.Count != 0) {
             Console.WriteLine(GetNeededLabelsString(NeededLabels));
             return 1;

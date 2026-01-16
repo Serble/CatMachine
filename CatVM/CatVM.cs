@@ -15,17 +15,29 @@ public class CatVM {
     public byte[] Rom { get; set; }
     public bool InterruptsEnabled { get; set; } = true;
     public double InstructionsPerSecond { get; set; }
-    public bool Paused { get; set; }
     public bool PrintInstructionTimes { get; set; }
     public bool EnableTestingInterrupts { get; set; }
     public bool DumpErrors { get; set; }
     public uint DisplayBufferOffset { get; set; }
     public GCHandle? MemoryHandle { get; private set; }
     public Queue<byte> InterruptQueue { get; } = [];
+    public Stopwatch Runtime { get; } = new();
     public CatCpuState Cpu;
     private readonly int _memoryBytes;
+    
+    public bool Paused {
+        get;
+        set {
+            field = value;
+            if (value) {
+                Runtime.Stop();
+            } else {
+                Runtime.Start();
+            }
+        }
+    }
 
-    public Dictionary<uint, (Func<CatVM, uint> input, Action<CatVM, uint> output)> SerialDevices = [];
+    public Dictionary<uint, (Func<CatVM, uint> input, Action<CatVM, uint> output)> SerialDevices { get; } = [];
     
     public CatVM(int memoryBytes, double instructionsPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
@@ -131,6 +143,7 @@ public class CatVM {
     }
 
     public void FastRun() {
+        Runtime.Restart();
         while (true) {
             if (Paused) {
                 Thread.Yield();
@@ -142,6 +155,7 @@ public class CatVM {
     }
     
     public void Run() {
+        Runtime.Restart();
         double instructionDelay = 1_000_000.0 / InstructionsPerSecond; // in microseconds
         Stopwatch stopwatch = new();
         
@@ -244,6 +258,12 @@ public class CatVM {
             case 0x84: {
                 // get display buffer
                 InterruptHandlers.GetDisplayBufferInterrupt(this);
+                return;
+            }
+            
+            case 0x85: {
+                // get uptime
+                InterruptHandlers.GetUptimeInterrupt(this);
                 return;
             }
             
