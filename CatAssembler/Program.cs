@@ -34,10 +34,11 @@ class Program {
             Console.WriteLine("Usage: ./CatAssembler <main asm file>");
             return 2;
         }
+
+        string path = Path.Join(".", args[0]);
+        Directory.SetCurrentDirectory(Path.GetFullPath(Path.GetDirectoryName(path)!));
         
-        Directory.SetCurrentDirectory(Path.GetFullPath(Path.GetDirectoryName(args[0])!));
-        
-        iterator = new LineIterator(Path.GetFileName(args[0]));
+        iterator = new LineIterator(Path.GetFileName(path));
         int ret = Run();
         iterator.Dispose();
         return ret;
