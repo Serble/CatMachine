@@ -65,13 +65,18 @@ main:
     mov r7, r0
     
     call read_inputs            ; get all user inputs
+    call process_movement
     
-    mov8 r1, @held_left
-    mov8 r2, @held_right
-    sub r2, r1                  ; calculate x change
-    mov r1, @player_x
-    add r1, r2
-    mov @player_x, r1
+    ;mov r1, 999
+    ;int 0x90
+    ;mov r1, @player_x
+    ;int 0x90
+    ;mov r1, @last_draw_player_x
+    ;int 0x90
+    ;mov r1, @player_y
+    ;int 0x90
+    ;mov r1, @last_draw_player_y
+    ;int 0x90
     
     call redraw_player          ; remove and redraw player in new pos
     
@@ -84,16 +89,36 @@ main:
     mov r1, r0
     ;int 0x90                    ; print frame time in ms
     
-    cmp r0, 32                  ; compare to target time (1/60 * 1000) for 60fps
+    cmp r0, 16                  ; compare to target time (1/60 * 1000) for 60fps
     juge .goodtiming            ; if it took 16 or longer then skip waiting
     
     ; wait some time to make it 60fps
-    mov r1, 32
+    mov r1, 16
     sub r1, r0                  ; 16 - time taken ms = time to wait for
     call sleep
     
-.goodtiming:
+.goodtiming:                    ; not really 'good' timing, more like not ahead
     jmp .loop
+
+
+process_movement:
+    mov8 r1, @held_left
+    mov8 r2, @held_right
+    sub r2, r1                  ; calculate x change
+    ;mov r1, r2 ;dbg
+    ;int 0x90   ;dbg
+    mov r1, @player_x
+    add r1, r2
+    
+    cmp r1, 0          ; if it's higher than this it's negative
+    jige .goodx
+    
+    ; bad
+    mov r1, 0
+.goodx:
+    mov @player_x, r1
+    ;int 0x90
+    ret
 
 
 redraw_player:
@@ -157,22 +182,34 @@ read_inputs:
     ret
 
 
+wat:
+    mov r1, 69696969
+    int 0x90
+    jmp hang
+
+hang:
+    jmp hang
+
+
 ; paint background colour over where the player is
 unrender_player:
     int 0x84                    ; buffer in r0
 
-    mov r1, @last_draw_player_y           ; player start y
-    mov r2, @last_draw_player_x           ; player start x
+    mov r1, @last_draw_player_y ; player start y
+    mov r2, @last_draw_player_x ; player start x
     
-    umul r1, 2048               ; make it offset to start of row
+    umul r1, 2048               ; make it offset to start of row (512x4)
     add r0, r1                  ; add it
     umul r2, 4
     add r0, r2                  ; now we're at the correct start of img area
     
+    cmp r0, 0x10255A
+    jul wat
+    
     mov r1, r0                  ; r1 can be start of first row
     mov r2, r1                  ; current pos in row
     mov r3, r2
-    add r3, 128                 ; end pos
+    add r3, 128                 ; end pos (32x4)
     
 .firstrowloop:
     mov @r2, 0x365235           ; draw
