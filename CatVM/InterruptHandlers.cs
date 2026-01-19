@@ -34,6 +34,10 @@ public static class InterruptHandlers {
         vm.Cpu.R0 = (uint)vm.Runtime.ElapsedMilliseconds;
     }
 
+    public static void UpdateDisplayInterrupt(CatVM vm) {
+        vm.UpdateDisplay();
+    }
+
     public static void DefaultHandler(CatVM vm, byte opcode) {
         if (opcode >= 0x10) return;  // ignore non errors
         

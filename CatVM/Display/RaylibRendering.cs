@@ -63,6 +63,12 @@ public class RaylibRendering : IRenderer {
 
             HashSet<KeyboardKey> pressedKeys = [];
 
+            // make sure we update when program asks for it
+            bool update = false;
+            vm.UpdateDisplayEvent += () => {
+                update = true;
+            };
+
             while (true) {
                 if (Raylib.WindowShouldClose()) {
                     // close window
@@ -88,9 +94,10 @@ public class RaylibRendering : IRenderer {
                     pressedKeys.Add((KeyboardKey) key);
                     SendInput(vm, 0, 0, (uint)key);
                 }
-
-                unsafe {
+                
+                if (update) unsafe {
                     Raylib.UpdateTexture(texture, (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (int)vm.DisplayBufferOffset).ToPointer());
+                    update = false;
                 }
         
                 Raylib.BeginDrawing();

@@ -22,6 +22,7 @@ public class CatVM {
     public GCHandle? MemoryHandle { get; private set; }
     public Queue<byte> InterruptQueue { get; } = [];
     public Stopwatch Runtime { get; } = new();
+    public event Action UpdateDisplayEvent = null!;  // Event for when the program requests the display to update
     public CatCpuState Cpu;
     private readonly int _memoryBytes;
     
@@ -256,6 +257,12 @@ public class CatVM {
                 InterruptHandlers.GetUptimeInterrupt(this);
                 return;
             }
+
+            case 0x86: {
+                // update display
+                InterruptHandlers.UpdateDisplayInterrupt(this);
+                break;
+            }
             
             case 0x90 when EnableTestingInterrupts: {
                 // print number
@@ -335,6 +342,10 @@ public class CatVM {
         ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Sp);
         Cpu.Sp += 2;
         return value;
+    }
+
+    public void UpdateDisplay() {
+        UpdateDisplayEvent();
     }
 
     public void SaveState(Stream stream) {

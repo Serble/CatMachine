@@ -80,6 +80,9 @@ main:
     
     call redraw_player          ; remove and redraw player in new pos
     
+    ; THIS IS END OF FRAME STUFF
+    int 0x86                    ; tell screen to update
+    
     ; now that we've done everything for this frame
     ; let's wait until the next frame needs to run
     int 0x85

@@ -22,4 +22,5 @@ f,RESERVED,,,
 83,Reset,,false,Restart (ip=0)
 84,Get Display Buf Start,,false,Returns the start address of the display buffer in r0
 85,Get Uptime MSEC,,false,Returns the uptime in milliseconds in r0
+86,Refresh Screen,,false,Update the display with new data in the display buffer
 90,DEBUG: Print Number,r1 - number to print,false,"Prints a number with a \n, only possible in debug mode"
