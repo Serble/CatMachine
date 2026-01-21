@@ -435,6 +435,7 @@ public class CatVM {
         (SerialOperation.OutRR, 12),
         (SerialOperation.OutRI, 12),
         (SerialOperation.OutIR, 12),
-        (SerialOperation.OutII, 12)
+        (SerialOperation.OutII, 12),
+        (NopOperation.Nop, 1)
     ];
 }

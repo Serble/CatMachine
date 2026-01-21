@@ -76,3 +76,4 @@ OP Code,Instruction,Args,Description
 4a,OUT,"r, i",
 4b,OUT,"i, r",
 4c,OUT,"i, i",
+4d,NOP, ,Do nothing for 1 cycle

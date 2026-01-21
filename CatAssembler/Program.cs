@@ -266,6 +266,11 @@ class Program {
                     if (ParseNoArgs.Parse(split, 0x46)) break;
                     return 1;
                 }
+                
+                case "nop": {
+                    if (ParseNoArgs.Parse(split, 0x4d)) break;
+                    return 1;
+                }
 
                 case "cpy": {
                     if (split.Length != 3) {

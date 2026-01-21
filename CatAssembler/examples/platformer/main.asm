@@ -66,7 +66,9 @@ main:
     
     call read_inputs            ; get all user inputs
     call process_movement
+    call process_physics
     
+    ;  DEBUGGING STATEMENTS
     ;mov r1, 999
     ;int 0x90
     ;mov r1, @player_x
@@ -121,6 +123,11 @@ process_movement:
 .goodx:
     mov @player_x, r1
     ;int 0x90
+    ret
+
+
+process_physics:
+    nop
     ret
 
 
