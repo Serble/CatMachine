@@ -21,7 +21,7 @@ square_collides:
     mov r5, r2                  ; y pos
     mov r6, r3                  ; width
     mov r7, sp
-    add r7, 16                  ; 4x4=16 bytes to height
+    add r7, 20                  ; 4x5=20 bytes to height (4 reg + ret addr)
     mov r7, @r7                 ; height
     
     ; the strat here will be to check each corner of the square with
@@ -33,7 +33,8 @@ square_collides:
     je .done
     
     mov r1, r4
-    add r1, r6                  ; x + width = right
+    add r1, r6                  ; x + width - 1 = right
+    sub r1, 1
     mov r2, r5
     call point_collides         ; top right
     cmp r0, 1
@@ -41,15 +42,18 @@ square_collides:
     
     mov r1, r4
     mov r2, r5
-    add r2, r7                  ; y + height = bottom
+    add r2, r7                  ; y + height - 1 = bottom
+    sub r2, 1
     call point_collides         ; bottom left
     cmp r0, 1
     je .done
     
     mov r1, r4
     add r1, r6
+    sub r1, 1
     mov r2, r5
     add r2, r7
+    sub r2, 1
     call point_collides         ; bottom right
     cmp r0, 1
     je .done
@@ -78,7 +82,7 @@ point_collides:
     udiv r2, r3                 ; r2 is tilemap y
     
     ; now we just query the tile
-    mov r3, current_level
+    mov r3, @current_level
     umul r3, 256                ; 16x16 tiles, r3 is now offset from levels label
     mov r4, levels
     add r4, r3                  ; r4 is start of map
@@ -87,7 +91,7 @@ point_collides:
     add r4, r2
     add r4, r1                  ; and now r4 is tile value pointer
     mov r0, 0
-    mov8 r0, @r4                ; actual value in r1
+    mov8 r0, @r4                ; actual value in r0
     
     cmp r0, 0
     je .done                    ; it's false
@@ -98,6 +102,25 @@ point_collides:
     ret
 
 
+; checks whether the player is on the ground
+; r0 returns 1 if yes, 0 is no
+is_on_ground:
+    ; the premise here is we're going to check if they'd be colliding
+    ; if they were 1 y level down. if they would be then they must
+    ; be on the ground.
+    mov r1, @player_x           ; x
+    mov r2, @player_y           ; y
+    add r2, 1
+    mov r3, 32                  ; width
+    push 32                     ; height
+    
+    call square_collides        ; places our answer in r0
+    
+    add sp, 4                   ; restore arg space
+    ret
+
+
+; WIP
 process_physics:
     push r7
     push r6
@@ -107,10 +130,28 @@ process_physics:
     mov r1, @player_y
     mov r2, @player_x
     
-    ; are we at 0, let's say that the bottom kills you
+    ; let's say that the bottom kills you
     mov r1, @player_y
-    cmp r1, 512
-    ;juge game_over
+    cmp r1, 480                 ; 512-32=bottom of player touching bottom
+    juge game_over
+    
+    ; let's apply gravity velocity
+    call is_on_ground
+    mov r1, r0
+    int 0x90                    ; TODO: dbg print on ground status
+    
+    mov r1, 0                   ; r1 will be target y velocity
+    cmp r0, 0                   ; 0 means in air (apply gravity)
+    jne .donegravity
+    mov r1, 1
+.donegravity:
+    mov @vel_y, r1              ; actually set the velocity
+    
+    ; apply velocity
+    mov r1, @vel_y              ; I know this is dumb, in the future other things will affect velocity
+    mov r2, @player_y
+    add r2, r1
+    mov @player_y, r2
     
 .end:
     pop r4

@@ -45,6 +45,8 @@ held_up:
     d8 0
 held_down:
     d8 0
+disp_buff:
+    d32 0
 
 ; =================
 ; Code section
@@ -55,6 +57,12 @@ held_down:
 #include rendering.asm
 
 main:
+    ; load the display buffer into memory
+    ; we do this because memory loads are 
+    ; much faster than interrupts.
+    int 0x84
+    mov @disp_buff, r0
+    
     ; show title screen
     mov r1, title_screen
     call draw_screen
