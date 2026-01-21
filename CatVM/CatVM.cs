@@ -22,7 +22,7 @@ public class CatVM {
     public GCHandle? MemoryHandle { get; private set; }
     public Queue<byte> InterruptQueue { get; } = [];
     public Stopwatch Runtime { get; } = new();
-    public event Action UpdateDisplayEvent = null!;  // Event for when the program requests the display to update
+    public event Action? UpdateDisplayEvent;  // Event for when the program requests the display to update
     public CatCpuState Cpu;
     private readonly int _memoryBytes;
     
@@ -145,10 +145,10 @@ public class CatVM {
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
     
-    public void Run(bool fast = false) {
+    public void Run(bool fast = false, CancellationToken? cancellationToken = null) {
         Runtime.Restart();
         
-        while (true) {
+        while (cancellationToken is not { IsCancellationRequested: true }) {
             if (Paused) {
                 Thread.Yield();
                 continue;
@@ -345,7 +345,7 @@ public class CatVM {
     }
 
     public void UpdateDisplay() {
-        UpdateDisplayEvent();
+        UpdateDisplayEvent?.Invoke();
     }
 
     public void SaveState(Stream stream) {

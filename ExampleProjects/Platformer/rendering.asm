@@ -1,27 +1,115 @@
+; ====================================
+;      Rendering Utils/Routines
+;
+; This file contains all the code that
+; actually writes to the display buffer.
+; ====================================
 
-; ms in r1
-sleep:
-    int 0x85              ; uptime in r0
-    mov r2, r0            ; current time
-    add r2, r1            ; r2 is target time
-.loop:
-    int 0x85
-    cmp r0, r2
-    jul .loop
+
+; draws a level to the screen (excluding player)
+; level in r1 (index)
+draw_level:
+    ; prologue
+    push r4                    ; current tile pointer
+    push r5                    ; y iterator
+    push r6                    ; x iterator
+    push r7                    ;
+    
+    mov r4, r1
+    umul r4, 256               ; r4 is now offset from levels
+    add r4, levels             ; and now a pointer to the level data
+    mov r5, 0                  ; current y
+.yloop:
+    mov r6, 0                  ; current x
+.xloop:
+    ; draw this tile (the type is at r4)
+    mov r7, 0
+    mov8 r7, @r4
+    cmp r7, 0
+    je .dontdraw               ; nothing there
+    
+    ; okay there's something there
+    mov r1, r6                 ; current x position
+    umul r1, 32                ; current x pixel
+    
+    mov r2, r5                 ; current y position
+    umul r2, 32                ; current y pixel
+    
+    mov r3, 32                 ; width
+    push 32                    ; height
+    push platform              ; data
+    call draw_rect
+    add sp, 8                  ; remove args from stack
+.dontdraw:
+    add r4, 1                  ; go to next tile in level data
+    
+    add r6, 1
+    cmp r6, 16
+    jul .xloop
+    
+    ; done this row
+    add r5, 1
+    cmp r5, 16
+    jul .yloop
+    
+    ; epilogue
+    pop r7
+    pop r6
+    pop r5
+    pop r4
+    ret
+
+
+; paint background colour over where the player is
+unrender_player:
+    int 0x84                    ; buffer in r0
+
+    mov r1, @last_draw_player_y ; player start y
+    mov r2, @last_draw_player_x ; player start x
+    
+    umul r1, 2048               ; make it offset to start of row (512x4)
+    add r0, r1                  ; add it
+    umul r2, 4
+    add r0, r2                  ; now we're at the correct start of img area
+    
+    cmp r0, 0x10255A
+    jul wat
+    
+    mov r1, r0                  ; r1 can be start of first row
+    mov r2, r1                  ; current pos in row
+    mov r3, r2
+    add r3, 128                 ; end pos (32x4)
+.firstrowloop:
+    mov @r2, 0x365235           ; draw
+    add r2, 4
+    cmp r2, r3
+    jul .firstrowloop
+    
+    ; okay we did it, copy this row a bunch of times
+    
+    ; setup row loop
+    ; we're going to be copying
+    mov r3, 1                   ; rows done
+.rowloop:
+    cpy r1, 128                 ; copy row to destination in r0
+    add r0, 2048
+    add r3, 1
+    cmp r3, 32                  ; have we made it to 32 rows?
+    jule .rowloop
     
     ; done
     ret
 
 
-; busy wait until input is available
-wait_for_input:
-.loop:
-    in r1, 0
-    cmp r1, -1
-    je .loop
-    ; got it, drain rest of input data
-    in r1, 0
-    in r1, 0
+; draw the player at their current position
+render_player:
+    mov r1, @player_x
+    mov r2, @player_y
+    mov r3, 32
+    push 32
+    push player
+    call draw_recta
+    add sp, 8
     ret
 
 
@@ -115,6 +203,8 @@ draw_rect:
 
 
 ; draws a rectangle of data with transparency onto the screen
+; PARTIAL TRANSPARENCY IS NOT SUPPORTED AND WILL BE TREATED
+; AS OPAQUE.
 ; x in r1
 ; y in r2
 ; w in r3
@@ -155,7 +245,6 @@ draw_recta:
     
     mov r1, @r5         ; reload data
     mov @r0, r1         ; and put that in the buffer
-    
 .finisheddraw:
     add r0, 4           ; move the next pixel
     add r5, 4           ; on the data pointer as well

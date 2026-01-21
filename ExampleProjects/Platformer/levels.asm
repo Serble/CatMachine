@@ -1,3 +1,15 @@
+; ====================================
+;            Level Data
+;
+; Each level is a 16x16 byte map, where
+; 0: Empty
+; 1: Wall
+; 
+; Each level is back to back so you can
+; offset 'levels' by 256xlevel to get
+; a pointer to the level you want.
+; No need for separate labels.
+; ====================================
 
 levels:
     

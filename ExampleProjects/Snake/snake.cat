@@ -34,6 +34,8 @@ loop:
     mov @r0, 0xFF0000FF ; red
     ; int 0x81
     
+    int 0x86  ; update screen
+    
     jmp loop
 
 handle_input:

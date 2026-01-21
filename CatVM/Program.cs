@@ -82,7 +82,8 @@ CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
 renderer.Initialize(vm);
 _ = renderer.Start(vm);
 
-vm.Run(fastRun);
+CancellationTokenSource cts = new();
+Console.CancelKeyPress += (_, _) => cts.Cancel();
 
-// should never exit
-Console.WriteLine("Exited?");
+vm.Run(fastRun, cts.Token);
+Console.WriteLine("Goodbye!");
