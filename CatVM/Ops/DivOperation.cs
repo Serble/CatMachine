@@ -10,8 +10,7 @@ public static class DivOperation {
         byte remReg = vm.Read8();
         uint dividend = vm.Cpu.Get(destReg);
         uint divisor = vm.Cpu.Get(remReg);
-        uint quotient = dividend / divisor;
-        uint remainder = dividend % divisor;
+        (uint quotient, uint remainder) = Divide(dividend, divisor);
         vm.Cpu.Set(destReg, quotient);
         vm.Cpu.Set(remReg, remainder);
     }
@@ -21,9 +20,24 @@ public static class DivOperation {
         byte remReg = vm.Read8();
         int dividend = (int)vm.Cpu.Get(destReg);
         int divisor = (int)vm.Cpu.Get(remReg);
-        int quotient = dividend / divisor;
-        int remainder = dividend % divisor;
-        vm.Cpu.Set(destReg, (uint)quotient);
-        vm.Cpu.Set(remReg, (uint)remainder);
+        (uint quotient, uint remainder) = Divide(dividend, divisor);
+        vm.Cpu.Set(destReg, quotient);
+        vm.Cpu.Set(remReg, remainder);
+    }
+
+    private static (uint quotient, uint remainder) Divide(uint dividend, uint divisor) {
+        if (dividend == 0) {
+            return (0, 0);
+        }
+        
+        return (dividend / divisor, dividend % divisor);
+    }
+    
+    private static (uint quotient, uint remainder) Divide(int dividend, int divisor) {
+        if (dividend == 0) {
+            return (0, 0);
+        }
+        
+        return ((uint)(dividend / divisor), (uint)(dividend % divisor));
     }
 }
