@@ -427,6 +427,31 @@ class Program {
                     iterator.AddFile(split[1]);
                     break;
                 }
+                
+                case "#const": {
+                    if (split.Length != 3) {
+                        Console.WriteLine(LineNum + ": #const must have 2 arguments");
+                        return 1;
+                    }
+
+                    if (RegisterToId.ContainsKey(split[1]) || split[1].Length == 0 || "0123456789".Contains(split[1][0])) {
+                        Console.WriteLine(LineNum + ": constant cannot be a register, empty, or start with a number");
+                        return 1;
+                    }
+
+                    if (Labels.ContainsKey(split[1])) {
+                        Console.WriteLine(LineNum + ": constant " + split[1] + " already exists");
+                        return 1;
+                    }
+
+                    if (!Util.Parse32Int(split[2], out uint value)) {
+                        Console.WriteLine(LineNum + ": constant value must be an integer");
+                        return 1;
+                    }
+
+                    Labels[split[1]] = value;
+                    break;
+                }
 
                 default: {
                     // is it a label

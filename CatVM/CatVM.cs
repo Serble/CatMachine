@@ -58,13 +58,14 @@ public class CatVM {
         Cpu = new CatCpuState();
         if (!preserveMem) {
             MemoryHandle?.Free();   // Release old memory array
+            MemoryHandle = null;
             Memory = new byte[_memoryBytes];
             MemoryHandle = GCHandle.Alloc(Memory, GCHandleType.Pinned);
-            
-            // get offset for display buffer (it will go at the end of memory)
-            DisplayBufferOffset = (uint)(_memoryBytes - DisplayBufferSize);
-            Cpu.Sp = DisplayBufferOffset;  // end of regular memory (non display buffer)
         }
+        
+        // get offset for display buffer (it will go at the end of memory)
+        DisplayBufferOffset = (uint)(_memoryBytes - DisplayBufferSize);
+        Cpu.Sp = DisplayBufferOffset;  // end of regular memory (non display buffer)
         
         if (Rom.Length > 0) {
             LoadData(Rom);
@@ -174,7 +175,7 @@ public class CatVM {
         try {
             byte opcode = Read8();
 
-            if (opcode > Operations.Length) {
+            if (opcode >= Operations.Length) {
                 Interrupt(SpecialInterupts.InvalidInstruction);
                 return;
             }
@@ -261,7 +262,7 @@ public class CatVM {
             case 0x86: {
                 // update display
                 InterruptHandlers.UpdateDisplayInterrupt(this);
-                break;
+                return;
             }
             
             case 0x90 when EnableTestingInterrupts: {
@@ -327,18 +328,27 @@ public class CatVM {
     }
     
     public uint StackPop() {
+        if (Cpu.Sp + 4 > Memory.Length) {
+            throw new MemoryOutOfRange(Cpu.Sp + 4);
+        }
         uint value = BitConverter.ToUInt32(Memory, (int)Cpu.Sp);
         Cpu.Sp += 4;
         return value;
     }
     
     public byte StackPop8() {
+        if (Cpu.Sp + 1 > Memory.Length) {
+            throw new MemoryOutOfRange(Cpu.Sp + 1);
+        }
         byte value = Memory[Cpu.Sp];
         Cpu.Sp += 1;
         return value;
     }
     
     public ushort StackPop16() {
+        if (Cpu.Sp + 2 > Memory.Length) {
+            throw new MemoryOutOfRange(Cpu.Sp + 2);
+        }
         ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Sp);
         Cpu.Sp += 2;
         return value;
