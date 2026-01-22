@@ -35,8 +35,8 @@ class Program {
             return 2;
         }
 
-        string path = Path.Join(".", args[0]);
-        Directory.SetCurrentDirectory(Path.GetFullPath(Path.GetDirectoryName(path)!));
+        string path = args[0];
+        Directory.SetCurrentDirectory(Path.GetFullPath(Path.GetDirectoryName(path) ?? "."));
         
         iterator = new LineIterator(Path.GetFileName(path));
         int ret = Run();
@@ -328,7 +328,8 @@ class Program {
                 }
 
                 case "dstr": {
-                    string str = line[(line.IndexOf(' ') + 1)..];
+                    string str = line.Trim();
+                    str = str[(str.IndexOf(' ') + 1)..];
                     StringBuilder output = new();
                     for (int i = 0; i < str.Length;) {
                         if (str[i] != '\\') {
