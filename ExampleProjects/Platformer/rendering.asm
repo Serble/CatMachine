@@ -67,20 +67,26 @@ unrender_player:
     mov r1, @last_draw_player_y ; player start y
     mov r2, @last_draw_player_x ; player start x
     
+    ; sanity check
+    cmp r1, SCREEN_HEIGHT
+    juge panic                  ; negatives will also trigger this (unsigned compare)
+    cmp r2, SCREEN_WIDTH
+    juge panic
+    
     umul r1, 2048               ; make it offset to start of row (512x4)
     add r0, r1                  ; add it
     umul r2, 4
     add r0, r2                  ; now we're at the correct start of img area
     
     cmp r0, 0x10255A
-    jul wat                     ; this means that the buffer is in the code?
+    jul panic                   ; this means that the buffer is in the code?
     
     mov r1, r0                  ; r1 can be start of first row
     mov r2, r1                  ; current pos in row
     mov r3, r2
     add r3, 128                 ; end pos (32x4)
 .firstrowloop:
-    mov @r2, 0x365235           ; draw
+    mov @r2, BACKGROUND_COLOUR  ; draw
     add r2, 4
     cmp r2, r3
     jul .firstrowloop
@@ -127,7 +133,8 @@ draw_screen:
 fill_screen:
     push r4
     
-    mov r4, @disp_buff     ; place buffer start in r4 (to never change)
+    mov r0, @disp_buff     ; start of buffer (to change)
+    mov r4, r0             ; place buffer start in r4 (to never change)
     mov r2, 0x100000       ; buffer size
     
     ; fill one pixel so we can copy
@@ -169,6 +176,16 @@ draw_rect:
     add r0, 4           ; move one back to height value
     mov r4, @r0         ; place in r4
     add r4, r2
+    
+    ; sanity check parameters
+    cmp r1, SCREEN_WIDTH
+    juge panic
+    cmp r2, SCREEN_HEIGHT
+    juge panic
+    cmp r3, SCREEN_WIDTH
+    juge panic
+    cmp r4, SCREEN_HEIGHT
+    juge panic
     
     mov r0, @disp_buff
     
@@ -222,6 +239,16 @@ draw_recta:
     mov r5, @r0         ; place in r5
     add r0, 4           ; move one back to height value
     mov r4, @r0         ; place in r4
+    
+    ; sanity check parameters
+    cmp r1, SCREEN_WIDTH
+    juge panic
+    cmp r2, SCREEN_HEIGHT
+    juge panic
+    cmp r3, SCREEN_WIDTH
+    juge panic
+    cmp r4, SCREEN_HEIGHT
+    juge panic
     
     mov r0, @disp_buff
     

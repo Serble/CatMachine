@@ -9,6 +9,24 @@
 
 jmp main
 
+
+; =================
+; Constants
+; =================
+
+#const INT_PANIC, 0x09
+#const INT_DEBUG_PRINT, 0x90
+#const INT_PRINT, 0x80
+#const INT_GET_DISP_BUFF, 0x84
+#const INT_UPDATE_DISP, 0x86
+#const INT_GET_TIME, 0x85
+
+#const BACKGROUND_COLOUR, 0x365235
+
+#const SCREEN_WIDTH, 512
+#const SCREEN_HEIGHT, 512
+
+
 ; =================
 ; Data Section
 ; =================
@@ -60,31 +78,25 @@ main:
     ; load the display buffer into memory
     ; we do this because memory loads are 
     ; much faster than interrupts.
-    int 0x84
+    int INT_GET_DISP_BUFF
     mov @disp_buff, r0
     
     ; show title screen
     mov r1, title_screen
     call draw_screen
     
-    mov r1, 69
-    int 0x90
-    
     ; wait for input to continue
     call wait_for_input
     
-    mov r1, 7
-    int 0x90
-    
-    mov r1, 0x365235            ; bg colour
-    call fill_screen
+    mov r1, BACKGROUND_COLOUR
+    call fill_screen            ; clear screen to background colour
     
     mov r1, 0
     call draw_level
     
     
 .loop:                          ; MAIN GAME LOOP (60tps, )
-    int 0x85
+    int INT_GET_TIME
     mov r7, r0
     
     call read_inputs            ; get all user inputs
@@ -93,29 +105,29 @@ main:
     
     ;  DEBUGGING STATEMENTS
     ;mov r1, 999
-    ;int 0x90
+    ;int INT_DEBUG_PRINT
     ;mov r1, @player_x
-    ;int 0x90
+    ;int INT_DEBUG_PRINT
     ;mov r1, @last_draw_player_x
-    ;int 0x90
+    ;int INT_DEBUG_PRINT
     ;mov r1, @player_y
-    ;int 0x90
+    ;int INT_DEBUG_PRINT
     ;mov r1, @last_draw_player_y
-    ;int 0x90
+    ;int INT_DEBUG_PRINT
     
     call redraw_player          ; remove and redraw player in new pos
     
     ; THIS IS END OF FRAME STUFF
-    int 0x86                    ; tell screen to update
+    int INT_UPDATE_DISP         ; tell screen to update
     
     ; now that we've done everything for this frame
     ; let's wait until the next frame needs to run
-    int 0x85
+    int INT_GET_TIME
     sub r0, r7                  ; r0 is now time taken for frame
     
     ; debug frame time
     mov r1, r0
-    ;int 0x90                    ; print frame time in ms
+    ;int INT_DEBUG_PRINT                    ; print frame time in ms
     
     cmp r0, 16                  ; compare to target time (1/60 * 1000) for 60fps
     juge .goodtiming            ; if it took 16 or longer then skip waiting
@@ -130,11 +142,13 @@ main:
 
 
 process_movement:
+    mov r1, 0                   ; clear all bytes
+    mov r2, 0                   ; clear all bytes
     mov8 r1, @held_left
     mov8 r2, @held_right
     sub r2, r1                  ; calculate x change
     ;mov r1, r2 ;dbg
-    ;int 0x90   ;dbg
+    ;int INT_DEBUG_PRINT   ;dbg
     mov r1, @player_x
     add r1, r2
     
@@ -145,7 +159,7 @@ process_movement:
     mov r1, 0
 .goodx:
     mov @player_x, r1
-    ;int 0x90
+    ;int INT_DEBUG_PRINT
     ret
 
 
@@ -154,7 +168,7 @@ process_movement:
 game_over:
     mov r1, 0xFF0000
     call fill_screen
-    int 0x86               ; refresh screen
+    int INT_UPDATE_DISP         ; refresh screen
     jmp hang
 
 
@@ -212,7 +226,6 @@ read_inputs:
     
 .setkey:
     mov8 @r0, r3
-    
 .doneprocessing:
     jmp read_inputs              ; keep handling until no data is available
 .nodata:

@@ -82,7 +82,8 @@ point_collides:
     udiv r2, r3                 ; r2 is tilemap y
     
     ; now we just query the tile
-    mov r3, @current_level
+    mov r3, 0                   ; clear all bytes of r3 (we are only loading the low byte)
+    mov8 r3, @current_level
     umul r3, 256                ; 16x16 tiles, r3 is now offset from levels label
     mov r4, levels
     add r4, r3                  ; r4 is start of map
@@ -138,7 +139,7 @@ process_physics:
     ; let's apply gravity velocity
     call is_on_ground
     mov r1, r0
-    int 0x90                    ; TODO: dbg print on ground status
+    int INT_DEBUG_PRINT         ; TODO: dbg print on ground status
     
     mov r1, 0                   ; r1 will be target y velocity
     cmp r0, 0                   ; 0 means in air (apply gravity)
