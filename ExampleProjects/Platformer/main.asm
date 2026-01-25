@@ -161,7 +161,7 @@ process_movement:
     mov r3, SCREEN_WIDTH
     sub r3, PLAYER_WIDTH
     cmp r1, r3
-    julde .goodposx
+    jule .goodposx
     mov r1, r3
 .goodposx:
     mov @player_x, r1
