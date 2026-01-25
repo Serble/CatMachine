@@ -38,7 +38,8 @@ class Program {
         }
 
         string path = args[0];
-        Directory.SetCurrentDirectory(Path.GetFullPath(Path.GetDirectoryName(path) ?? "."));
+        string? dirName = Path.GetDirectoryName(path);
+        Directory.SetCurrentDirectory(Path.GetFullPath(string.IsNullOrWhiteSpace(dirName) ? "." : dirName));
         
         _iterator = new LineIterator(Path.GetFileName(path));
         int ret = Run();
@@ -76,6 +77,7 @@ class Program {
                 split[i] = split[i].Trim();
             }
             
+#pragma warning disable CS0162 // Unreachable code detected
             if (PrintComments) Console.WriteLine($"{File.Position:X}: {line}");
             
             // Empty lines (including just comments)
@@ -84,6 +86,7 @@ class Program {
             }
             
             if (!PrintComments) Console.WriteLine($"{File.Position:X}: {line}");
+#pragma warning restore CS0162 // Unreachable code detected
 
             switch (split[0].ToLower()) {
                 case "mov32":

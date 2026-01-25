@@ -20,6 +20,8 @@ public class CatVM {
     public bool EnableTestingInterrupts { get; set; }
     public bool DumpErrors { get; set; }
     public uint DisplayBufferOffset { get; set; }
+    public (uint start, uint length)[] DisallowedWriteRegions { get; set; } = [];
+    public (uint start, uint length)[] DisallowedReadRegions { get; set; } = [];
     public GCHandle? MemoryHandle { get; private set; }
     public Queue<byte> InterruptQueue { get; } = [];
     public Stopwatch Runtime { get; } = new();
@@ -356,7 +358,14 @@ public class CatVM {
         }
         
         if (ErrorOnRomWrite && address < Rom.Length) {
-            throw new MemoryOutOfRange(true, address, size);
+            throw new MemoryOutOfRange(true, address, size, "ROM writes are disallowed");
+        }
+        
+        // disallowed write regions
+        foreach ((uint start, uint length) in DisallowedWriteRegions) {
+            if (address < start + length && address + size > start) {
+                throw new MemoryOutOfRange(true, address, size, "Write to disallowed memory region");
+            }
         }
     }
     
@@ -364,6 +373,13 @@ public class CatVM {
         // bounds checking
         if (address + size > Memory.Length) {
             throw new MemoryOutOfRange(false, address, size);
+        }
+        
+        // disallowed read regions
+        foreach ((uint start, uint length) in DisallowedReadRegions) {
+            if (address < start + length && address + size > start) {
+                throw new MemoryOutOfRange(false, address, size, "Read from disallowed memory region");
+            }
         }
     }
     

@@ -15,6 +15,8 @@ bool enableTimings = false;
 bool enableTestInts = false;
 bool dumpErrors = false;
 bool errorOnRomWrite = false;
+List<(uint addr, uint length)> disallowedWrite = [];
+List<(uint addr, uint length)> disallowedRead = [];
 
 IRenderer renderer = new DummyRendering();
 
@@ -72,6 +74,28 @@ for (int i = 1; i < args.Length; i++) {
             errorOnRomWrite = true;
             break;
         
+        case "--disallow-write":
+            if (i + 2 < args.Length &&
+                uint.TryParse(args[i + 1], out uint writeAddr) &&
+                uint.TryParse(args[i + 2], out uint writeLength)) {
+                disallowedWrite.Add((writeAddr, writeLength));
+                i += 2;
+            } else {
+                Console.WriteLine("Invalid or missing values for --disallow-write flag.");
+            }
+            break;
+        
+        case "--disallow-read":
+            if (i + 2 < args.Length &&
+                uint.TryParse(args[i + 1], out uint readAddr) &&
+                uint.TryParse(args[i + 2], out uint readLength)) {
+                disallowedRead.Add((readAddr, readLength));
+                i += 2;
+            } else {
+                Console.WriteLine("Invalid or missing values for --disallow-read flag.");
+            }
+            break;
+        
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
@@ -82,7 +106,9 @@ CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     PrintInstructionTimes = enableTimings,
     EnableTestingInterrupts = enableTestInts,
     DumpErrors = dumpErrors,
-    ErrorOnRomWrite = errorOnRomWrite
+    ErrorOnRomWrite = errorOnRomWrite,
+    DisallowedReadRegions = disallowedRead.ToArray(),
+    DisallowedWriteRegions = disallowedWrite.ToArray()
 };
 
 renderer.Initialize(vm);
