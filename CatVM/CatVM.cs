@@ -14,7 +14,7 @@ public class CatVM {
     public byte[] Memory { get; set; } = null!;
     public byte[] Rom { get; set; }
     public bool InterruptsEnabled { get; set; } = true;
-    public double CyclesPerSecond { get; set; }
+    public uint CyclesPerSecond { get; set; }
     public bool ErrorOnRomWrite { get; set; }
     public bool PrintInstructionTimes { get; set; }
     public bool EnableTestingInterrupts { get; set; }
@@ -24,7 +24,10 @@ public class CatVM {
     public (uint start, uint length)[] DisallowedReadRegions { get; set; } = [];
     public GCHandle? MemoryHandle { get; private set; }
     public Queue<byte> InterruptQueue { get; } = [];
+    public long TicksPassed { get; private set; } // This isn't real time this is virtual time, 1 tick = 100 nanoseconds
+    private DateTime lastSlowWarning = DateTime.MinValue;   
     public Stopwatch Runtime { get; } = new();
+    public bool Fast { get; init; }
     public event Action? UpdateDisplayEvent;  // Event for when the program requests the display to update
     public CatCpuState Cpu;
     private readonly int _memoryBytes;
@@ -41,11 +44,9 @@ public class CatVM {
         }
     }
 
-    public double SecondsPerCycle => 1 / CyclesPerSecond;
-
     public Dictionary<uint, (Func<CatVM, uint> input, Action<CatVM, uint> output)> SerialDevices { get; } = [];
     
-    public CatVM(int memoryBytes, double cyclesPerSecond, byte[]? rom = null) {
+    public CatVM(int memoryBytes, uint cyclesPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
         Rom = rom ?? [];
         CyclesPerSecond = cyclesPerSecond;
@@ -137,7 +138,7 @@ public class CatVM {
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
     
-    public void Run(bool fast = false, CancellationToken? cancellationToken = null) {
+    public void Run(CancellationToken? cancellationToken = null) {
         Runtime.Restart();
         
         while (cancellationToken is not { IsCancellationRequested: true }) {
@@ -146,7 +147,7 @@ public class CatVM {
                 continue;
             }
             
-            ExecuteInstruction(fast);
+            ExecuteInstruction(Fast);
         }
     }
 
@@ -174,6 +175,7 @@ public class CatVM {
             (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
             instructionCycles = instruction.cycles;
             instruction.executor(this);
+            TicksPassed += instructionCycles * TimeSpan.TicksPerSecond / CyclesPerSecond;
         }
         catch (DivideByZeroException e) {
             DumpError(e);
@@ -196,13 +198,18 @@ public class CatVM {
         }
 
         if (PrintInstructionTimes) {
-            Console.WriteLine("Actual OP execution took: " + sw.Elapsed.Microseconds + " us");
+            Console.WriteLine("Actual OP execution took: " + sw.Elapsed.TotalMicroseconds + " us");
         }
         
         // wait the required time
-        TimeSpan instructionPenalty = TimeSpan.FromSeconds(SecondsPerCycle * instructionCycles) - sw.Elapsed;
-        if (!fast && instructionPenalty > TimeSpan.Zero) {
-            Thread.Sleep(instructionPenalty);
+        long sleepNeeded = TicksPassed - Runtime.Elapsed.Ticks;
+        
+        // Thread.Sleep has a minimum time of 1ms
+        if (!fast && sleepNeeded > TimeSpan.TicksPerMillisecond) {
+            Thread.Sleep(TimeSpan.FromTicks(sleepNeeded));
+        } else if (sleepNeeded < -100 * TimeSpan.TicksPerMillisecond && DateTime.Now - lastSlowWarning > TimeSpan.FromMilliseconds(1000)) {
+            Console.WriteLine($"VM is running {-sleepNeeded / TimeSpan.TicksPerMillisecond}ms behind!");
+            lastSlowWarning = DateTime.Now;
         }
     }
 

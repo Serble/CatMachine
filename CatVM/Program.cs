@@ -9,7 +9,7 @@ if (!File.Exists(romPath)) {
 
 // flags
 bool fastRun = false;
-int ops = 100_000;  // ops per seconds
+uint ops = 100_000;  // ops per seconds
 int memorySize = 1024 * 1024 * 16; // 16mb
 bool enableTimings = false;
 bool enableTestInts = false;
@@ -27,8 +27,7 @@ for (int i = 1; i < args.Length; i++) {
             break;
         
         case "--ops":
-            if (i + 1 < args.Length && int.TryParse(args[i + 1], out int parsedOps)) {
-                ops = parsedOps;
+            if (i + 1 < args.Length && uint.TryParse(args[i + 1], out ops)) {
                 i++;
             } else {
                 Console.WriteLine("Invalid or missing value for --ops flag.");
@@ -108,7 +107,8 @@ CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     DumpErrors = dumpErrors,
     ErrorOnRomWrite = errorOnRomWrite,
     DisallowedReadRegions = disallowedRead.ToArray(),
-    DisallowedWriteRegions = disallowedWrite.ToArray()
+    DisallowedWriteRegions = disallowedWrite.ToArray(),
+    Fast = fastRun
 };
 
 renderer.Initialize(vm);
@@ -117,5 +117,5 @@ _ = renderer.Start(vm);
 CancellationTokenSource cts = new();
 Console.CancelKeyPress += (_, _) => cts.Cancel();
 
-vm.Run(fastRun, cts.Token);
+vm.Run(cts.Token);
 Console.WriteLine("Goodbye!");

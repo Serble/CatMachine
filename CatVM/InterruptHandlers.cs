@@ -31,7 +31,7 @@ public static class InterruptHandlers {
     }
 
     public static void GetUptimeInterrupt(CatVM vm) {
-        vm.Cpu.R0 = (uint)vm.Runtime.ElapsedMilliseconds;
+        vm.Cpu.R0 = vm.Fast ? (uint)vm.Runtime.ElapsedMilliseconds : (uint)(vm.TicksPassed / TimeSpan.TicksPerMillisecond);
     }
 
     public static void UpdateDisplayInterrupt(CatVM vm) {
