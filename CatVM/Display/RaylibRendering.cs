@@ -24,6 +24,7 @@ public class RaylibRendering : IRenderer {
             }
             
             Raylib.InitWindow(CatVM.DisplayWidth, CatVM.DisplayHeight, "CatVM Display");
+            Raylib.SetTargetFPS(1024);
 
             if (!vm.MemoryHandle.HasValue) {
                 throw new Exception("Memory not initialized.");
@@ -62,11 +63,11 @@ public class RaylibRendering : IRenderer {
             Texture2D texture = Raylib.LoadTextureFromImage(image);
 
             HashSet<KeyboardKey> pressedKeys = [];
-
-            // make sure we update when program asks for it
-            bool update = false;
+            ManualResetEventSlim textureUpToDate = new(true);
+            
             vm.UpdateDisplayEvent += () => {
-                update = true;
+                textureUpToDate.Reset(); // mark as outdated
+                textureUpToDate.Wait();  // wait for it to be updated
             };
 
             while (true) {
@@ -94,19 +95,23 @@ public class RaylibRendering : IRenderer {
                     pressedKeys.Add((KeyboardKey) key);
                     SendInput(vm, 0, 0, (uint)key);
                 }
-                
-                if (update) unsafe {
-                    Raylib.UpdateTexture(texture, (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (int)vm.DisplayBufferOffset).ToPointer());
-                    update = false;
-                }
-        
-                Raylib.BeginDrawing();
-                Raylib.ClearBackground(Color.Black);
 
+                // if not up to date, update texture
+                if (!textureUpToDate.IsSet) {
+                    unsafe {
+                        Raylib.UpdateTexture(texture,
+                            (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (int)vm.DisplayBufferOffset).ToPointer());
+                    }
+
+                    textureUpToDate.Set();
+                }
+                
+                Raylib.BeginDrawing();
+                
                 Raylib.BeginShaderMode(shader);
                 Raylib.DrawTexture(texture, 0, 0, Color.White);
-                
                 Raylib.EndShaderMode();
+                
                 Raylib.EndDrawing();
             }
         }));
