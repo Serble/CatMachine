@@ -15,6 +15,7 @@ public class CatVM {
     public byte[] Rom { get; set; }
     public bool InterruptsEnabled { get; set; } = true;
     public double CyclesPerSecond { get; set; }
+    public bool ErrorOnRomWrite { get; set; }
     public bool PrintInstructionTimes { get; set; }
     public bool EnableTestingInterrupts { get; set; }
     public bool DumpErrors { get; set; }
@@ -81,48 +82,36 @@ public class CatVM {
     }
     
     public byte Read8() {
-        if (Cpu.Ip >= Memory.Length) {
-            throw new MemoryOutOfRange(Cpu.Ip);
-        }
+        ValidateMemoryRead(Cpu.Ip, 1);
         return Memory[Cpu.Ip++];
     }
     
     public byte Read8(uint ptr) {
-        if (ptr >= Memory.Length) {
-            throw new MemoryOutOfRange(ptr);
-        }
+        ValidateMemoryRead(ptr, 1);
         return Memory[ptr];
     }
     
     public ushort Read16() {
-        if (Cpu.Ip + 2 > Memory.Length) {
-            throw new MemoryOutOfRange(Cpu.Ip);
-        }
+        ValidateMemoryRead(Cpu.Ip, 2);
         ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Ip);
         Cpu.Ip += 2;
         return value;
     }
     
     public ushort Read16(uint ptr) {
-        if (ptr + 2 > Memory.Length) {
-            throw new MemoryOutOfRange(ptr);
-        }
+        ValidateMemoryRead(ptr, 2);
         return BitConverter.ToUInt16(Memory, (int)ptr);
     }
     
     public uint ReadWord() {
-        if (Cpu.Ip + 4 > Memory.Length) {
-            throw new MemoryOutOfRange(Cpu.Ip);
-        }
+        ValidateMemoryRead(Cpu.Ip, 4);
         uint value = BitConverter.ToUInt32(Memory, (int)Cpu.Ip);
         Cpu.Ip += 4;
         return value;
     }
     
     public uint ReadWord(uint ptr) {
-        if (ptr + 4 > Memory.Length) {
-            throw new MemoryOutOfRange(ptr);
-        }
+        ValidateMemoryRead(ptr, 4);
         return BitConverter.ToUInt32(Memory, (int)ptr);
     }
     
@@ -302,53 +291,41 @@ public class CatVM {
     }
 
     public void StackPush(uint value) {
-        if (Cpu.Sp < 4) {
-            throw new MemoryOutOfRange(Cpu.Sp - 4);
-        }
         Cpu.Sp -= 4;
+        ValidateMemoryWrite(Cpu.Sp, 4);
         byte[] bytes = BitConverter.GetBytes(value);
         Array.Copy(bytes, 0, Memory, (int)Cpu.Sp, 4);
     }
     
     public void StackPush(byte value) {
-        if (Cpu.Sp < 1) {
-            throw new MemoryOutOfRange(Cpu.Sp - 1);
-        }
         Cpu.Sp -= 1;
+        ValidateMemoryWrite(Cpu.Sp, 1);
         Memory[Cpu.Sp] = value;
     }
     
     public void StackPush(ushort value) {
-        if (Cpu.Sp < 2) {
-            throw new MemoryOutOfRange(Cpu.Sp - 2);
-        }
         Cpu.Sp -= 2;
+        ValidateMemoryWrite(Cpu.Sp, 2);
         byte[] bytes = BitConverter.GetBytes(value);
         Array.Copy(bytes, 0, Memory, (int)Cpu.Sp, 2);
     }
     
     public uint StackPop() {
-        if (Cpu.Sp + 4 > Memory.Length) {
-            throw new MemoryOutOfRange(Cpu.Sp + 4);
-        }
+        ValidateMemoryRead(Cpu.Sp, 4);
         uint value = BitConverter.ToUInt32(Memory, (int)Cpu.Sp);
         Cpu.Sp += 4;
         return value;
     }
     
     public byte StackPop8() {
-        if (Cpu.Sp + 1 > Memory.Length) {
-            throw new MemoryOutOfRange(Cpu.Sp + 1);
-        }
+        ValidateMemoryRead(Cpu.Sp, 1);
         byte value = Memory[Cpu.Sp];
         Cpu.Sp += 1;
         return value;
     }
     
     public ushort StackPop16() {
-        if (Cpu.Sp + 2 > Memory.Length) {
-            throw new MemoryOutOfRange(Cpu.Sp + 2);
-        }
+        ValidateMemoryRead(Cpu.Sp, 2);
         ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Sp);
         Cpu.Sp += 2;
         return value;
@@ -366,6 +343,28 @@ public class CatVM {
     public void LoadState(Stream stream) {
         _ = stream.Read(Memory, 0, Memory.Length);
         Cpu = CatCpuState.LoadState(stream);
+    }
+
+    public void ValidateMemoryWrite(uint address, uint size) {
+        // Other memory access can be validated here
+        // this is just for ROM write protection for now (and bounds checking)
+        // but if you're having issues this can help you debug.
+        
+        // bounds checking
+        if (address + size > Memory.Length) {
+            throw new MemoryOutOfRange(true, address, size);
+        }
+        
+        if (ErrorOnRomWrite && address < Rom.Length) {
+            throw new MemoryOutOfRange(true, address, size);
+        }
+    }
+    
+    public void ValidateMemoryRead(uint address, uint size) {
+        // bounds checking
+        if (address + size > Memory.Length) {
+            throw new MemoryOutOfRange(false, address, size);
+        }
     }
     
     public static readonly (Action<CatVM> executor, int cycles)[] Operations = [

@@ -14,6 +14,7 @@ int memorySize = 1024 * 1024 * 16; // 16mb
 bool enableTimings = false;
 bool enableTestInts = false;
 bool dumpErrors = false;
+bool errorOnRomWrite = false;
 
 IRenderer renderer = new DummyRendering();
 
@@ -67,6 +68,10 @@ for (int i = 1; i < args.Length; i++) {
             dumpErrors = true;
             break;
         
+        case "--protect-rom":
+            errorOnRomWrite = true;
+            break;
+        
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
@@ -76,7 +81,8 @@ for (int i = 1; i < args.Length; i++) {
 CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     PrintInstructionTimes = enableTimings,
     EnableTestingInterrupts = enableTestInts,
-    DumpErrors = dumpErrors
+    DumpErrors = dumpErrors,
+    ErrorOnRomWrite = errorOnRomWrite
 };
 
 renderer.Initialize(vm);

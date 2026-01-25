@@ -4,7 +4,9 @@ using CatAssembler.Parsers;
 namespace CatAssembler;
 
 class Program {
-    public static Dictionary<string, byte> RegisterToId = new() {
+    private const bool PrintComments = false;
+    
+    public static readonly Dictionary<string, byte> RegisterToId = new() {
         { "r0", 0x0 },
         { "r1", 0x1 },
         { "r2", 0x2 },
@@ -24,8 +26,8 @@ class Program {
     public static readonly Dictionary<string, uint> LocalLabels = new();
     public static readonly Dictionary<string, List<NeededLabel>> NeededLabels = new();
 
-    private static LineIterator iterator = null!;
-    public static string LineNum => iterator.LineNum;
+    private static LineIterator _iterator = null!;
+    public static string LineNum => _iterator.LineNum;
     
     public static readonly FileStream File = System.IO.File.Open("a.out", FileMode.Create, FileAccess.Write);
 
@@ -38,14 +40,14 @@ class Program {
         string path = args[0];
         Directory.SetCurrentDirectory(Path.GetFullPath(Path.GetDirectoryName(path) ?? "."));
         
-        iterator = new LineIterator(Path.GetFileName(path));
+        _iterator = new LineIterator(Path.GetFileName(path));
         int ret = Run();
-        iterator.Dispose();
+        _iterator.Dispose();
         return ret;
     }
     
     private static int Run() {
-        foreach (string line in iterator) {
+        foreach (string line in _iterator) {
             string[] split = line.Split([' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries);
             if (split.Length >= 2) {
                 split = ((string[])[split[0]])
@@ -74,12 +76,14 @@ class Program {
                 split[i] = split[i].Trim();
             }
             
+            if (PrintComments) Console.WriteLine($"{File.Position:X}: {line}");
+            
             // Empty lines (including just comments)
             if (split.Length == 0) {
                 continue;
             }
             
-            Console.WriteLine($"{File.Position:X}: {line}");
+            if (!PrintComments) Console.WriteLine($"{File.Position:X}: {line}");
 
             switch (split[0].ToLower()) {
                 case "mov32":
@@ -425,7 +429,7 @@ class Program {
                         return 1;
                     }
                     
-                    iterator.AddFile(split[1]);
+                    _iterator.AddFile(split[1]);
                     break;
                 }
                 
