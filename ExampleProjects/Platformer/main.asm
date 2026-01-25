@@ -26,6 +26,9 @@ jmp main
 #const SCREEN_WIDTH, 512
 #const SCREEN_HEIGHT, 512
 
+#const PLAYER_WIDTH, 32
+#const PLAYER_HEIGHT, 32
+
 
 ; =================
 ; Data Section
@@ -147,17 +150,20 @@ process_movement:
     mov8 r1, @held_left
     mov8 r2, @held_right
     sub r2, r1                  ; calculate x change
-    ;mov r1, r2 ;dbg
-    ;int INT_DEBUG_PRINT   ;dbg
     mov r1, @player_x
     add r1, r2
     
     cmp r1, 0                   ; if it's higher than this it's negative
-    jige .goodx
-    
-    ; bad
+    jige .goodnegx
     mov r1, 0
-.goodx:
+    jmp .goodposx
+.goodnegx:
+    mov r3, SCREEN_WIDTH
+    sub r3, PLAYER_WIDTH
+    cmp r1, r3
+    julde .goodposx
+    mov r1, r3
+.goodposx:
     mov @player_x, r1
     ;int INT_DEBUG_PRINT
     ret
