@@ -1,7 +1,7 @@
 Interrupt ID,Name,Args,Handleable,Description
-0,Page Fault,stack 32 bit pointer - accessed memory,true,
-1,Invalid Instruction,,true,
-2,Divide by zero,,true,
+0,Page Fault,stack 32 bit pointer - accessed memory,true,"Memory could not be accessed (out of bounds, or forbidden)"
+1,Invalid Instruction,"",true,Instruction opcode or arguments were invalid
+2,Divide by zero,,true,Tried to divide by zero
 3,RESERVED,,,
 4,RESERVED,,,
 5,RESERVED,,,

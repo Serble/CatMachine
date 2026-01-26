@@ -43,7 +43,7 @@ mydata:
     D8  0x12, 0x34, 0x56       ; Defines three bytes
     D16 0x1234, 0x5678         ; Defines two shorts
     D32 0x12345678, 0x9ABCDEF0 ; Defines two words
-    DSTR Hello, World!\n\0     ; Defines bytes for the string (including null terminator and newline)
+    DSTR "Hello, World!\n\0"   ; Defines bytes for the string (including null terminator and newline)
 ```
 
 ## Calling Convention
@@ -60,9 +60,9 @@ r0-3 inc is clobbered (Caller preserved)
 rest is not clobbered (Callee preserved)
 
 ## Memory Access
-To specify that you want to access memory, use `@` before the address or register. For example:
+To specify that you want to access memory, wrap the address source in `[]`. For example:
 ```asm
-    MOV R1, @R2      ; Load the value from the memory address in R2 into R1
-    MOV @0x1000, R3  ; Store the value in R3 into memory address 0x1000
+    MOV R1, [R2]      ; Load the value from the memory address in R2 into R1
+    MOV [0x1000], R3  ; Store the value in R3 into memory address 0x1000
 ```
 

@@ -9,5 +9,5 @@ int 0x90
 jmp yeah
 
 yesmsg:
-dstr Hello World!
+dstr "Hello World!"
 d8 0
