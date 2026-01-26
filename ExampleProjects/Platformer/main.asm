@@ -25,9 +25,25 @@ jmp main
 
 #const SCREEN_WIDTH, 512
 #const SCREEN_HEIGHT, 512
+#const SCREEN_SIZE, SCREEN_WIDTH * SCREEN_HEIGHT
+#const SCREEN_BUFF_SIZE, SCREEN_SIZE * 4
 
 #const PLAYER_WIDTH, 32
 #const PLAYER_HEIGHT, 32
+
+#const GRID_WIDTH, 16
+#const GRID_HEIGHT, 16
+#const TILE_SIZE, 32
+
+#const MS_PER_UPDATE, 16        ; ~60 updates per second
+
+#const RED, 0xFF0000
+#const GREEN, 0x00FF00
+#const BLUE, 0x0000FF
+
+; Tile types
+#const TILE_EMPTY, 0
+#const TILE_WALL, 1
 
 
 ; =================
@@ -132,11 +148,11 @@ main:
     mov r1, r0
     ;int INT_DEBUG_PRINT                    ; print frame time in ms
     
-    cmp r0, 16                  ; compare to target time (1/60 * 1000) for 60fps
+    cmp r0, MS_PER_UPDATE       ; compare to target time (1/60 * 1000) for 60fps
     juge .goodtiming            ; if it took 16 or longer then skip waiting
     
     ; wait some time to make it 60fps
-    mov r1, 16
+    mov r1, MS_PER_UPDATE
     sub r1, r0                  ; 16 - time taken ms = time to wait for
     call sleep
     
@@ -172,7 +188,7 @@ process_movement:
 ; temporary game over method
 ; just draw red for now (no restarting yet)
 game_over:
-    mov r1, 0xFF0000
+    mov r1, RED
     call fill_screen
     int INT_UPDATE_DISP         ; refresh screen
     jmp hang

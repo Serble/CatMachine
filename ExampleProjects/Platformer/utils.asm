@@ -4,9 +4,9 @@
 
 ; ms in r1
 sleep:
-    int INT_GET_TIME      ; uptime in r0
-    mov r2, r0            ; current time
-    add r2, r1            ; r2 is target time
+    int INT_GET_TIME            ; uptime in r0
+    mov r2, r0                  ; current time
+    add r2, r1                  ; r2 is target time
 .loop:
     int INT_GET_TIME
     cmp r0, r2
@@ -38,7 +38,7 @@ panic:
     push r1
     
     mov r1, sp
-    add r1, 8                   ; point to return address
+    add r1, 4*2                 ; point to return address
     mov r1, @r1                 ; get return address
     int INT_DEBUG_PRINT         ; debug print return address
     

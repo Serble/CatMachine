@@ -21,7 +21,7 @@ square_collides:
     mov r5, r2                  ; y pos
     mov r6, r3                  ; width
     mov r7, sp
-    add r7, 20                  ; 4x5=20 bytes to height (4 reg + ret addr)
+    add r7, 4*5                 ; 4x5=20 bytes to height (4 reg + ret addr)
     mov r7, @r7                 ; height
     
     ; the strat here will be to check each corner of the square with
@@ -76,19 +76,19 @@ square_collides:
 point_collides:
     push r4
     
-    mov r3, 32
+    mov r3, TILE_SIZE
     udiv r1, r3                 ; r1 is tilemap x
-    mov r3, 32
+    mov r3, TILE_SIZE
     udiv r2, r3                 ; r2 is tilemap y
     
     ; now we just query the tile
     mov r3, 0                   ; clear all bytes of r3 (we are only loading the low byte)
     mov8 r3, @current_level
-    umul r3, 256                ; 16x16 tiles, r3 is now offset from levels label
+    umul r3, GRID_WIDTH*GRID_HEIGHT  ; 16x16 tiles, r3 is now offset from levels label
     mov r4, levels
     add r4, r3                  ; r4 is start of map
     
-    umul r2, 16                 ; r2 is now offset to correct row
+    umul r2, GRID_WIDTH         ; r2 is now offset to correct row
     add r4, r2
     add r4, r1                  ; and now r4 is tile value pointer
     mov r0, 0
@@ -112,8 +112,8 @@ is_on_ground:
     mov r1, @player_x           ; x
     mov r2, @player_y           ; y
     add r2, 1
-    mov r3, 32                  ; width
-    push 32                     ; height
+    mov r3, PLAYER_WIDTH        ; width
+    push PLAYER_HEIGHT          ; height
     
     call square_collides        ; places our answer in r0
     
@@ -133,7 +133,7 @@ process_physics:
     
     ; let's say that the bottom kills you
     mov r1, @player_y
-    cmp r1, 480                 ; 512-32=bottom of player touching bottom
+    cmp r1, SCREEN_HEIGHT-PLAYER_HEIGHT  ; 512-32=bottom of player touching bottom
     juge game_over
     
     ; let's apply gravity velocity
