@@ -1,79 +1,79 @@
-OP Code,Instruction,Args,Description
-00,MOV MOV32,"r, r",
-01,MOV MOV32,"r, i",
-02,MOV MOV32,"r, rp",
-03,MOV MOV32,"r, ip",
-04,MOV MOV32,"rp, r",
-05,MOV MOV32,"rp, i",
-06,MOV MOV32,"ip, r",
-07,MOV MOV32,"ip, i",
-08,MOV16,"r, rp",Move 16 bit value
-09,MOV16,"r, ip",
-0a,MOV16,"rp, r",
-0b,MOV16,"rp, i16",
-0c,MOV16,"ip, r",
-0d,MOV16,"ip, i16",
-0e,MOV8,"r, rp",Move 8 bit value
-0f,MOV8,"r, ip",
-10,MOV8,"rp, r",
-11,MOV8,"rp, i8",
-12,MOV8,"ip, r",
-13,MOV8,"ip, i8",
-14,ADD,"r, r",
-15,ADD,"r, i",
-16,SUB,"r, r",
-17,SUB,"r, i",
-18,UMUL,"r, r",
-19,UMUL,"r, i",
-1a,IMUL,"r, r",Signed mult
-1b,IMUL,"r, i",Signed mult
-1c,UDIV,"r, r","First arg is result (floor), second arg is remainder"
-1d,IDIV,"r, r","Signed div, First arg is result (floor), second arg is remainder"
-1e,INT,rb,Masks r with 0xFF
-1f,INT,i8,
-20,PUSH PUSH32,r,
-21,PUSH PUSH32,i,
-22,PUSH16,r,
-23,PUSH16,i16,
-24,PUSH8,r,
-25,PUSH8,i8,
-26,POP POP32,r,
-27,POP16,r,
-28,POP8,r,
-29,OR,"r, r",
-2a,OR,"r, i",
-2b,AND,"r, r",
-2c,AND,"r, i",
-2d,XOR,"r, r",
-2e,XOR,"r, i",
-2f,NOT,r,
-30,JMP,"r, i",moves ip to r + i and if r is 0xFF then just move to i
-31,CMP,"r, r",
-32,CMP,"r, i",
-33,CMP,"i, r",
-34,CMP,"i, i",silly
-35,"JZ JE","r, i",jump if zero flag (also if numbers are equal)
-36,"JNZ JNE","r, i",alias JNE
-37,JUL,"r, i",Unsigned <
-38,JULE,"r, i",Unsigned <=
-39,JUG,"r, i",Unsigned >
-3a,JUGE,"r, i",Unsigned >=
-3b,JIL,"r, i",Signed <
-3c,JILE,"r, i",Signed <=
-3d,JIG,"r, i",Signed >
-3e,JIGE,"r, i",Signed >=
-3f,CALL,"r, i",
-40,RET, ,
-41,CPY,"r, r","source addr, length, r0 = destination addr"
-42,CPY,"r, i",
-43,CPY,"i, r",
-44,CPY,"i, i",
-45,DI, ,Disable interrupts
-46,EI, ,Enable interrupts
-47,IN,"r, r","output reg, port"
-48,IN,"r, i",
-49,OUT,"r, r","port, data"
-4a,OUT,"r, i",
-4b,OUT,"i, r",
-4c,OUT,"i, i",
-4d,NOP, ,Do nothing for 1 cycle
+OP Code,Instruction,Args,Description,Cycles
+00,MOV MOV32,"r, r",,2
+01,MOV MOV32,"r, i",,2
+02,MOV MOV32,"r, rp",,6
+03,MOV MOV32,"r, ip",,5
+04,MOV MOV32,"rp, r",,8
+05,MOV MOV32,"rp, i",,7
+06,MOV MOV32,"ip, r",,7
+07,MOV MOV32,"ip, i",,6
+08,MOV16,"r, rp",Move 16 bit value,6
+09,MOV16,"r, ip",,5
+0a,MOV16,"rp, r",,8
+0b,MOV16,"rp, i16",,7
+0c,MOV16,"ip, r",,7
+0d,MOV16,"ip, i16",,6
+0e,MOV8,"r, rp",Move 8 bit value,6
+0f,MOV8,"r, ip",,5
+10,MOV8,"rp, r",,8
+11,MOV8,"rp, i8",,7
+12,MOV8,"ip, r",,7
+13,MOV8,"ip, i8",,6
+14,ADD,"r, r",,2
+15,ADD,"r, i",,2
+16,SUB,"r, r",,2
+17,SUB,"r, i",,2
+18,UMUL,"r, r",,8
+19,UMUL,"r, i",,8
+1a,IMUL,"r, r",Signed mult,8
+1b,IMUL,"r, i",Signed mult,8
+1c,UDIV,"r, r","First arg is result (floor), second arg is remainder",32
+1d,IDIV,"r, r","Signed div, First arg is result (floor), second arg is remainder",32
+1e,INT,rb,Masks r with 0xFF,64
+1f,INT,i8,,64
+20,PUSH PUSH32,r,,6
+21,PUSH PUSH32,i,,6
+22,PUSH16,r,,6
+23,PUSH16,i16,,6
+24,PUSH8,r,,6
+25,PUSH8,i8,,6
+26,POP POP32,r,,4
+27,POP16,r,,4
+28,POP8,r,,4
+29,OR,"r, r",,3
+2a,OR,"r, i",,3
+2b,AND,"r, r",,3
+2c,AND,"r, i",,3
+2d,XOR,"r, r",,3
+2e,XOR,"r, i",,3
+2f,NOT,r,,2
+30,JMP,"r, i",moves ip to r + i and if r is 0xFF then just move to i,2
+31,CMP,"r, r",,2
+32,CMP,"r, i",,2
+33,CMP,"i, r",,2
+34,CMP,"i, i",silly,2
+35,"JZ JE","r, i",jump if zero flag (also if numbers are equal),3
+36,"JNZ JNE","r, i",alias JNE,3
+37,JUL,"r, i",Unsigned <,3
+38,JULE,"r, i",Unsigned <=,3
+39,JUG,"r, i",Unsigned >,3
+3a,JUGE,"r, i",Unsigned >=,3
+3b,JIL,"r, i",Signed <,3
+3c,JILE,"r, i",Signed <=,3
+3d,JIG,"r, i",Signed >,3
+3e,JIGE,"r, i",Signed >=,3
+3f,CALL,"r, i",,6
+40,RET, ,,4
+41,CPY,"r, r","source addr, length, r0 = destination addr",256
+42,CPY,"r, i",,256
+43,CPY,"i, r",,256
+44,CPY,"i, i",,256
+45,DI, ,Disable interrupts,2
+46,EI, ,Enable interrupts,2
+47,IN,"r, r","output reg, port",12
+48,IN,"r, i",,12
+49,OUT,"r, r","port, data",12
+4a,OUT,"r, i",,12
+4b,OUT,"i, r",,12
+4c,OUT,"i, i",,12
+4d,NOP, ,Do nothing for 1 cycle,1
