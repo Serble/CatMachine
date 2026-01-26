@@ -170,8 +170,7 @@ public static class Spec {
 }
 
 // mem is whether the argument is a memory address (i.e. @R0 vs R0)
-public record InstructionSpec(string[] Mneumonics, byte Id, 
-    params (IInstructionArgType type, bool mem)[] ArgTypes) {
+public record InstructionSpec(string[] Mneumonics, byte Id, params (IInstructionArgType type, bool mem)[] ArgTypes) {
     
     public InstructionSpec(string mneumonic, byte Id, params (IInstructionArgType type, bool mem)[] ArgTypes)
         : this([mneumonic], Id, ArgTypes) { }

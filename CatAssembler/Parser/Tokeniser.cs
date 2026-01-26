@@ -134,7 +134,6 @@ public partial class Tokeniser {
         if (string.IsNullOrWhiteSpace(text)) {
             Fail("Empty expression");
         }
-        text = text.Trim();
         
         if (RegisterExtensions.TryParse(text, out Register reg)) {
             return new RegisterExpression(reg, pointer);

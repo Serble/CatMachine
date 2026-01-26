@@ -7,6 +7,7 @@ using Expression = NCalc.Expression;
 namespace CatAssembler.Analysis;
 
 public class Analyser {
+    private const int MaxVariableDepth = 64;
     private readonly Stack<Token> _tokens = [];
 
     public Analyser(Token[] tokens) {
@@ -206,7 +207,7 @@ public class Analyser {
         Expression expr = new(expression);
         
         // Prevent infinite recursion
-        if (depth > 10) {
+        if (depth > MaxVariableDepth) {
             throw new CircularDependencyException();
         }
 

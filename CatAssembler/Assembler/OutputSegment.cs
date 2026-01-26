@@ -34,8 +34,8 @@ public record ReserveInstruction(int Bytes) : ArgumentOutputSegment {
     public override int SizeInBytes => _sizeInBytes;
     private int _sizeInBytes = -1;
     
-    public override bool ValidateArgs(InstructionToken _, IExpression[] args, Dictionary<string, string> prelimConstants, 
-        out string? error) {
+    public override bool ValidateArgs(InstructionToken _, IExpression[] args, 
+        Dictionary<string, string> prelimConstants, out string? error) {
         if (args.Length != 1) {
             error = "Res instruction requires exactly one argument.";
             return false;
@@ -70,11 +70,13 @@ public record ReserveInstruction(int Bytes) : ArgumentOutputSegment {
             error = "Circular dependency detected in Res instruction argument, expression must be resolvable at first pass.";
             return false;
         }
+        
         long sizeInBytes = size * Bytes;
         if (sizeInBytes > int.MaxValue) {
             error = $"Res instruction size exceeds maximum allowed size ({sizeInBytes}).";
             return false;
         }
+        
         _sizeInBytes = (int)sizeInBytes;
         error = null;
         return true;
@@ -101,6 +103,7 @@ public record DefineInstruction(int BytesPerEntry) : ArgumentOutputSegment {
             error = "Define instruction arguments must be numbers.";
             return false;
         }
+        
         _args = args;
         error = null;
         return true;
@@ -282,20 +285,24 @@ public record JumpStyleInstruction(byte OpCode) : ArgumentOutputSegment {
                 _register = regExpr.Value;
                 error = null;
                 return true;
+            
             case 1 when args[0] is NumberExpression numExpr:
                 _offset = numExpr;
                 error = null;
                 return true;
+            
             case 1 when args[0] is NameExpression nameExpr:
                 _offset = nameExpr.ToNumber();
                 error = null;
                 return true;
+            
             case 2 when args[0] is RegisterExpression regExpr &&
                         args[1] is NumberExpression or NameExpression:
                 _register = regExpr.Value;
                 _offset = args[1] as NumberExpression ?? ((NameExpression)args[1]).ToNumber();
                 error = null;
                 return true;
+            
             default:
                 error = "JumpStyleInstruction requires either one register argument, one number argument, or both a register and a number argument.";
                 return false;

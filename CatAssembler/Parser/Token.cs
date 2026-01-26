@@ -7,4 +7,3 @@ public record LabelToken(string Name, string File = "", int Line = 0) : Token(Fi
 public record DirectiveToken(string Name, IExpression[] Args, string File = "", int Line = 0) : Token(File, Line);
 
 public record InstructionToken(string Name, IExpression[] Args, string File = "", int Line = 0) : Token(File, Line);
-
