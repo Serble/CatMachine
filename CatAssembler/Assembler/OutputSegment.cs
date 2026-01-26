@@ -276,7 +276,7 @@ public record EncodableInstruction(byte OpCode, IInstructionArgType[] ArgTypes) 
 public record JumpStyleInstruction(byte OpCode) : ArgumentOutputSegment {
     public override int SizeInBytes => 6;  // opcode + reg(1) + imm32(4)
     private Register? _register;
-    private NumberExpression _offset = new("0", false);
+    private NumberExpression _offset = new("0", "0", false);
     
     public override bool ValidateArgs(InstructionToken token, IExpression[] args, 
         Dictionary<string, string> _, out string? error) {

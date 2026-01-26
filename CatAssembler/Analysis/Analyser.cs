@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using CatAssembler.Assembler;
 using CatAssembler.Exceptions;
 using CatAssembler.Parser;
@@ -8,7 +9,10 @@ namespace CatAssembler.Analysis;
 
 public class Analyser {
     private const int MaxVariableDepth = 64;
+    private const string AllChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    
     private readonly Stack<Token> _tokens = [];
+    private readonly Dictionary<string, Macro> _macros = new();
 
     public Analyser(Token[] tokens) {
         for (int i = tokens.Length - 1; i >= 0; i--) {
@@ -45,6 +49,34 @@ public class Analyser {
                             break;
                         }
 
+                        case "macro": {
+                            AssertArgCount(directive, 3);
+                            
+                            string name = AssertExpression<NameExpression>(directive, directive.Args[0]).Value;
+                            NumberExpression argCountExpr = AssertNumberExpression(token, directive.Args[1]);
+                            Dictionary<string, string> mod = CompactConstants();
+                            string argCountName = Guid.NewGuid().ToString();
+                            mod.Add(argCountName, argCountExpr.Value);
+                            int argCount;
+                            
+                            try {
+                                argCount = (int)EvaluateVariable(argCountName, mod);
+                            }
+                            catch (Exception e) when (e is CircularDependencyException or KeyNotFoundException or InvalidOperationException) {
+                                throw Fail(token, "Macro argument count must be a constant integer resolvable at first pass" + e);
+                            }
+
+                            MacroBodyExpression lines = AssertExpression<MacroBodyExpression>(directive, directive.Args[2]);
+                            
+                            _macros.Add(name, new Macro(lines.Value, argCount, lines.LineNumber));
+                            break;
+                        }
+
+                        case "endmacro": {
+                            Fail(token, "Cannot have an endmacro outside of a macro");
+                            break;
+                        }
+
                         case "include": {
                             AssertArgCount(directive, 1);
                             string file = directive.Args[0] switch {
@@ -76,6 +108,34 @@ public class Analyser {
                 }
 
                 case InstructionToken instruction: {
+                    if (_macros.TryGetValue(instruction.Name, out Macro? macro)) {
+                        AssertArgCount(instruction, macro.ArgCount);
+                        
+                        StringBuilder expansionIdBuilder = new();
+                        for (int i = 0; i < 16; i++) {
+                            expansionIdBuilder.Append(AllChars[Random.Shared.Next(AllChars.Length)]);
+                        }
+
+                        string expansionId = expansionIdBuilder.ToString();
+                        
+                        string[] lines = macro.Lines.Select(line => {
+                            // reverse order so $10 isn't replaced with $1's replacement
+                            for (int i = macro.ArgCount; i >= 1; i--) {
+                                line = line.Replace($"${i}", instruction.Args[i - 1].RawValue);
+                            }
+                            
+                            line = line.Replace("$0", expansionId);
+                            return line;
+                        }).ToArray();
+                        
+                        Tokeniser tokeniser = new(instruction.File, lines, macro.LineNumber);
+                        Token[] newTokens = tokeniser.Tokenise();
+                        for (int i = newTokens.Length - 1; i >= 0; i--) {
+                            _tokens.Push(newTokens[i]);
+                        }
+                        break;
+                    }
+                    
                     // custom instructions
                     IOutputSegment? customInstr = FindCustomInstruction(instruction);
                     if (customInstr != null) {
@@ -135,6 +195,12 @@ public class Analyser {
     }
 
     private void AssertArgCount(DirectiveToken directive, int argCount) {
+        if (directive.Args.Length != argCount) {
+            Fail(directive, $"Directive {directive.Name} expects {argCount} arguments, got {directive.Args.Length}");
+        }
+    }
+    
+    private void AssertArgCount(InstructionToken directive, int argCount) {
         if (directive.Args.Length != argCount) {
             Fail(directive, $"Directive {directive.Name} expects {argCount} arguments, got {directive.Args.Length}");
         }
@@ -225,6 +291,7 @@ public class Analyser {
             double d => (uint)d,
             decimal d => (uint)d,
             float s => (uint)s,
+            bool b => b ? (uint)1 : 0,
             string s => throw new InvalidOperationException(
                 $"Expression evaluated to a string, which is not supported: {s}, {expression}"),
             _ => throw new InvalidOperationException(

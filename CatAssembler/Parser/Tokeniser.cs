@@ -11,19 +11,23 @@ public partial class Tokeniser {
     private readonly string _file;
     private readonly string[] _contents;
     private int _line;
+    private readonly int _lineOffset;
+    private string _currentGlobalLabel = "";
 
-    public Tokeniser(string file, string input) {
+    public Tokeniser(string file, string input, int lineOffset = 0) {
+        _file = file;
         _contents = input.Split('\n');
-        _file = file;
+        _lineOffset = lineOffset;
     }
     
-    public Tokeniser(string file, string[] input) {
+    public Tokeniser(string file, string[] input, int lineOffset = 0) {
+        _file = file;
         _contents = input;
-        _file = file;
+        _lineOffset = lineOffset;
     }
     
-    public static string TransformLocalLabel(string currentGlobalLabel, string localLabel) {
-        return $"{LocalLabelPrefix}{currentGlobalLabel}__{localLabel}";
+    private string TransformLocalLabel(string localLabel) {
+        return $"{LocalLabelPrefix}{_currentGlobalLabel}__{localLabel}";
     }
     
     private string? ReadLine() {
@@ -36,70 +40,94 @@ public partial class Tokeniser {
 
     public Token[] Tokenise() {
         List<Token> tokens = [];
-        string currentGlobalLabel = "";
 
-        while (true) {
-            string? line = ReadLine();
-            if (line == null) {
-                break;
-            }
-
-            // check for comment at end of line
-            int commentIndex = line.IndexOf(';');
-            if (commentIndex != -1) {
-                line = line[..commentIndex].TrimEnd();
-            }
-            
-            if (string.IsNullOrWhiteSpace(line)) {
-                continue;
-            }
-            
-
-            // ACTUAL TYPES
-            
-            if (line.EndsWith(':')) {  // label
-                string labelName = line[..^1].Trim();
-                if (!LabelMatcher().IsMatch(labelName)) {
-                    Fail($"Invalid label name: {labelName}");
-                }
-                if (labelName.StartsWith('.')) {
-                    labelName = TransformLocalLabel(currentGlobalLabel, labelName[1..]);
-                }
-                else {
-                    currentGlobalLabel = labelName;
-                }
-                tokens.Add(Label(labelName));
-                continue;
-            }
-
-            if (line.StartsWith('#')) {  // directive
-                if (line == "#") {
-                    Fail("Directive name missing");
-                }
-                string[] parts = line[1..].Split([' '], 2, StringSplitOptions.RemoveEmptyEntries);
-                IExpression[] args = parts.Length > 1 ? ParseExpressionList(currentGlobalLabel, parts[1]) : [];
-                tokens.Add(Directive(parts[0], args));
-                continue;
-            }
-            
-            // instruction
-            string[] instrParts = line.Split([' '], 2, StringSplitOptions.RemoveEmptyEntries);
-            IExpression[] instrArgs = instrParts.Length > 1 ? ParseExpressionList(currentGlobalLabel, instrParts[1]) : [];
-            tokens.Add(Instruction(instrParts[0], instrArgs));
-        }
+        while (ReadToken(tokens)) { }
         
         Console.WriteLine("Tokenisation complete: " + tokens.Count + " tokens generated.");
         return tokens.ToArray();
     }
 
-    private IExpression[] ParseExpressionList(string currentGlobalLabel, string input) {
+    private bool ReadToken(List<Token> tokens) {
+        string? line = ReadLine();
+        if (line == null) {
+            return false;
+        }
+
+        // check for comment at end of line
+        int commentIndex = line.IndexOf(';');
+        if (commentIndex != -1) {
+            line = line[..commentIndex].TrimEnd();
+        }
+            
+        if (string.IsNullOrWhiteSpace(line)) {
+            return true;
+        }
+            
+
+        // ACTUAL TYPES
+            
+        if (line.EndsWith(':')) {  // label
+            string labelName = line[..^1].Trim();
+            if (!LabelMatcher().IsMatch(labelName)) {
+                Fail($"Invalid label name: {labelName}");
+            }
+            if (labelName.StartsWith('.')) {
+                labelName = TransformLocalLabel(labelName[1..]);
+            }
+            else {
+                _currentGlobalLabel = labelName;
+            }
+            
+            tokens.Add(Label(labelName));
+            return true;
+        }
+
+        if (line.StartsWith('#')) {  // directive
+            if (line == "#") {
+                Fail("Directive name missing");
+            }
+            string[] parts = line[1..].Split([' '], 2, StringSplitOptions.RemoveEmptyEntries);
+            IExpression[] args = parts.Length > 1 ? ParseExpressionList(parts[1]) : [];
+                
+            if (parts[0].ToLower() == "macro") {
+                List<string> lines = [];
+                int lineNumber = _line + _lineOffset;
+                
+                while (true) {
+                    line = ReadLine();
+                    if (line == null) {
+                        Fail("Program cannot end inside of a macro block!");
+                    }
+
+                    if (line.StartsWith("#endmacro")) {
+                        break;
+                    }
+                    
+                    lines.Add(line);
+                }
+                
+                args = args.Append(new MacroBodyExpression(lines, lineNumber)).ToArray();
+            }
+                
+            tokens.Add(Directive(parts[0], args));
+            return true;
+        }
+            
+        // instruction
+        string[] instrParts = line.Split([' '], 2, StringSplitOptions.RemoveEmptyEntries);
+        IExpression[] instrArgs = instrParts.Length > 1 ? ParseExpressionList(instrParts[1]) : [];
+        tokens.Add(Instruction(instrParts[0], instrArgs));
+        return true;
+    }
+
+    private IExpression[] ParseExpressionList(string input) {
         List<IExpression> exprs = [];
         StringBuilder current = new();
 
         int parenDepth = 0;
         foreach (char c in input) {
             if (c == ',' && parenDepth == 0) {
-                exprs.Add(ParseExpression(currentGlobalLabel, current.ToString()));
+                exprs.Add(ParseExpression(current.ToString()));
                 current.Clear();
             }
             else {
@@ -113,13 +141,16 @@ public partial class Tokeniser {
                 current.Append(c);
             }
         }
+        
         if (current.Length > 0) {
-            exprs.Add(ParseExpression(currentGlobalLabel, current.ToString()));
+            exprs.Add(ParseExpression(current.ToString()));
         }
+        
         return exprs.ToArray();
     }
 
-    private IExpression ParseExpression(string currentGlobalLabel, string text) {
+    private IExpression ParseExpression(string text) {
+        string raw = text;
         text = text.Trim();
         
         bool pointer = false;
@@ -136,19 +167,19 @@ public partial class Tokeniser {
         }
         
         if (RegisterExtensions.TryParse(text, out Register reg)) {
-            return new RegisterExpression(reg, pointer);
+            return new RegisterExpression(raw, reg, pointer);
         }
         
         text = LocalLabelMatcher().Replace(text, match => 
-            TransformLocalLabel(currentGlobalLabel, match.Groups[0].Value[1..]));
+            TransformLocalLabel(match.Groups[0].Value[1..]));
 
         if (!pointer && NameMatcher().IsMatch(text)) {
-            return new NameExpression(text);
+            return new NameExpression(raw, text);
         }
 
         Match stringMatch = StringMatcher().Match(text);
         if (!stringMatch.Success) {
-            return new NumberExpression(PreprocessExpression(text), pointer);
+            return new NumberExpression(raw, PreprocessExpression(text), pointer);
         }
 
         if (pointer) {
@@ -180,13 +211,13 @@ public partial class Tokeniser {
             output.Append(text[i]);
         }
             
-        return new StringExpression(output.ToString());
+        return new StringExpression(raw, output.ToString());
     }
 
     private Token Explain(Token token) {
         return token with {
             File = _file,
-            Line = _line
+            Line = _line + _lineOffset
         };
     }
 
@@ -204,7 +235,7 @@ public partial class Tokeniser {
 
     [DoesNotReturn]
     private void Fail(string msg) {
-        throw new ParseException(_file, _line, msg);
+        throw new ParseException(_file, _line + _lineOffset, msg);
     }
     
     // Preprocesses an input expression, replacing parseable numbers with their uint decimal value
