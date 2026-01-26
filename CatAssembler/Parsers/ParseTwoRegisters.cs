@@ -7,7 +7,7 @@ public class ParseTwoRegisters {
             return false;
         }
         
-        if (!Program.RegisterToId.TryGetValue(split[1].ToLower(), out byte r1)) {
+        if (!Program.RegisterToId.TryGetValue(split[2].ToLower(), out byte r1)) {
             Console.WriteLine($"{Program.LineNum}: Second argument must be a register");
             return false;
         }
