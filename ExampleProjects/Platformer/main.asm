@@ -104,6 +104,8 @@ main:
     mov r1, title_screen
     call draw_screen
     
+    int INT_UPDATE_DISP
+    
     ; wait for input to continue
     call wait_for_input
     
