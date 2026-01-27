@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using CatVM.Ops;
@@ -7,9 +8,12 @@ namespace CatVM;
 
 // a VM instance
 public class CatVM {
+    public const bool BenchmarkMode = true;
+    public const bool DebugMode = false;
     public const int DisplayWidth = 512;
     public const int DisplayHeight = 512;
     public const int DisplayBufferSize = DisplayHeight * DisplayWidth * 4;
+    
     public const long PicosecondsPerSecond = 1000000000000L;
     public const long PicosecondsPerTick = 100000L;
     public const long PicosecondsPerMillisecond = 1000000000L;
@@ -19,7 +23,6 @@ public class CatVM {
     public bool InterruptsEnabled { get; set; } = true;
     public long PicosecondsPerCycle { get; set; }
     public bool ErrorOnRomWrite { get; set; }
-    public bool PrintInstructionTimes { get; set; }
     public bool EnableTestingInterrupts { get; set; }
     public bool DumpErrors { get; set; }
     public uint DisplayBufferOffset { get; set; }
@@ -33,6 +36,7 @@ public class CatVM {
     public bool Fast { get; init; }
     public event Action? UpdateDisplayEvent;  // Event for when the program requests the display to update
     public CatCpuState Cpu;
+    
     private readonly int _memoryBytes;
     
     public bool Paused {
@@ -87,6 +91,7 @@ public class CatVM {
         Cpu.Ip = offset;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read8() {
         ValidateMemoryRead(Cpu.Ip, 1);
         return Memory[Cpu.Ip++];
@@ -109,6 +114,7 @@ public class CatVM {
         return BitConverter.ToUInt16(Memory, (int)ptr);
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint ReadWord() {
         ValidateMemoryRead(Cpu.Ip, 4);
         uint value = BitConverter.ToUInt32(Memory, (int)Cpu.Ip);
@@ -144,71 +150,109 @@ public class CatVM {
     public void Run(CancellationToken? cancellationToken = null) {
         Runtime.Restart();
         
+        int instructionsExecuted = 0;
+        if (BenchmarkMode) {
+            Task.Run(() => {
+                Stopwatch sw = Stopwatch.StartNew();
+                int i = 0;
+                while (true) {
+                    i++;
+                    if (i >= 10) {
+                        i = 0;
+                        sw.Restart();
+                        instructionsExecuted = 0;
+                    }
+                    Thread.Sleep(1000);
+                    int instructionsPerSecond = (int)(instructionsExecuted / sw.Elapsed.TotalSeconds);
+                    if (BenchmarkMode) {
+                        Console.WriteLine($"IPS: {instructionsPerSecond}");
+                    }
+                }
+            });
+        }
+
+        // Main loop has try catch here to reduce overhead in ExecuteInstruction
+        // but if it throws inside we need to continue, so double while loop.
         while (cancellationToken is not { IsCancellationRequested: true }) {
-            if (Paused) {
-                Thread.Yield();
-                continue;
+            try {
+                while (cancellationToken is not { IsCancellationRequested: true }) {
+                    if (Paused) {
+                        Thread.Yield();
+                        continue;
+                    }
+
+                    ExecuteInstruction(Fast);
+                    if (BenchmarkMode) {
+                        instructionsExecuted++;
+                    }
+                }
             }
-            
-            ExecuteInstruction(Fast);
+            catch (DivideByZeroException e) {
+                DumpError(e);
+                Interrupt(SpecialInterupts.DivideByZero);
+            }
+            catch (MemoryOutOfRange e) {
+                DumpError(e);
+                try {
+                    StackPush(e.Address);
+                    Interrupt(SpecialInterupts.PageFault);
+                }
+                catch (MemoryOutOfRange ex) {
+                    DumpError(ex);
+                    Interrupt(SpecialInterupts.PageFault);
+                }
+            }
+            catch (IndexOutOfRangeException e) {
+                DumpError(e);
+                
+                // we need to check if this was due to an invalid opcode
+                // check if the last stack frame was in ExecuteInstruction
+                StackTrace trace = new(e);
+                Console.WriteLine(trace.ToString());
+                StackFrame[] frames = trace.GetFrames();
+                if (frames.Length > 1 && frames[1].GetMethod()?.Name == nameof(ExecuteInstruction)) {
+                    // invalid opcode
+                    Interrupt(SpecialInterupts.InvalidInstruction);
+                }
+                else {
+                    // some other index out of range (we'll assume with memory)
+                    Interrupt(SpecialInterupts.PageFault);
+                }
+            }
+            catch (Exception e) {
+                DumpError(e);
+                Interrupt(SpecialInterupts.InvalidInstruction);
+            }
         }
     }
 
-    private void DumpError(Exception e) {
+    public void DumpError(Exception e) {
         if (DumpErrors) {
             Console.WriteLine(e);
         }
     }
-
+    
     public void ExecuteInstruction(bool fast = false) {
-        if (InterruptsEnabled && InterruptQueue.TryDequeue(out byte waitingInterrupt)) {
-            HandleInterrupt(waitingInterrupt);
+        // Don't use TryDequeue for performance reasons
+        if (InterruptsEnabled && InterruptQueue.Count != 0) {
+            HandleInterrupt(InterruptQueue.Dequeue());
         }
 
-        Stopwatch sw = Stopwatch.StartNew();
-        int instructionCycles = 0;
-        try {
-            byte opcode = Read8();
-
-            if (opcode >= Operations.Length) {
-                Interrupt(SpecialInterupts.InvalidInstruction);
-                return;
-            }
-
-            (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
-            instructionCycles = instruction.cycles;
-            instruction.executor(this);
-            TicksPassed += instructionCycles * PicosecondsPerCycle;
-        }
-        catch (DivideByZeroException e) {
-            DumpError(e);
-            Interrupt(SpecialInterupts.DivideByZero);
-        }
-        catch (MemoryOutOfRange e) {
-            DumpError(e);
-            try {
-                StackPush(e.Address);
-                Interrupt(SpecialInterupts.PageFault);
-            }
-            catch (MemoryOutOfRange ex) {
-                DumpError(ex);
-                Interrupt(SpecialInterupts.PageFault);
-            }
-        }
-        catch (Exception e) {
-            DumpError(e);
-            Interrupt(SpecialInterupts.InvalidInstruction);
-        }
-
-        if (PrintInstructionTimes) {
-            Console.WriteLine("Actual OP execution took: " + sw.Elapsed.TotalMicroseconds + " us");
-        }
+        byte opcode = Read8();
+        
+        // don't bounds check opcode because the array lookup
+        // will do that for us and throw an IndexOutOfRangeException
+        (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
+        instruction.executor(this);
+        TicksPassed += instruction.cycles * PicosecondsPerCycle;
+        
+        if (fast) return;  // don't bother calculating anything if fast
         
         // wait the required time (sleepNeeded is in picoseconds)
         long sleepNeeded = TicksPassed - Runtime.Elapsed.Ticks * PicosecondsPerTick;
         
         // Thread.Sleep has a minimum time of 1ms
-        if (!fast && sleepNeeded > PicosecondsPerMillisecond) {
+        if (sleepNeeded > PicosecondsPerMillisecond) {
             Thread.Sleep((int)(sleepNeeded / PicosecondsPerMillisecond));
         } else if (sleepNeeded < -100 * PicosecondsPerMillisecond && DateTime.Now - lastSlowWarning > TimeSpan.FromMilliseconds(1000)) {
             Console.WriteLine($"VM is running {sleepNeeded / -PicosecondsPerMillisecond}ms behind!");
@@ -358,37 +402,35 @@ public class CatVM {
     }
 
     public void ValidateMemoryWrite(uint address, uint size) {
-        // Other memory access can be validated here
-        // this is just for ROM write protection for now (and bounds checking)
-        // but if you're having issues this can help you debug.
+        // Bounds checking is not needed here because
+        // the array access will error and be caught
+        // by upstream try catch.
         
-        // bounds checking
-        if (address + size > Memory.Length) {
-            throw new MemoryOutOfRange(true, address, size);
-        }
-        
-        if (ErrorOnRomWrite && address < Rom.Length) {
-            throw new MemoryOutOfRange(true, address, size, "ROM writes are disallowed");
-        }
-        
-        // disallowed write regions
-        foreach ((uint start, uint length) in DisallowedWriteRegions) {
-            if (address < start + length && address + size > start) {
-                throw new MemoryOutOfRange(true, address, size, "Write to disallowed memory region");
+        if (DebugMode && DisallowedWriteRegions.Length != 0) {
+            if (ErrorOnRomWrite && address < Rom.Length) {
+                throw new MemoryOutOfRange(true, address, size, "ROM writes are disallowed");
+            }
+            
+            // disallowed write regions
+            foreach ((uint start, uint length) in DisallowedWriteRegions) {
+                if (address < start + length && address + size > start) {
+                    throw new MemoryOutOfRange(true, address, size, "Write to disallowed memory region");
+                }
             }
         }
     }
     
     public void ValidateMemoryRead(uint address, uint size) {
-        // bounds checking
-        if (address + size > Memory.Length) {
-            throw new MemoryOutOfRange(false, address, size);
-        }
+        // Bounds checking is not needed here because
+        // the array access will error and be caught
+        // by upstream try catch.
         
-        // disallowed read regions
-        foreach ((uint start, uint length) in DisallowedReadRegions) {
-            if (address < start + length && address + size > start) {
-                throw new MemoryOutOfRange(false, address, size, "Read from disallowed memory region");
+        if (DebugMode && DisallowedReadRegions.Length != 0) {
+            // disallowed read regions
+            foreach ((uint start, uint length) in DisallowedReadRegions) {
+                if (address < start + length && address + size > start) {
+                    throw new MemoryOutOfRange(false, address, size, "Read from disallowed memory region");
+                }
             }
         }
     }

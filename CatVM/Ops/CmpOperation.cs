@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace CatVM.Ops;
 
 public static class CmpOperation {
@@ -30,6 +32,10 @@ public static class CmpOperation {
         Cmp(vm, left, right);
     }
     
+    // inlining performance tests are inconclusive, but seemed somewhat positive.
+    // at worst, it doesn't seem to have a negative impact.
+    // feel free to retest and remove if needed.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Cmp(CatVM vm, uint a, uint b) {
         uint result = a - b;
         int sResult = (int)result;

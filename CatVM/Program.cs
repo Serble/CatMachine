@@ -11,7 +11,6 @@ if (!File.Exists(romPath)) {
 bool fastRun = false;
 uint ops = 100_000;  // ops per seconds
 int memorySize = 1024 * 1024 * 16; // 16mb
-bool enableTimings = false;
 bool enableTestInts = false;
 bool dumpErrors = false;
 bool errorOnRomWrite = false;
@@ -43,10 +42,6 @@ for (int i = 1; i < args.Length; i++) {
             }
             break;
         
-        case "--timings":
-            enableTimings = true;
-            break;
-        
         case "--renderer":
             string rendererType = "raylib";
             if (i + 1 < args.Length) {
@@ -74,6 +69,11 @@ for (int i = 1; i < args.Length; i++) {
             break;
         
         case "--disallow-write":
+            if (!CatVM.CatVM.DebugMode) {
+                Console.WriteLine("--disallow-write flag requires the VM to be built in debug mode.");
+                return 1;
+            }
+            
             if (i + 2 < args.Length &&
                 uint.TryParse(args[i + 1], out uint writeAddr) &&
                 uint.TryParse(args[i + 2], out uint writeLength)) {
@@ -85,6 +85,11 @@ for (int i = 1; i < args.Length; i++) {
             break;
         
         case "--disallow-read":
+            if (!CatVM.CatVM.DebugMode) {
+                Console.WriteLine("--disallow-read flag requires the VM to be built in debug mode.");
+                return 1;
+            }
+            
             if (i + 2 < args.Length &&
                 uint.TryParse(args[i + 1], out uint readAddr) &&
                 uint.TryParse(args[i + 2], out uint readLength)) {
@@ -102,7 +107,6 @@ for (int i = 1; i < args.Length; i++) {
 }
 
 CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
-    PrintInstructionTimes = enableTimings,
     EnableTestingInterrupts = enableTestInts,
     DumpErrors = dumpErrors,
     ErrorOnRomWrite = errorOnRomWrite,
@@ -119,3 +123,4 @@ Console.CancelKeyPress += (_, _) => cts.Cancel();
 
 vm.Run(cts.Token);
 Console.WriteLine("Goodbye!");
+return 0;

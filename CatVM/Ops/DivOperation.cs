@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace CatVM.Ops;
 
 public static class DivOperation {
@@ -5,6 +7,7 @@ public static class DivOperation {
     // div destReg, remReg
     // destReg = destReg / remReg
     // remReg = destReg % remReg
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void DivRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte remReg = vm.Read8();
@@ -15,6 +18,7 @@ public static class DivOperation {
         vm.Cpu.Set(remReg, remainder);
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IDivRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte remReg = vm.Read8();
@@ -24,7 +28,11 @@ public static class DivOperation {
         vm.Cpu.Set(destReg, quotient);
         vm.Cpu.Set(remReg, remainder);
     }
+    
+    // TODO: Don't return tuples here for performance reasons
+    // investigate first
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static (uint quotient, uint remainder) Divide(uint dividend, uint divisor) {
         if (dividend == 0) {
             return (0, 0);
@@ -33,6 +41,7 @@ public static class DivOperation {
         return (dividend / divisor, dividend % divisor);
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static (uint quotient, uint remainder) Divide(int dividend, int divisor) {
         if (dividend == 0) {
             return (0, 0);

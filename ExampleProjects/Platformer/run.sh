@@ -14,7 +14,7 @@ fi
 echo "Running..."
 
 # Requires raylib rendering
-dotnet run --project ../../CatVM/CatVM.csproj a.out --renderer raylib $*
+dotnet run -c Release --project ../../CatVM/CatVM.csproj a.out --renderer raylib $*
 
 status=$?
 echo "Application exited with status code $status"

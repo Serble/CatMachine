@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatVM", "CatVM\CatVM.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatAssembler", "CatAssembler\CatAssembler.csproj", "{A4F1500E-07AB-456A-A49E-A641D8E9E8AA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatVM.Benchmarking", "CatVM.Benchmarking\CatVM.Benchmarking.csproj", "{436000D2-71C2-4B25-85AA-4D8DCC3C11BD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{A4F1500E-07AB-456A-A49E-A641D8E9E8AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A4F1500E-07AB-456A-A49E-A641D8E9E8AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A4F1500E-07AB-456A-A49E-A641D8E9E8AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{436000D2-71C2-4B25-85AA-4D8DCC3C11BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{436000D2-71C2-4B25-85AA-4D8DCC3C11BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{436000D2-71C2-4B25-85AA-4D8DCC3C11BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{436000D2-71C2-4B25-85AA-4D8DCC3C11BD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

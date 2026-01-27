@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace CatVM;
@@ -108,6 +109,7 @@ public struct CatCpuState {
         }
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint Get(byte register) {
         return register switch {
             0x00 => R0,
