@@ -1,4 +1,6 @@
 ﻿
+using CatVM;
+using CatVM.Debugging;
 using CatVM.Display;
 
 string romPath = args.Length > 0 ? args[0] : throw new ArgumentException("Please provide a path to a CatVM ROM file.");
@@ -14,6 +16,7 @@ int memorySize = 1024 * 1024 * 16; // 16mb
 bool enableTestInts = false;
 bool dumpErrors = false;
 bool errorOnRomWrite = false;
+bool useDebugger = false;
 List<(uint addr, uint length)> disallowedWrite = [];
 List<(uint addr, uint length)> disallowedRead = [];
 
@@ -62,6 +65,10 @@ for (int i = 1; i < args.Length; i++) {
         
         case "--dump-errors":
             dumpErrors = true;
+            break;
+        
+        case "--debug":
+            useDebugger = true;
             break;
         
         case "--protect-rom":
@@ -121,6 +128,12 @@ _ = renderer.Start(vm);
 CancellationTokenSource cts = new();
 Console.CancelKeyPress += (_, _) => cts.Cancel();
 
-vm.Run(cts.Token);
+if (useDebugger) {
+    Debugger debugger = new(vm, romPath);
+    debugger.StartUserDebugging();
+}
+else {
+    vm.Run(cts.Token);
+}
 Console.WriteLine("Goodbye!");
 return 0;

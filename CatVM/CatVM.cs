@@ -174,7 +174,7 @@ public class CatVM {
         // Main loop has try catch here to reduce overhead in ExecuteInstruction
         // but if it throws inside we need to continue, so double while loop.
         while (cancellationToken is not { IsCancellationRequested: true }) {
-            try {
+            ExecuteWithErrorHandling(() => {
                 while (cancellationToken is not { IsCancellationRequested: true }) {
                     if (Paused) {
                         Thread.Yield();
@@ -186,43 +186,49 @@ public class CatVM {
                         instructionsExecuted++;
                     }
                 }
+            });
+        }
+    }
+
+    public void ExecuteWithErrorHandling(Action action) {
+        try {
+            action();
+        }
+        catch (DivideByZeroException e) {
+            DumpError(e);
+            Interrupt(SpecialInterupts.DivideByZero);
+        }
+        catch (MemoryOutOfRange e) {
+            DumpError(e);
+            try {
+                StackPush(e.Address);
+                Interrupt(SpecialInterupts.PageFault);
             }
-            catch (DivideByZeroException e) {
-                DumpError(e);
-                Interrupt(SpecialInterupts.DivideByZero);
+            catch (MemoryOutOfRange ex) {
+                DumpError(ex);
+                Interrupt(SpecialInterupts.PageFault);
             }
-            catch (MemoryOutOfRange e) {
-                DumpError(e);
-                try {
-                    StackPush(e.Address);
-                    Interrupt(SpecialInterupts.PageFault);
-                }
-                catch (MemoryOutOfRange ex) {
-                    DumpError(ex);
-                    Interrupt(SpecialInterupts.PageFault);
-                }
-            }
-            catch (IndexOutOfRangeException e) {
-                DumpError(e);
+        }
+        catch (IndexOutOfRangeException e) {
+            DumpError(e);
                 
-                // we need to check if this was due to an invalid opcode
-                // check if the last stack frame was in ExecuteInstruction
-                StackTrace trace = new(e);
-                Console.WriteLine(trace.ToString());
-                StackFrame[] frames = trace.GetFrames();
-                if (frames.Length > 1 && frames[1].GetMethod()?.Name == nameof(ExecuteInstruction)) {
-                    // invalid opcode
-                    Interrupt(SpecialInterupts.InvalidInstruction);
-                }
-                else {
-                    // some other index out of range (we'll assume with memory)
-                    Interrupt(SpecialInterupts.PageFault);
-                }
-            }
-            catch (Exception e) {
-                DumpError(e);
+            // we need to check if this was due to an invalid opcode
+            // check if the last stack frame was in ExecuteInstruction
+            StackTrace trace = new(e);
+            Console.WriteLine(trace.ToString());
+            StackFrame[] frames = trace.GetFrames();
+            if (frames.Length > 1 && frames[1].GetMethod()?.Name == nameof(ExecuteInstruction)) {
+                // invalid opcode
                 Interrupt(SpecialInterupts.InvalidInstruction);
             }
+            else {
+                // some other index out of range (we'll assume with memory)
+                Interrupt(SpecialInterupts.PageFault);
+            }
+        }
+        catch (Exception e) {
+            DumpError(e);
+            Interrupt(SpecialInterupts.InvalidInstruction);
         }
     }
 

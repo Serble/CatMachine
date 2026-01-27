@@ -53,6 +53,8 @@ public partial class Tokeniser {
             return false;
         }
 
+        string raw = line;
+
         // check for comment at end of line
         int commentIndex = line.IndexOf(';');
         if (commentIndex != -1) {
@@ -78,7 +80,7 @@ public partial class Tokeniser {
                 _currentGlobalLabel = labelName;
             }
             
-            tokens.Add(Label(labelName));
+            tokens.Add(Label(raw, labelName));
             return true;
         }
 
@@ -109,14 +111,14 @@ public partial class Tokeniser {
                 args = args.Append(new MacroBodyExpression(lines, lineNumber)).ToArray();
             }
                 
-            tokens.Add(Directive(parts[0], args));
+            tokens.Add(Directive(raw, parts[0], args));
             return true;
         }
-            
+        
         // instruction
         string[] instrParts = line.Split([' '], 2, StringSplitOptions.RemoveEmptyEntries);
         IExpression[] instrArgs = instrParts.Length > 1 ? ParseExpressionList(instrParts[1]) : [];
-        tokens.Add(Instruction(instrParts[0], instrArgs));
+        tokens.Add(Instruction(raw, instrParts[0], instrArgs));
         return true;
     }
 
@@ -221,16 +223,16 @@ public partial class Tokeniser {
         };
     }
 
-    private Token Label(string name) {
-        return Explain(new LabelToken(name));
+    private Token Label(string raw, string name) {
+        return Explain(new LabelToken(raw, name));
     }
 
-    private Token Directive(string name, IExpression[] args) {
-        return Explain(new DirectiveToken(name, args));
+    private Token Directive(string raw, string name, IExpression[] args) {
+        return Explain(new DirectiveToken(raw, name, args));
     }
     
-    private Token Instruction(string name, IExpression[] args) {
-        return Explain(new InstructionToken(name, args));
+    private Token Instruction(string raw, string name, IExpression[] args) {
+        return Explain(new InstructionToken(raw, name, args));
     }
 
     [DoesNotReturn]

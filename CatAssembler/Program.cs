@@ -1,4 +1,5 @@
-﻿using CatAssembler.Analysis;
+﻿using System.Text.Json;
+using CatAssembler.Analysis;
 using CatAssembler.Assembler;
 using CatAssembler.Exceptions;
 using Tokeniser = CatAssembler.Parser.Tokeniser;
@@ -37,13 +38,21 @@ Directory.SetCurrentDirectory(Path.GetDirectoryName(Path.GetFullPath(inputFilePa
 try {
     Tokeniser tokeniser = new(Path.GetFileName(inputFilePath), File.ReadAllLines(Path.GetFileName(inputFilePath)));
     Analyser analyser = new(tokeniser.Tokenise());
-    (IOutputSegment[] segments, Dictionary<string, string> constants) = analyser.Analyse();
+    (IOutputSegment[] segments, Dictionary<string, string> constants, DebugTable debugSymbols) = analyser.Analyse();
     Assembler assembler = new(segments, constants);
     
     FileStream outputStream = new(outputFile, FileMode.Create, FileAccess.Write);
     assembler.WriteTo(outputStream);
     outputStream.Close();
     Console.WriteLine("Assembled successfully to " + outputFile);
+    
+    FileStream debugSymbolsStream = new(outputFile + ".debug", FileMode.Create, FileAccess.Write);
+    // write json
+    using StreamWriter writer = new(debugSymbolsStream);
+    writer.Write(JsonSerializer.Serialize(debugSymbols, new JsonSerializerOptions {
+        WriteIndented = true
+    }));
+    Console.WriteLine("Wrote debug symbols to " + outputFile + ".debug");
 }
 catch (ParseException e) {
     Console.WriteLine("Error: " + e.Message);

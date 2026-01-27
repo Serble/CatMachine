@@ -20,9 +20,10 @@ public class Analyser {
         }
     }
 
-    public (IOutputSegment[] segments, Dictionary<string, string> constants) Analyse() {
+    public (IOutputSegment[] segments, Dictionary<string, string> constants, DebugTable debugSymbols) Analyse() {
         int filePos = 0;
         Dictionary<string, (string expr, string file, int line)> constants = [];
+        List<DebugSymbol> debugSymbols = [];
 
         List<IOutputSegment> segments = [];
         
@@ -108,6 +109,8 @@ public class Analyser {
                 }
 
                 case InstructionToken instruction: {
+                    debugSymbols.Add(new DebugSymbol(filePos, instruction.Line, instruction.Raw));
+                    
                     if (_macros.TryGetValue(instruction.Name, out Macro? macro)) {
                         AssertArgCount(instruction, macro.ArgCount);
                         
@@ -169,11 +172,18 @@ public class Analyser {
             }
         }
         
-        Console.WriteLine("Analysis complete. Generated " +
+        
+        
+        Console.WriteLine("Analysis complete. Debug symbols generated. Generated " +
                           $"{segments.Count} segments, " +
                           $"{constants.Count} constants, " +
                           $"{filePos} bytes.");
-        return (segments.ToArray(), CompactConstants());
+
+        Dictionary<string, string> finalExpressions = CompactConstants();
+        return (segments.ToArray(), CompactConstants(), new DebugTable(debugSymbols.ToArray(), constants.ToDictionary(
+            kv => kv.Key,
+            kv => EvaluateVariable(kv.Key, finalExpressions)
+        )));
 
         Dictionary<string, string> CompactConstants() => constants.ToDictionary(kv => kv.Key, kv => kv.Value.expr);
     }
