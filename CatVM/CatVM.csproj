@@ -12,4 +12,8 @@
       <PackageReference Include="Raylib-cs" Version="7.0.2" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\CatData\CatData.csproj" />
+    </ItemGroup>
+
 </Project>

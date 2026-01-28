@@ -2,6 +2,7 @@ using System.Text;
 using CatAssembler.Analysis;
 using CatAssembler.Exceptions;
 using CatAssembler.Parser;
+using CatData;
 
 namespace CatAssembler.Assembler;
 

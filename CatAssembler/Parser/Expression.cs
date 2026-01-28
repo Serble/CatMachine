@@ -1,3 +1,5 @@
+using CatData;
+
 namespace CatAssembler.Parser;
 
 public interface IExpression {

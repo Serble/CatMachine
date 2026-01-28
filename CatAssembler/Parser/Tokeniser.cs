@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 using CatAssembler.Exceptions;
+using CatData;
 
 namespace CatAssembler.Parser;
 

@@ -3,6 +3,7 @@ using System.Text;
 using CatAssembler.Assembler;
 using CatAssembler.Exceptions;
 using CatAssembler.Parser;
+using CatData;
 using Expression = NCalc.Expression;
 
 namespace CatAssembler.Analysis;

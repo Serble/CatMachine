@@ -8,4 +8,7 @@
     <ItemGroup>
       <PackageReference Include="ncalc" Version="1.3.8" />
     </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\CatData\CatData.csproj" />
+    </ItemGroup>
 </Project>

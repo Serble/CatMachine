@@ -1,4 +1,4 @@
-namespace CatAssembler;
+namespace CatData;
 
 public enum Register : byte {
     R0 = 0x00,

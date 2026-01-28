@@ -1,3 +1,5 @@
+using CatData;
+
 namespace CatAssembler.Analysis;
 
 public interface IInstructionArgType {
@@ -9,7 +11,7 @@ public static class InstructionArgTypes {
     public static readonly IInstructionArgType Immediate32 = new Immediate32Type();
     public static readonly IInstructionArgType Immediate16 = new Immediate16Type();
     public static readonly IInstructionArgType Immediate8 = new Immediate8Type();
-    public static readonly IInstructionArgType Register = new RegisterType(CatAssembler.Register.R0);
+    public static readonly IInstructionArgType Register = new RegisterType(CatData.Register.R0);
 }
 
 public abstract record ImmediateType : IInstructionArgType {

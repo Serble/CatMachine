@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CatData;
 
 namespace CatVM.Debugging;
 
@@ -93,13 +94,68 @@ public class Debugger {
             string[] parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) continue;
 
-            // TODO: step over, step out, inspect memory, modify registers/memory, etc.
+            // TODO: modify memory, etc.
             switch (parts[0].ToLower()) {
                 case "s":
                 case "step": {
                     _vm.Paused = false;
                     ProcessInstruction(true);
                     _vm.Paused = true;
+                    break;
+                }
+
+                case "sout":
+                case "step-out": {
+                    if (callStack.Count == 0) {
+                        Console.WriteLine("Not in a function call.");
+                        break;
+                    }
+                    
+                    int initialStackDepth = callStack.Count;
+                    ContinueUntil(() => callStack.Count < initialStackDepth);
+                    break;
+                }
+                
+                case "sover":
+                case "step-over": {
+                    byte opCode = _vm.Read8(_vm.Cpu.Ip);
+                    int initialStackDepth = callStack.Count;
+                    
+                    // Step once so the call is processed
+                    // or if it isn't a call, just step normally
+                    _vm.Paused = false;
+                    ProcessInstruction(true);
+                    _vm.Paused = true;
+                    
+                    // if it was a call, continue until we return to the same stack depth
+                    if (opCode == 0x3f) {
+                        // CALL
+                        Console.WriteLine("Stepping over function call...");
+                        ContinueUntil(() => callStack.Count <= initialStackDepth);
+                    }
+                    break;
+                }
+
+                case "sr":
+                case "set-register": {
+                    if (parts.Length != 3) {
+                        Console.WriteLine("set-register <reg> <value>");
+                        continue;
+                    }
+                    
+                    string regName = parts[1];
+                    if (!Enum.TryParse(regName, true, out Register register)) {
+                        Console.WriteLine("Invalid register name. Enter ID or name.");
+                        continue;
+                    }
+                    
+                    if (!uint.TryParse(parts[2], out uint value)) {
+                        Console.WriteLine("Invalid value.");
+                        continue;
+                    }
+                    
+                    _vm.Cpu.Set((byte)register, value);
+                    Console.WriteLine($"Set register {register} to 0x{value:X8}");
                     break;
                 }
 
@@ -140,23 +196,46 @@ public class Debugger {
 
                 case "c":
                 case "continue": {
-                    _vm.Paused = false;
-                    _vm.ExecuteWithErrorHandling(() => {
-                        while (true) {
-                            if (_vm.Paused) {
-                                Console.WriteLine("VM has been paused.");
-                                break;
-                            }
+                    ContinueUntil(() => false);
+                    break;
+                }
 
-                            if (breakpoints.Contains(_vm.Cpu.Ip)) {
-                                Console.WriteLine($"Breakpoint: 0x{_vm.Cpu.Ip:X8}");
-                                break;
-                            }
-                            
-                            ProcessInstruction(_vm.Fast);
+                case "cf":
+                case "continue-for": {  // cf <instructions(instr)/seconds(secs)> <count>
+                    if (parts.Length != 3) {
+                        Console.WriteLine("continue-for <instructions(instr)/seconds(secs)> <count>");
+                        continue;
+                    }
+                    
+                    string mode = parts[1].ToLower();
+                    if (!int.TryParse(parts[2], out int count) || count <= 0) {
+                        Console.WriteLine("Invalid count.");
+                        continue;
+                    }
+                    
+                    switch (mode) {
+                        case "instr":
+                        case "instructions": {
+                            int instructionsExecuted = 0;
+                            ContinueUntil(() => {
+                                instructionsExecuted++;
+                                return instructionsExecuted >= count;
+                            });
+                            break;
                         }
-                    });
-                    _vm.Paused = true;
+
+                        case "secs":
+                        case "seconds": {
+                            DateTime endTime = DateTime.Now.AddSeconds(count);
+                            ContinueUntil(() => DateTime.Now >= endTime);
+                            break;
+                        }
+
+                        default:
+                            Console.WriteLine("Invalid mode. Use 'instructions' or 'seconds'.");
+                            break;
+                    }
+                    
                     break;
                 }
 
@@ -192,6 +271,50 @@ public class Debugger {
                     break;
                 }
 
+                case "dm":
+                case "dumpmem":
+                case "dump-memory": {  // dump-memory [symbol/line/addr] [point] [size]
+                    uint addr = 0;
+                    int size = _vm.Memory.Length;
+                    
+                    if (parts.Length >= 3) {
+                        uint? address = GetAddr(parts[1], parts[2]);
+                        if (!address.HasValue) {
+                            continue;
+                        }
+                        addr = address.Value;
+                    }
+                    
+                    if (parts.Length >= 4) {
+                        if (!int.TryParse(parts[3], out size) || size <= 0) {
+                            Console.WriteLine("Invalid size.");
+                            continue;
+                        }
+                    }
+                    
+                    Console.WriteLine($"Dumping memory from 0x{addr:X8} size {size} bytes");
+
+                    if (size <= 1024*1024) {  // print it in console
+                        for (int i = 0; i < size; i += 16) {
+                            Console.Write($"0x{addr + (uint)i:X8}: ");
+                            for (int j = 0; j < 16 && i + j < size; j++) {
+                                byte b = _vm.Read8(addr + (uint)(i + j));
+                                Console.Write($"{b:X2} ");
+                            }
+                            Console.WriteLine();
+                        }
+                    }
+                    
+                    const string dumpFile = "memory_dump.bin";
+                    using FileStream fs = new(dumpFile, FileMode.Create, FileAccess.Write);
+                    for (int i = 0; i < size; i++) {
+                        byte b = _vm.Read8(addr + (uint)i);
+                        fs.WriteByte(b);
+                    }
+                    Console.WriteLine($"Wrote memory dump to {dumpFile}");
+                    break;
+                }
+                
                 case "h":
                 case "help": {
                     Console.WriteLine("Debugger commands:");
@@ -201,6 +324,12 @@ public class Debugger {
                     Console.WriteLine(" clear-breaks (cb)                    - Clear all breakpoints");
                     Console.WriteLine(" watch (w) <name> <type> <arg> [size] - Add a watch at symbol/line/address with optional size (1,2,4)");
                     Console.WriteLine(" remove-bugs                          - Remove all bugs from the program (not implemented)");
+                    Console.WriteLine(" step-over (sover)                    - Step over function calls");
+                    Console.WriteLine(" step-out (sout)                      - Step out of the current function");
+                    Console.WriteLine(" set-register (sr) <reg> <value>      - Set register to value");
+                    Console.WriteLine(" dump-memory (dm) [type] [arg] [size] - Dump memory to file (and console if size <= 1024*1024) " +
+                                      "from symbol/line/address with optional size");
+                    Console.WriteLine(" continue-for (cf) <instructions(instr)/seconds(secs)> <count> - Continue for a number of instructions or seconds");
                     Console.WriteLine(" help (h)                             - Show this help message");
                     break;
                 }
@@ -249,6 +378,31 @@ public class Debugger {
                     Console.WriteLine("Invalid option.");
                     return null;
             }
+        }
+
+        // predicate is slightly inefficient but this is a debugger after all
+        void ContinueUntil(Func<bool> predicate) {
+            _vm.Paused = false;
+            _vm.ExecuteWithErrorHandling(() => {
+                while (true) {
+                    if (_vm.Paused) {
+                        Console.WriteLine("VM has been paused.");
+                        break;
+                    }
+                    
+                    if (breakpoints.Contains(_vm.Cpu.Ip)) {
+                        Console.WriteLine($"Breakpoint: 0x{_vm.Cpu.Ip:X8}");
+                        break;
+                    }
+                    
+                    if (predicate()) {
+                        break;
+                    }
+                    
+                    ProcessInstruction(_vm.Fast);
+                }
+            });
+            _vm.Paused = true;
         }
 
         void ProcessInstruction(bool fast) {

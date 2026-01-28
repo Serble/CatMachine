@@ -2,6 +2,7 @@
 using CatAssembler.Analysis;
 using CatAssembler.Assembler;
 using CatAssembler.Exceptions;
+using CatData;
 using Tokeniser = CatAssembler.Parser.Tokeniser;
 
 if (args.Length < 1) {

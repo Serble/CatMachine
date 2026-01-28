@@ -239,11 +239,6 @@ public class CatVM {
     }
     
     public void ExecuteInstruction(bool fast = false) {
-        // Don't use TryDequeue for performance reasons
-        if (InterruptsEnabled && InterruptQueue.Count != 0) {
-            HandleInterrupt(InterruptQueue.Dequeue());
-        }
-
         byte opcode = Read8();
         
         // don't bounds check opcode because the array lookup
@@ -251,6 +246,11 @@ public class CatVM {
         (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
         instruction.executor(this);
         TicksPassed += instruction.cycles * PicosecondsPerCycle;
+        
+        // Don't use TryDequeue for performance reasons
+        if (InterruptsEnabled && InterruptQueue.Count != 0) {
+            HandleInterrupt(InterruptQueue.Dequeue());
+        }
         
         if (fast) return;  // don't bother calculating anything if fast
         
