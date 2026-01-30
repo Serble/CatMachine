@@ -4,81 +4,6 @@ using Raylib_cs;
 namespace CatVM.Display.RaylibRenderer;
 
 public class DisplayModeTiled : IDisplayModeRenderer {
-    private const string PaletteShader =
-"""
-#version 330 core
-
-in vec2 fragTexCoord;
-in vec4 fragColor;
-
-out vec4 finalColor;
-
-uniform sampler2D texture0;
-uniform vec4 colDiffuse;
-
-uniform uint image[32];
-uniform uint palette[16];
-
-void main() {
-    // finalColor = fragColor;
-    // finalColor = vec4(vec2(int(gl_FragCoord.x) % 16, 16 - int(gl_FragCoord.y) % 16) / 16.0, 0.0, 1.0);
-    // return;
-    // uvec2 coord = uvec2(gl_FragCoord.x, 384 - gl_FragCoord.y); // /**/uvec2(0, 0);// /**/ uvec2(ivec2(fragTexCoord));
-    uvec2 coord = uvec2(int(gl_FragCoord.x) % 16, 15 - int(gl_FragCoord.y) % 16);
-    uint index = coord.x + coord.y * 16u; // position in color
-    
-    uint uIndex = index / 8u; // 2 colors per byte, 8 colors per uint
-    uint colorIndex = image[uIndex];
-    colorIndex = (colorIndex >> (((index / 2u) % 4u) * 8u)); // isolate byte
-    
-    if (index % 2u == 0u) { // get half byte
-        colorIndex = (colorIndex >> 4) & 0xFu;
-    } else {
-        colorIndex = colorIndex & 0xFu;
-    }
-    
-    finalColor = vec4(colorIndex, index % 2u, 0.0, 1.0);
-    
-    
-    uint color = palette[colorIndex];
-    finalColor = vec4(float((color >> 16u) & 0xffu) / 255.0, float((color >> 8u) & 0xffu) / 255.0,
-        float(color & 0xffu) / 255.0, float((color >> 24u) & 0xffu) / 255.0);
-    finalColor.a = 1.0;
-    
-    //finalColor = color;
-}
-""";
-
-    private const string PaletteVertex =
-"""
-#version 330
-
-// Input vertex attributes
-in vec3 vertexPosition;
-in vec2 vertexTexCoord;
-in vec3 vertexNormal;
-in vec4 vertexColor;
-
-// Input uniform values
-uniform mat4 mvp;
-
-// Output vertex attributes (to fragment shader)
-out vec2 fragTexCoord;
-out vec4 fragColor;
-
-// NOTE: Add your custom variables here
-
-void main()
-{
-    // Send vertex attributes to fragment shader
-    fragTexCoord = vertexTexCoord;
-    fragColor = vertexColor;
-
-    // Calculate final vertex position
-    gl_Position = mvp*vec4(vertexPosition, 1.0);
-}
-""";
-    
     private readonly Shader _paletteShader;
     private readonly int _paletteShaderImageLocation;
     private readonly int _paletteShaderPaletteLocation;
@@ -98,7 +23,10 @@ void main()
         
         Console.WriteLine("hi");
         
-        _paletteShader = Raylib.LoadShaderFromMemory(null, PaletteShader);
+        _paletteShader = Raylib.LoadShaderFromMemory(
+            RaylibRendering.ReadResource("CatVM.TileVertex.vert"),
+            RaylibRendering.ReadResource("CatVM.TileFragment.frag")
+        );
         _paletteShaderImageLocation = Raylib.GetShaderLocation(_paletteShader, "image");
         _paletteShaderPaletteLocation = Raylib.GetShaderLocation(_paletteShader, "palette");
 

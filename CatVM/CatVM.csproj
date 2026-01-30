@@ -16,4 +16,13 @@
       <ProjectReference Include="..\CatData\CatData.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="Display\RaylibRenderer\Shaders\TileVertex.vs" />
+      <EmbeddedResource Include="Display\RaylibRenderer\Shaders\TileVertex.vert" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="Display\RaylibRenderer\Shaders\TileFragment.frag" />
+    </ItemGroup>
+
 </Project>

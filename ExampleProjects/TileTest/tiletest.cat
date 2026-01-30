@@ -9,7 +9,7 @@ int 0x84 ; get display buffer
 mov r7, r0
 
 ; add clear color
-mov @r0, 0xdd1122
+mov @r0, 0x121212
 ; mov @r0, 0
 
 ; palette

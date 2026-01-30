@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Raylib_cs;
@@ -15,19 +16,6 @@ uniform sampler2D shaderData;
 
 void main() {
     finalColor = vec4(texture(shaderData, fragTexCoord).bgr, 1.0);
-}
-""";
-    
-    public const string BgraShader = 
-"""
-#version 330
-
-in vec2 fragTexCoord;
-out vec4 finalColor;
-uniform sampler2D shaderData;
-
-void main() {
-    finalColor = texture(shaderData, fragTexCoord).bgra;
 }
 """;
 
@@ -157,5 +145,13 @@ void main() {
     
     public static Color BgraToColor(uint value) {
         return new Color((byte)(value >> 16), (byte)(value >> 8), (byte)value, (byte)(value >> 24));
+    }
+
+    public static string ReadResource(string name) {
+        Assembly assembly = Assembly.GetExecutingAssembly();
+
+        using Stream stream = assembly.GetManifestResourceStream(name)!;
+        using StreamReader reader = new(stream);
+        return reader.ReadToEnd();
     }
 }
