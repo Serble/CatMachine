@@ -7,12 +7,12 @@ using Tokeniser = CatAssembler.Parser.Tokeniser;
 
 if (args.Length < 1) {
     Console.WriteLine("Usage: ./CatAssembler <input file> [options]");
-    return;
+    return 1;
 }
 string inputFilePath = args[0];
 if (!File.Exists(inputFilePath)) {
     Console.WriteLine("Input file not found: " + inputFilePath);
-    return;
+    return 1;
 }
 
 string outputFile = "output.bin";
@@ -57,4 +57,7 @@ try {
 }
 catch (ParseException e) {
     Console.WriteLine("Error: " + e.Message);
+    return 1;
 }
+
+return 0;

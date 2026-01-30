@@ -38,6 +38,17 @@ public static class InterruptHandlers {
         vm.UpdateDisplay();
     }
 
+    public static void ChangeDisplayModeInterrupt(CatVM vm) {
+        uint displayMode = vm.Cpu.R1;
+        if (!Enum.IsDefined(typeof(DisplayMode), (int)displayMode)) {
+            vm.Cpu.R0 = 1;
+            return;
+        }
+
+        vm.DisplayMode = (DisplayMode)displayMode;
+        vm.Cpu.R0 = 0;
+    }
+
     public static void DefaultHandler(CatVM vm, byte opcode) {
         if (opcode >= 0x10) return;  // ignore non errors
         
