@@ -1,0 +1,50 @@
+#define UPDATE_DISPLAY, 0x86
+
+mov r1, 0x11
+int 0x87
+cmp r0, 0
+jne fail
+
+int 0x84 ; get display buffer
+mov r7, r0
+
+; add clear color
+mov @r0, 0xdd1122
+; mov @r0, 0
+
+; palette
+mov r0, r7
+add r0, 4
+mov @r0, 0
+;mov @r0, 0xfffe6500
+;mov @r0, 0xfffef3d4
+add r0, 4
+mov @r0, 0xffffdd00
+
+; images
+mov r0, r7
+add r0, 4+512
+add r0, 128
+cpy image, 16*16
+; mov @r0, 0x10
+
+; tile indexes
+mov r0, r7
+add r0, 4+512+32768+767
+mov8 @r0, 1
+
+int UPDATE_DISPLAY
+
+int 0x81
+
+fail:
+mov r1, failmsg
+int 0x80
+jmp fail
+
+failmsg:
+dstr "Oh no!\n\0"
+
+image:
+d8 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10
+d8 0x01

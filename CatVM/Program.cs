@@ -2,6 +2,7 @@
 using CatVM;
 using CatVM.Debugging;
 using CatVM.Display;
+using CatVM.Display.RaylibRenderer;
 
 string romPath = args.Length > 0 ? args[0] : throw new ArgumentException("Please provide a path to a CatVM ROM file.");
 
