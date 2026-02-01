@@ -1,0 +1,28 @@
+raw display buffer size: 1_048_576 bytes
+
+resolution: 512x384
+total: 34_692 bytes
+clear color: 4 bytes
+8 palettes: 16 colors each bgra, 64 bytes per palette, 512 bytes
+256 images: 16x16 4bpp, 128 bytes per image, 32768 bytes
+tile indexes: 32x24 1 byte per tile index, 768 bytes
+tile palettes: 32x24 2 palettes per byte, 384 bytes
+sprites: image_index: u8, attributes: u8, x_pos: u16, y_pos: u16, rotation: u16, 32 sprites, 256 bytes
+sprite attributes: 0b0       0           0      0      0000
+                     do_draw draw_behind v-flip h-flip palette
+
+[0, 1], [2, 3], [4, 5], [6, 7]
+[1, 0], [3, 2]
+0x67452301
+
+  01234567
+0x67452301
+
+4 layers:
+clear color
+sprites with draw_behind bit set
+tiles
+sprites without draw_behind bit set
+
+sprite positions will be for its top left corner
+sprites will be rotated around its center

@@ -21,10 +21,7 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
     public void Update(CatVM vm) { }
     
     public void ReadScreenData(CatVM vm) {
-        unsafe {
-            Raylib.UpdateTexture(_texture,
-                (vm.MemoryHandle!.Value.AddrOfPinnedObject() + (nint)vm.DisplayBufferOffset).ToPointer());
-        }
+        Raylib.UpdateTexture(_texture, vm.Memory.AsSpan((int)vm.DisplayBufferOffset..));
     }
 
     public void Draw(CatVM vm) {
@@ -34,6 +31,7 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
     }
 
     public void Unload(CatVM vm) {
+        Raylib.UnloadShader(_textureShader);
         Raylib.UnloadTexture(_texture);
     }
 }

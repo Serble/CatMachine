@@ -2,47 +2,49 @@
 
 in vec2 fragCoord;
 
-out vec4 fragColor;
+out vec4 finalColor;
 
-uniform sampler2D texture0;
+uniform sampler2D data;
 uniform vec4 colDiffuse;
+uniform int imageWidth = 177;
 
-uniform sampler2D images;
-uniform sampler2D palettes;
-uniform sampler2D tileImages;
-uniform sampler2D tilePalettes;
+int getSampler(int index) {
+    return int(texelFetch(data, ivec2(index % imageWidth, index / imageWidth), 0).r * 255.0);
+}
 
-int getSampler(sampler2D samp, int index) {
-    return int(texelFetch(samp, ivec2(index, 0), 0).r * 255.0 + 0.5);
+float getSamplerUnfiltererd(int index) {
+    return texelFetch(data, ivec2(index % imageWidth, index / imageWidth), 0).r;
 }
 
 void main() {
-    fragColor = vec4(texelFetch(images, ivec2(0,0),0).r*255.0,0,0,1);
-//    finalColor = vec4(getSampler(images, 0), 0.0, 0.0, 1.0);
-    return;
-    
     ivec2 coord = ivec2(fragCoord);
     int tileIndex = coord.x / 16 + coord.y / 16 * 32;
-    int hTileIndex = tileIndex / 2;
     
-    int imageStart = getSampler(tileImages, tileIndex) * 128;
+    int imageStart = 4+512 + getSampler(4+512+32768 + tileIndex) * 128;
     
     int tileCoord = coord.x % 16 + coord.y % 16 * 16;
     
-    int colorIndex = getSampler(images, imageStart + tileCoord / 2);
+    int colorIndex = getSampler(imageStart + tileCoord / 2);
     if (tileCoord % 2 == 0) {
         colorIndex = (colorIndex >> 4) & 0xf;
     } else {
         colorIndex = colorIndex & 0xf;
     }
     
-    int paletteStart = getSampler(tilePalettes, hTileIndex);
+    int paletteStart = getSampler(4+512+32768+768 + tileIndex / 2);
     if (tileIndex % 2 == 0) {
         paletteStart = (paletteStart >> 4) & 7;
     } else {
         paletteStart = paletteStart & 7;
     }
-    paletteStart *= 16; // 16 colors per palette
+    paletteStart = 4 + paletteStart * 16*4; // 16 colors per palette, 4 bytes per color
+    
+    paletteStart += colorIndex * 4;
 
-    fragColor = texelFetch(palettes, ivec2(paletteStart + colorIndex, 0), 0).bgra;
+    finalColor = vec4(
+        getSamplerUnfiltererd(paletteStart + 2),
+        getSamplerUnfiltererd(paletteStart + 1),
+        getSamplerUnfiltererd(paletteStart),
+        getSamplerUnfiltererd(paletteStart + 3)
+    );
 }

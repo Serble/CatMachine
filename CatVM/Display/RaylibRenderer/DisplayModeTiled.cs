@@ -7,14 +7,10 @@ public class DisplayModeTiled : IDisplayModeRenderer {
     private bool _uninitialised = true;
     private Color _clearColor;
     
-    // tiles
     private readonly Shader _tileShader;
-    private readonly Texture2D _palettes;
-    private readonly Texture2D _images;
-    private readonly Texture2D _tileImages;
-    private readonly Texture2D _tilePalettes;
+    private readonly Texture2D _displayData;
     
-    // sprites
+    private readonly Shader _spriteShader;
     private readonly Sprite[] _sprites = new Sprite[32];
     
     public DisplayModeTiled(CatVM vm) {
@@ -29,27 +25,18 @@ public class DisplayModeTiled : IDisplayModeRenderer {
             RaylibRendering.ReadResource("CatVM.TileFragment.frag")
         );
 
-        _palettes = RaylibRendering.CreateTexture(8 * 16, 1,
-            PixelFormat.UncompressedR8G8B8A8, 4);
-        _images = RaylibRendering.CreateTexture(128, 256, // 1 row per image
-            PixelFormat.UncompressedGrayscale, 1);
-        _tileImages = RaylibRendering.CreateTexture(32*24, 1,
-            PixelFormat.UncompressedGrayscale, 1);
-        _tilePalettes = RaylibRendering.CreateTexture(32*24/2, 1,
-            PixelFormat.UncompressedGrayscale, 1);
+        _spriteShader = Raylib.LoadShaderFromMemory(
+            null,
+            RaylibRendering.ReadResource("CatVM.SpriteFragment.frag")
+        );
         
-        SetShaderTexture(_tileShader, _palettes, "palettes");
-        SetShaderTexture(_tileShader, _images, "images");
-        SetShaderTexture(_tileShader, _tileImages, "tileImages");
-        SetShaderTexture(_tileShader, _tilePalettes, "tilePalettes");
+        _displayData = RaylibRendering.CreateTexture(177, 196, // 177*196 == vm.DisplayBufferSize
+            PixelFormat.UncompressedGrayscale, 1);
     }
 
     public void Unload(CatVM vm) {
         Raylib.UnloadShader(_tileShader);
-        Raylib.UnloadTexture(_palettes);
-        Raylib.UnloadTexture(_images);
-        Raylib.UnloadTexture(_tileImages);
-        Raylib.UnloadTexture(_tilePalettes);
+        Raylib.UnloadTexture(_displayData);
     }
 
     public void ReadScreenData(CatVM vm) {
@@ -58,12 +45,11 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         uint pointer = vm.DisplayBufferOffset;
         
         _clearColor = RaylibRendering.BgrxToColor(vm.ReadWord(pointer));
-        pointer += 4;
-
-        UpdateTextureWithMemory(vm, _palettes, ref pointer, 8 * 16 * 4);
-        UpdateTextureWithMemory(vm, _images, ref pointer, 256 * 128);
-        UpdateTextureWithMemory(vm, _tileImages, ref pointer, 32 * 24);
-        UpdateTextureWithMemory(vm, _tilePalettes, ref pointer, 32 * 24 / 2);
+        
+        Raylib.UpdateTexture(_displayData, 
+            vm.Memory.AsSpan((int)pointer..((int)pointer + vm.DisplayBufferSize)));
+        
+        pointer += 4+512+32768+768+384;
 
         for (int i = 0; i < _sprites.Length; i++) {
             byte imageIndex = vm.Read8(pointer);
@@ -109,27 +95,31 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         
         Raylib.ClearBackground(_clearColor);
         
+        Raylib.BeginShaderMode(_spriteShader);
         foreach (Sprite sprite in _sprites) {
             if (sprite.DoDraw && sprite.DrawBehind) {
                 sprite.Draw(this);
             }
         }
-
-        Raylib.BeginShaderMode(_tileShader);
-        Raylib.DrawRectangle(0, 0, vm.DisplayWidth, vm.DisplayHeight, new Color(0, 0, 0, 0));
         Raylib.EndShaderMode();
 
+        Raylib.BeginShaderMode(_tileShader);
+        Raylib.DrawTextureRec(_displayData, new Rectangle(0, 0, vm.DisplayWidth, vm.DisplayHeight), Vector2.Zero, Color.White);
+        Raylib.EndShaderMode();
+
+        Raylib.BeginShaderMode(_spriteShader);
         foreach (Sprite sprite in _sprites) {
             if (sprite.DoDraw && !sprite.DrawBehind) {
                 sprite.Draw(this);
             }
         }
+        Raylib.EndShaderMode();
     }
 
     private record Sprite(
         byte ImageIndex,
         byte Palette,
-        bool HFlip, // TODO
+        bool HFlip,
         bool VFlip,
         bool DrawBehind,
         bool DoDraw,
@@ -138,18 +128,16 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         ushort Rotation
     ) {
         public void Draw(DisplayModeTiled dm) {
-            Raylib.DrawRectanglePro(
-                new Rectangle(XPos, YPos, 16, 16),
-                new Vector2(XPos, YPos),
-                Rotation / (float)ushort.MaxValue,
-                Color.White
+            Console.WriteLine($"{XPos} {YPos} {Rotation / (float)ushort.MaxValue * 360} {HFlip} {VFlip}");
+            Raylib.DrawTexturePro(
+                dm._displayData,
+                new Rectangle(0, 0, 177, 196),
+                new Rectangle(XPos + 8, YPos + 8, 16, 16),
+                new Vector2(8, 8),
+                Rotation / (float)ushort.MaxValue * 360,
+                new Color(ImageIndex, (byte)(HFlip ? 255 : 0), (byte)(VFlip ? 255 : 0), Palette)
             );
         }
-    }
-    
-    private static void UpdateTextureWithMemory(CatVM vm, Texture2D texture, ref uint pointer, uint length) {
-        Raylib.UpdateTexture(texture, vm.Memory.AsSpan((int)pointer..(int)(pointer + length)));
-        pointer += length;
     }
 
     private static void SetShaderTexture(Shader shader, Texture2D texture, string uniformLocation) {

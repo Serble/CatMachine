@@ -20,12 +20,14 @@ mov @r0, 0
 ;mov @r0, 0xfffef3d4
 add r0, 4
 mov @r0, 0xffffdd00
+add r0, 4
+mov @r0, 0xff0000ff
 
 ; images
 mov r0, r7
 add r0, 4+512
-add r0, 0;128
-cpy image, 16*16
+add r0, 128
+cpy image, 16*16/2
 ; mov @r0, 0x10
 
 ; tile indexes
@@ -33,9 +35,28 @@ mov r0, r7
 add r0, 4+512+32768;+767
 mov8 @r0, 1
 
-int UPDATE_DISPLAY
+; sprites
+mov r0, r7
+add r0, 4+512+32768+768+384
+mov8 @r0, 1
+add r0, 1
+mov8 @r0, 0b10100000
+add r0, 1
+mov16 @r0, 16
+add r0, 2
+mov16 @r0, 32
+add r0, 2
+mov16 @r0, 0
 
-int 0x81
+int UPDATE_DISPLAY
+; int 0x81
+
+loop:
+    mov16 r1, @r0
+    add r1, 1000
+    mov16 @r0, r1
+    int UPDATE_DISPLAY
+jmp loop
 
 fail:
 mov r1, failmsg
@@ -46,5 +67,4 @@ failmsg:
 dstr "Oh no!\n\0"
 
 image:
-d8 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10
-d8 0x01
+dfile copokbl.bin

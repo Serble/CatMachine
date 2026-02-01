@@ -10,7 +10,7 @@ uniform mat4 mvp;
 out vec2 fragCoord;
 
 void main() {
-    fragCoord = vertexPosition.xy - vertexColor.xy * 255.0;
+    fragCoord = vertexPosition.xy;
     
     gl_Position = mvp*vec4(vertexPosition, 1.0);
 }
