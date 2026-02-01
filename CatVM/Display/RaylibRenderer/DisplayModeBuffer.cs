@@ -13,24 +13,9 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
         }
         
         _textureShader = Raylib.LoadShaderFromMemory(null, RaylibRendering.BgrxShader);
-        
-        unsafe {
-            byte[] blankImage = new byte[vm.DisplayWidth * vm.DisplayHeight * 4];
-            GCHandle alloc = GCHandle.Alloc(blankImage, GCHandleType.Pinned);
-                
-            Image image = new() {
-                Data = alloc.AddrOfPinnedObject().ToPointer(),
-                Width = vm.DisplayWidth,
-                Height = vm.DisplayHeight,
-                Mipmaps = 1,
-                Format = PixelFormat.UncompressedR8G8B8A8
-            };
-                
-            _texture = Raylib.LoadTextureFromImage(image);
-            
-            // Raylib.UnloadImage(image);
-            alloc.Free();
-        }
+
+        _texture = RaylibRendering.CreateTexture(vm.DisplayWidth, vm.DisplayHeight,
+            PixelFormat.UncompressedR8G8B8A8, 4);
     }
 
     public void Update(CatVM vm) { }

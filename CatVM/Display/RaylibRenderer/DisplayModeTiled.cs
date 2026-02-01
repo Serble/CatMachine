@@ -4,16 +4,17 @@ using Raylib_cs;
 namespace CatVM.Display.RaylibRenderer;
 
 public class DisplayModeTiled : IDisplayModeRenderer {
-    private readonly Shader _paletteShader;
-    private readonly int _paletteShaderImageLocation;
-    private readonly int _paletteShaderPaletteLocation;
-    
     private bool _uninitialised = true;
     private Color _clearColor;
-    private readonly uint[][] _palettes = new uint[8][];
-    private readonly byte[][] _images = new byte[256][];
-    private readonly byte[] _tileIndexes = new byte[32 * 24];
-    private readonly byte[] _tilePalettes = new byte[32 * 24 / 2];
+    
+    // tiles
+    private readonly Shader _tileShader;
+    private readonly Texture2D _palettes;
+    private readonly Texture2D _images;
+    private readonly Texture2D _tileImages;
+    private readonly Texture2D _tilePalettes;
+    
+    // sprites
     private readonly Sprite[] _sprites = new Sprite[32];
     
     public DisplayModeTiled(CatVM vm) {
@@ -23,24 +24,32 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         
         Console.WriteLine("hi");
         
-        _paletteShader = Raylib.LoadShaderFromMemory(
+        _tileShader = Raylib.LoadShaderFromMemory(
             RaylibRendering.ReadResource("CatVM.TileVertex.vert"),
             RaylibRendering.ReadResource("CatVM.TileFragment.frag")
         );
-        _paletteShaderImageLocation = Raylib.GetShaderLocation(_paletteShader, "image");
-        _paletteShaderPaletteLocation = Raylib.GetShaderLocation(_paletteShader, "palette");
 
-        for (int i = 0; i < _palettes.Length; i++) {
-            _palettes[i] = new uint[16];
-        }
+        _palettes = RaylibRendering.CreateTexture(8 * 16, 1,
+            PixelFormat.UncompressedR8G8B8A8, 4);
+        _images = RaylibRendering.CreateTexture(128, 256, // 1 row per image
+            PixelFormat.UncompressedGrayscale, 1);
+        _tileImages = RaylibRendering.CreateTexture(32*24, 1,
+            PixelFormat.UncompressedGrayscale, 1);
+        _tilePalettes = RaylibRendering.CreateTexture(32*24/2, 1,
+            PixelFormat.UncompressedGrayscale, 1);
         
-        for (int i = 0; i < _images.Length; i++) {
-            _images[i] = new byte[16 * 16 / 2]; // 16x16 image, 2 pixels per byte
-        }
+        SetShaderTexture(_tileShader, _palettes, "palettes");
+        SetShaderTexture(_tileShader, _images, "images");
+        SetShaderTexture(_tileShader, _tileImages, "tileImages");
+        SetShaderTexture(_tileShader, _tilePalettes, "tilePalettes");
     }
 
     public void Unload(CatVM vm) {
-        Raylib.UnloadShader(_paletteShader);
+        Raylib.UnloadShader(_tileShader);
+        Raylib.UnloadTexture(_palettes);
+        Raylib.UnloadTexture(_images);
+        Raylib.UnloadTexture(_tileImages);
+        Raylib.UnloadTexture(_tilePalettes);
     }
 
     public void ReadScreenData(CatVM vm) {
@@ -50,28 +59,11 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         
         _clearColor = RaylibRendering.BgrxToColor(vm.ReadWord(pointer));
         pointer += 4;
-        
-        foreach (uint[] palette in _palettes) {
-            for (int j = 0; j < palette.Length; j++) {
-                palette[j] = vm.ReadWord(pointer);
-                pointer += 4;
-            }
-        }
 
-        for (int i = 0; i < _images.Length; i++) {
-            _images[i] = vm.Memory.AsSpan((int)pointer..(int)(pointer + 128)).ToArray();
-            pointer += 128; // 16×16 / 2
-        }
-
-        for (int i = 0; i < _tileIndexes.Length; i++) {
-            _tileIndexes[i] = vm.Read8(pointer);
-            pointer++;
-        }
-
-        for (int i = 0; i < _tilePalettes.Length; i++) {
-            _tilePalettes[i] = vm.Read8(pointer);
-            pointer++;
-        }
+        UpdateTextureWithMemory(vm, _palettes, ref pointer, 8 * 16 * 4);
+        UpdateTextureWithMemory(vm, _images, ref pointer, 256 * 128);
+        UpdateTextureWithMemory(vm, _tileImages, ref pointer, 32 * 24);
+        UpdateTextureWithMemory(vm, _tilePalettes, ref pointer, 32 * 24 / 2);
 
         for (int i = 0; i < _sprites.Length; i++) {
             byte imageIndex = vm.Read8(pointer);
@@ -117,56 +109,21 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         
         Raylib.ClearBackground(_clearColor);
         
-        Raylib.BeginShaderMode(_paletteShader);
-        // Raylib.DrawRectangle(0, 0, vm.DisplayWidth, vm.DisplayHeight, Color.White);
-        // Raylib.EndShaderMode();
-        //
-        // return;
-
-        List<Sprite> foregroundSprites = [];
         foreach (Sprite sprite in _sprites) {
-            if (!sprite.DoDraw) {
-                continue;
+            if (sprite.DoDraw && sprite.DrawBehind) {
+                sprite.Draw(this);
             }
-
-            if (!sprite.DrawBehind) {
-                foregroundSprites.Add(sprite);
-                continue;
-            }
-
-            sprite.Draw(this);
-            Rlgl.DrawRenderBatchActive();
         }
 
-        for (int i = 0; i < _tileIndexes.Length; i++) {
-            byte[] image = _images[_tileIndexes[i]];
-            Raylib.SetShaderValueV(_paletteShader, _paletteShaderImageLocation, image,
-                ShaderUniformDataType.UInt, image.Length / 4);
-            byte paletteIndex = _tilePalettes[i / 2];
-            if (i % 2 == 0) {
-                paletteIndex = (byte)((paletteIndex >> 4) & 0xf);
-            }
-            else {
-                paletteIndex = (byte)(paletteIndex & 0xf);
-            }
-
-            uint[] palette = _palettes[paletteIndex];
-            Raylib.SetShaderValueV(_paletteShader, _paletteShaderPaletteLocation, palette,
-                ShaderUniformDataType.UInt, palette.Length);
-
-            int x = i % 32 * 16;
-            int y = i / 32 * 16;
-
-            Raylib.DrawRectangle(x, y, 16, 16, Color.White);
-            Rlgl.DrawRenderBatchActive();
-        }
-
-        foreach (Sprite sprite in foregroundSprites) {
-            sprite.Draw(this);
-            Rlgl.DrawRenderBatchActive();
-        }
-        
+        Raylib.BeginShaderMode(_tileShader);
+        Raylib.DrawRectangle(0, 0, vm.DisplayWidth, vm.DisplayHeight, new Color(0, 0, 0, 0));
         Raylib.EndShaderMode();
+
+        foreach (Sprite sprite in _sprites) {
+            if (sprite.DoDraw && !sprite.DrawBehind) {
+                sprite.Draw(this);
+            }
+        }
     }
 
     private record Sprite(
@@ -181,9 +138,6 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         ushort Rotation
     ) {
         public void Draw(DisplayModeTiled dm) {
-            Raylib.SetShaderValue(dm._paletteShader, dm._paletteShaderImageLocation, dm._images[ImageIndex], ShaderUniformDataType.UInt);
-            Raylib.SetShaderValue(dm._paletteShader, dm._paletteShaderPaletteLocation, dm._palettes[Palette], ShaderUniformDataType.IVec4);
-            
             Raylib.DrawRectanglePro(
                 new Rectangle(XPos, YPos, 16, 16),
                 new Vector2(XPos, YPos),
@@ -191,5 +145,15 @@ public class DisplayModeTiled : IDisplayModeRenderer {
                 Color.White
             );
         }
+    }
+    
+    private static void UpdateTextureWithMemory(CatVM vm, Texture2D texture, ref uint pointer, uint length) {
+        Raylib.UpdateTexture(texture, vm.Memory.AsSpan((int)pointer..(int)(pointer + length)));
+        pointer += length;
+    }
+
+    private static void SetShaderTexture(Shader shader, Texture2D texture, string uniformLocation) {
+        int location = Raylib.GetShaderLocation(shader, uniformLocation);
+        Raylib.SetShaderValueTexture(shader, location, texture);
     }
 }

@@ -76,13 +76,7 @@ void main() {
             
             HashSet<KeyboardKey> pressedKeys = [];
 
-            while (true) {
-                if (Raylib.WindowShouldClose()) {
-                    // close window
-                    Raylib.CloseWindow();
-                    Environment.Exit(0);
-                }
-
+            while (!Raylib.WindowShouldClose()) {
                 pressedKeys.RemoveWhere(key => {
                     if (!Raylib.IsKeyUp(key)) {
                         return false;
@@ -124,6 +118,11 @@ void main() {
                 
                 Raylib.EndDrawing();
             }
+            
+            _renderer?.Unload(vm);
+            
+            Raylib.CloseWindow();
+            Environment.Exit(0);
         }));
     }
 
@@ -153,5 +152,26 @@ void main() {
         using Stream stream = assembly.GetManifestResourceStream(name)!;
         using StreamReader reader = new(stream);
         return reader.ReadToEnd();
+    }
+
+    public static Texture2D CreateTexture(int width, int height, PixelFormat format, int bytesPerPixel) {
+        unsafe {
+            byte[] blankImage = new byte[width * height * bytesPerPixel];
+            GCHandle alloc = GCHandle.Alloc(blankImage, GCHandleType.Pinned);
+                
+            Image image = new() {
+                Data = alloc.AddrOfPinnedObject().ToPointer(),
+                Width = width,
+                Height = height,
+                Mipmaps = 1,
+                Format = format
+            };
+                
+            Texture2D texture = Raylib.LoadTextureFromImage(image);
+            
+            alloc.Free();
+            
+            return texture;
+        }
     }
 }
