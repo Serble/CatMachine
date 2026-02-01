@@ -1,10 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Text;
 using CatAssembler.Assembler;
 using CatAssembler.Exceptions;
 using CatAssembler.Parser;
 using CatData;
-using Expression = NCalc.Expression;
+using IntegerMaths;
 
 namespace CatAssembler.Analysis;
 
@@ -270,15 +271,13 @@ public class Analyser {
         return true;
     }
     
-    private static string NCalcCleanExpression(string expr) {
-        return expr;  // for future use
+    private static readonly BigInteger UIntSize = new BigInteger(uint.MaxValue) + 1;
+    public static uint EvaluateVariable(string varName, Dictionary<string, string> expressions) {
+        return (uint)((EvaluateVariableBigInt(varName, expressions) % UIntSize + UIntSize) % UIntSize);
     }
-    
-    public static uint EvaluateVariable(string varName, Dictionary<string, string> expressions, int depth = 1) {
-        Dictionary<string, string> cleaned = expressions.ToDictionary(dirty => 
-            NCalcCleanExpression(dirty.Key), dirty => NCalcCleanExpression(dirty.Value));
 
-        if (!cleaned.TryGetValue(varName, out string? expression)) {
+    public static BigInteger EvaluateVariableBigInt(string varName, Dictionary<string, string> expressions, int depth = 1) {
+        if (!expressions.TryGetValue(varName, out string? expression)) {
             throw new KeyNotFoundException(varName);
         }
         Expression expr = new(expression);
@@ -289,25 +288,11 @@ public class Analyser {
         }
 
         // NCalc lets you provide a delegate to resolve variables at evaluation time
-        expr.EvaluateParameter += (name, args) => {
-            args.Result = EvaluateVariable(name, cleaned, depth + 1);
+        expr.EvaluateVariableEvent += (name, args) => {
+            args.Value = EvaluateVariableBigInt(name, expressions, depth + 1);
         };
-
-        object result = expr.Evaluate();
-
-        return result switch {
-            uint u => u,
-            int i => (uint)i,
-            long l => (uint)l,
-            double d => (uint)d,
-            decimal d => (uint)d,
-            float s => (uint)s,
-            bool b => b ? (uint)1 : 0,
-            string s => throw new InvalidOperationException(
-                $"Expression evaluated to a string, which is not supported: {s}, {expression}"),
-            _ => throw new InvalidOperationException(
-                $"Expression evaluated to unsupported type: {result.GetType().FullName}")
-        };
+        
+        return expr.Eval();
     }
 
     // returns exception for convenience in expression-bodied methods
