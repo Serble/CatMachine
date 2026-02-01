@@ -14,6 +14,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntegerMaths", "IntegerMath
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntegerMaths.Test", "IntegerMaths.Test\IntegerMaths.Test.csproj", "{3F072A43-20F9-4733-B013-3CD656721F29}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatC.Compiler", "CatC.Compiler\CatC.Compiler.csproj", "{178C6307-E5D8-43AC-B560-75CF293324A0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,5 +50,9 @@ Global
 		{3F072A43-20F9-4733-B013-3CD656721F29}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F072A43-20F9-4733-B013-3CD656721F29}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F072A43-20F9-4733-B013-3CD656721F29}.Release|Any CPU.Build.0 = Release|Any CPU
+		{178C6307-E5D8-43AC-B560-75CF293324A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{178C6307-E5D8-43AC-B560-75CF293324A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{178C6307-E5D8-43AC-B560-75CF293324A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{178C6307-E5D8-43AC-B560-75CF293324A0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
