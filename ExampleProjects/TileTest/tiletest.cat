@@ -1,0 +1,94 @@
+#define UPDATE_DISPLAY, 0x86
+
+mov r1, 0x11
+int 0x87
+cmp r0, 0
+jne fail
+
+int 0x84 ; get display buffer
+mov r7, r0
+
+; add clear color
+mov @r0, 0x121212
+; mov @r0, 0
+
+; palette
+mov r0, r7
+add r0, 4
+mov @r0, 0
+;mov @r0, 0xfffe6500
+;mov @r0, 0xfffef3d4
+add r0, 4
+mov @r0, 0xffffdd00
+add r0, 4
+mov @r0, 0xff0000ff
+
+; images
+mov r0, r7
+add r0, 4+512
+;add r0, 128
+cpy image, 16*16/2
+; mov @r0, 0x10
+
+; scroll
+mov r0, r7
+add r0, 4+512+32768;+767
+mov8 @r0, 0
+
+; tile indexes
+mov r0, r7
+add r0, 4+512+32768+2;+767
+;mov8 @r0, 1
+
+; tile palettes
+mov r0, r7
+add r0, 4+512+32768+2+884
+
+; sprites
+mov r0, r7
+add r0, 4+512+32768+2+884+442
+mov8 @r0, 0
+add r0, 1
+mov8 @r0, 0b10000000
+add r0, 1
+mov16 @r0, 16*8
+add r0, 2
+mov16 @r0, 32
+add r0, 2
+mov16 @r0, 0
+
+int UPDATE_DISPLAY
+;int 0x81
+
+loop:
+    mov16 r1, @r0
+    add r1, 1000
+    mov16 @r0, r1
+    
+    mov r3, r7
+    add r3, 4+512+32768
+    mov8 r4, @r3
+    add r4, 1
+;    mov r1, r4
+;    int 0x90
+    
+    cmp r4, 32
+    jul .skip
+    mov r4, 0
+    
+    .skip:
+    mov8 @r3, r4
+    
+    int UPDATE_DISPLAY
+jmp loop
+
+fail:
+mov r1, failmsg
+int 0x80
+jmp fail
+
+failmsg:
+dstr "Oh no!\n\0"
+
+image:
+dfile copokbl.bin
