@@ -58,6 +58,8 @@ public class Preprocesser {
                         continue;
                     }
                 }
+                
+                currentArg.Append(c);
             }
 
             if (currentArg.Length > 0) {
@@ -68,12 +70,12 @@ public class Preprocesser {
             switch (directive) {
                 case "include": {
                     if (args.Count != 1) {
-                        throw new Exception("Invalid number of arguments for #include directive");
+                        throw new CompilationFailureException($"Invalid number of arguments for #include directive: {argsStr}");
                     }
 
                     string includePath = args[0].Trim('"');
                     if (!File.Exists(includePath)) {
-                        throw new Exception("Included file not found: " + includePath);
+                        throw new CompilationFailureException("Included file not found: " + includePath);
                     }
 
                     string[] includedLines = File.ReadAllLines(includePath);

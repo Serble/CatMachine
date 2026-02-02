@@ -12,7 +12,15 @@
     </ItemGroup>
 
     <ItemGroup>
+      <None Include="std.cc">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
       <ClCompile Include="test.cc" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.5-beta1" />
+      <PackageReference Include="Sprache" Version="3.0.0-develop-00049" />
     </ItemGroup>
 
 </Project>

@@ -2,8 +2,8 @@ using Sprache;
 
 namespace IntegerMaths;
 
-internal static class MathsParser {
-    private static readonly Parser<Expr> Number =
+public static class MathsParser {
+    public static readonly Parser<Expr> Number =
         // Signed number: optional leading '+' or '-'
         (from sign in Parse.Char('+').Or(Parse.Char('-')).Optional()
          from number in UnsignedNumber
@@ -13,7 +13,7 @@ internal static class MathsParser {
         .Token();
     
     // Parses both hex ("0x1A2B") and decimal ("1234") numbers
-    private static readonly Parser<Expr> UnsignedNumber =
+    public static readonly Parser<Expr> UnsignedNumber =
         // Hex
         (from prefix in Parse.String("0x").Or(Parse.String("0X"))
          from hex in Parse.Chars("0123456789abcdefABCDEF_").AtLeastOnce().Text()

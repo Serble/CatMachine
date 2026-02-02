@@ -1,0 +1,228 @@
+using CatC.Compiler.Ast;
+
+namespace CatC.Compiler.CodeGen;
+
+public partial class CodeGenerator {
+    
+    private void GenerateStatement(IStatement statement, AssemblyFileBuilder file, bool indent = true) {
+        switch (statement) {
+            case LocalDeclaration localDeclaration: {
+                _currentStackOffset += (int)ResolveCompileConstant(localDeclaration.Size);
+                _localVarOffsets[localDeclaration.Name] = _currentStackOffset;
+
+                if (localDeclaration.Initial != null) {
+                    BinaryOperation deref = new(
+                        new VariableToken(localDeclaration.Name),
+                        BinaryOperationType.Dereference,
+                        localDeclaration.Size);
+                    GenerateVariableAssignment(new VariableAssignment(deref, localDeclaration.Initial), file, indent);
+                }
+                break;
+            }
+
+            case VariableAssignment variableAssignment: {
+                GenerateVariableAssignment(variableAssignment, file, indent);
+                break;
+            }
+
+            case GlobalDeclaration globalDeclaration: {
+                _globals.Add((globalDeclaration.Name, (int)ResolveCompileConstant(globalDeclaration.Size)));
+                
+                if (globalDeclaration.Initial != null) {
+                    BinaryOperation deref = new(
+                        new VariableToken(globalDeclaration.Name),
+                        BinaryOperationType.Dereference,
+                        globalDeclaration.Size);
+                    GenerateVariableAssignment(new VariableAssignment(deref, globalDeclaration.Initial), file, indent);
+                }
+                break;
+            }
+
+            case IfStatement ifStatement: {
+                string logicLabel = GetUniqueLogicLabel();
+                
+                // Evaluate condition
+                (string scratch, bool preserve) = AllocateRegister();
+                if (preserve) {
+                    file.Push(indent, scratch);
+                }
+                
+                GenerateExprInReg(ifStatement.Condition, scratch, file, indent);
+                file.Append(indent, 
+                    $"cmp {scratch}, 0",
+                    $"je {logicLabel}_else  ; if condition is false, jump to else");
+                
+                // then
+                foreach (IStatement thenStmnt in ifStatement.ThenStatements) {
+                    GenerateStatement(thenStmnt, file, indent);
+                }
+                file.Append(indent, $"jmp {logicLabel}_end  ; jump to end after then");
+                
+                // else
+                file.Label($"{logicLabel}_else");
+                foreach (IStatement elseStmnt in ifStatement.ElseStatements) {
+                    GenerateStatement(elseStmnt, file, indent);
+                }
+                
+                // end
+                file.Label($"{logicLabel}_end");
+                
+                if (preserve) {
+                    file.Pop(indent, scratch);
+                }
+                else {
+                    FreeRegister(scratch);
+                }
+                break;
+            }
+
+            case WhileStatement whileStatement: {
+                string loopLabel = GetUniqueLogicLabel();
+                
+                file.Label(loopLabel + "_start");
+                (string scratch, bool preserve) = AllocateRegister();
+                if (preserve) {
+                    file.Push(indent, scratch);
+                }
+                
+                GenerateExprInReg(whileStatement.Condition, scratch, file, indent);
+                file.Append(indent, 
+                    $"cmp {scratch}, 0",
+                    $"je {loopLabel}_end  ; if condition is false, exit loop");
+                
+                foreach (IStatement bodyStatement in whileStatement.BodyStatements) {
+                    GenerateStatement(bodyStatement, file);
+                }
+                
+                file.Append(indent, $"jmp {loopLabel}_start  ; jump back to start of loop");
+                file.Label(loopLabel + "_end");
+                
+                if (preserve) {
+                    file.Pop(indent, scratch);
+                }
+                else {
+                    FreeRegister(scratch);
+                }
+                break;
+            }
+
+            case InlineAsm inlineAsm: {
+                file.Comment("Inline Assembly Block", indent);
+                HashSet<string> toBorrow = [];
+                foreach ((string register, IValueExpression _) in inlineAsm.Inputs) {
+                    toBorrow.Add(register);
+                }
+                foreach ((string register, IValueExpression _) in inlineAsm.Outputs) {
+                    toBorrow.Add(register);
+                }
+                foreach (string clobber in inlineAsm.Clobbers) {
+                    toBorrow.Add(clobber);
+                }
+                
+                Stack<(string Register, bool Preserved)> borrowed = [];
+                foreach (string reg in toBorrow) {
+                    bool preserve = AllocateSpecificRegister(reg);
+                    borrowed.Push((reg, preserve));
+                    if (preserve) {
+                        file.Push(indent, reg);
+                    }
+                }
+                
+                // Place inputs into their registers
+                foreach ((string register, IValueExpression value) in inlineAsm.Inputs) {
+                    file.Comment($"Prepare inline asm input {register}", indent);
+                    GenerateExprInReg(value, register, file, indent);
+                }
+                
+                // Emit the assembly
+                file.Comment("Begin Inline Assembly", indent);
+                file.BlankLine();
+                file.Append(indent, inlineAsm.Asm);
+                file.BlankLine();
+                file.Comment("End Inline Assembly", indent);
+                
+                // Retrieve outputs from their registers
+                foreach ((string register, IValueExpression var) in inlineAsm.Outputs) {
+                    if (var is not BinaryOperation {
+                            Operator: BinaryOperationType.Dereference,
+                            Right: CompileTimeValue
+                        } vr) {
+                        throw new Exception("Inline assembly output must be a variable reference.");
+                    }
+                    
+                    // Store the output register value into the variable
+                    GenerateVariableAssignment(vr, register, file, indent);
+                }
+                
+                // Restore borrowed registers
+                while (borrowed.Count > 0) {
+                    (string reg, bool preserve) = borrowed.Pop();
+                    if (preserve) {
+                        file.Pop(indent, reg);
+                    }
+                    else {
+                        FreeRegister(reg);
+                    }
+                }
+
+                break;
+            }
+
+            case ReturnStatement returnStatement: {
+                if (returnStatement.Value != null) {
+                    GenerateExprInReg(returnStatement.Value, DefaultReturnRegister, file, indent);
+                }
+
+                file.Append(indent, "jmp .end");
+                break;
+            }
+
+            case FunctionCall functionCall: {
+                GenerateFunctionCall(functionCall, DefaultReturnRegister, file, indent);
+                break;
+            }
+        }
+    }
+    
+    private void GenerateVariableAssignment(VariableAssignment assignment, AssemblyFileBuilder file, bool indent) {
+        file.Comment("Variable Assignment", indent);
+        (string reg, bool preserve) = AllocateRegister();
+        if (preserve) {
+            file.Push(indent, reg);
+        }
+        
+        GenerateExprInReg(assignment.Value, reg, file, indent);
+        GenerateVariableAssignment(assignment.Target, reg, file, indent);
+        
+        if (preserve) {
+            file.Pop(indent, reg);
+        }
+        else {
+            FreeRegister(reg);
+        }
+    }
+
+    private void GenerateVariableAssignment(IValueExpression target, string sourceReg, AssemblyFileBuilder file, bool indent) {
+        BinaryOperation deref = (BinaryOperation)target;
+        if (deref.Operator != BinaryOperationType.Dereference) {
+            throw new Exception("Variable assignment target must be a dereference operation.");
+        }
+        
+        (string reg, bool preserve) = AllocateRegister();
+        if (preserve) {
+            file.Push(indent, reg);
+        }
+        
+        GenerateExprInReg(deref.Left, reg, file, indent);  // pointer to variable we are assigning to
+        int size = (int)ResolveCompileConstant(CompileTimeValue.From(deref.Right));
+        
+        file.Append(indent, $"{GetSizedMoveInstruction(size)} [{reg}], {sourceReg}  ; store to variable");
+        
+        if (preserve) {
+            file.Pop(indent, reg);
+        }
+        else {
+            FreeRegister(reg);
+        }
+    }
+}
