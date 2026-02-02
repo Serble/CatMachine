@@ -57,7 +57,7 @@ void main() {
         return Task.Run((Action) (() => {
             unsafe {
                 delegate* unmanaged[Cdecl]<int, sbyte*, sbyte*, void> ptr = &NopLogging;
-                // Raylib.SetTraceLogCallback(ptr);
+                Raylib.SetTraceLogCallback(ptr);
             }
             
             Raylib.InitWindow(vm.DisplayWidth, vm.DisplayHeight, "CatVM Display");
