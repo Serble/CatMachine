@@ -208,12 +208,14 @@ public partial class Tokeniser {
                     't'  => '\t',
                     'v'  => '\v',
                     's'  => ' ',
-                    _ => uint.MaxValue
+                    _ => throw new ParseException(_file, _line, $"Invalid escape \\{text[i]}")
                 });
+                
+                continue;
             }
             output.Append(text[i]);
         }
-            
+        
         return new StringExpression(raw, output.ToString());
     }
 
