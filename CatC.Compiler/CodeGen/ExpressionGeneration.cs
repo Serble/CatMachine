@@ -33,6 +33,23 @@ public partial class CodeGenerator {
             file.Append(indent, $"mov {reg}, {constValue}  ; Load compile-time constant into register");
         }
     }
+    
+    private uint? ResolveNumericalExprOrPlaceInReg(IValueExpression expr, string reg, AssemblyFileBuilder file, bool indent) {
+        string? constValue = ResolveExpr(expr, reg, file, indent);
+        if (constValue != null) {
+            if (uint.TryParse(constValue, out uint val)) {
+                return val;
+            }
+            
+            // it's not a number, but a label
+            // just put it in the register
+            file.Append(indent, $"mov {reg}, {constValue}  ; Load compile-time constant into register");
+            return null;
+        }
+
+        // it's in the register now
+        return null;
+    }
 
     /// <summary>
     /// Resolves an expression and places its value in the specified register.
@@ -186,7 +203,15 @@ public partial class CodeGenerator {
             case UnaryOperation uo: {
                 switch (uo.Operator) {
                     case UnaryOperationType.Negate: {
-                        PlaceExprInReg(uo.Operand, reg, file, indent);
+                        uint? cons = ResolveNumericalExprOrPlaceInReg(uo.Operand, reg, file, indent);
+                        if (cons != null) {
+                            if (cons == 0) {
+                                return "0";  // negating 0 is still 0
+                            }
+                            uint negated = unchecked((uint)-(int)cons.Value);
+                            return negated.ToString();
+                        }
+                        
                         file.Append(indent, 
                             $"not {reg}  ; Negate value",
                             $"add {reg}, 1  ; Add 1 to complete two's complement negation"
@@ -195,13 +220,22 @@ public partial class CodeGenerator {
                     }
                     
                     case UnaryOperationType.BitwiseNot: {
-                        PlaceExprInReg(uo.Operand, reg, file, indent);
+                        uint? cons = ResolveNumericalExprOrPlaceInReg(uo.Operand, reg, file, indent);
+                        if (cons != null) {
+                            uint notted = ~cons.Value;
+                            return notted.ToString();
+                        }
+                        
                         file.Append(indent, $"not {reg}  ; Bitwise NOT operation");
                         break;
                     }
 
                     case UnaryOperationType.LogicalNot: {
-                        PlaceExprInReg(uo.Operand, reg, file, indent);
+                        string? cons = ResolveExpr(uo.Operand, reg, file, indent);
+                        if (cons != null) {
+                            return ConstantIsZero(cons) ? "1" : "0";
+                        }
+                        
                         string doneNotLabel = GetUniqueLogicLabel();
                         file.Append(indent,
                             $"cmp {reg}, 0  ; Compare value to zero for logical NOT",

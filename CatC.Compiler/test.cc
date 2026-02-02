@@ -26,7 +26,7 @@ fun main() {
     debug_num(myArr[2,4]:4);
     debug_num(myArr[3,4]:4);
     
-    while (1) {
+    while (!0) {
         
     }
 }
