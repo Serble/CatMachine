@@ -3,25 +3,59 @@ using CatC.Compiler.Ast;
 namespace CatC.Compiler.CodeGen;
 
 public partial class CodeGenerator {
+    
+    private (string? value, string reg, bool preserve) GenerateExprInScratchRegOrGetConst(
+        IValueExpression expr, AssemblyFileBuilder file, bool indent) {
+        
+        (string scratch, bool preserve) = AllocateRegister();
+        
+        AssemblyFileBuilder tempFile = new();
+        string? constValue = ResolveExpr(expr, scratch, tempFile, indent);
+        if (constValue != null) {
+            if (!preserve) FreeRegister(scratch);  // we didn't need the scratch reg after all
+            return (constValue, null!, false);
+        }
+        
+        // we do need the scratch reg
+        // then actually preserve and everything
+        if (preserve) {
+            file.Push(indent, scratch);
+        }
+        file.Append(tempFile);
+        
+        // it's on them to free the register later
+        return (null, scratch, preserve);
+    }
 
-    // TODO: Return string if value is compile-time constant
-    private void GenerateExprInReg(IValueExpression expr, string reg, AssemblyFileBuilder file, bool indent) {
+    private void PlaceExprInReg(IValueExpression expr, string reg, AssemblyFileBuilder file, bool indent) {
+        string? constValue = ResolveExpr(expr, reg, file, indent);
+        if (constValue != null) {
+            file.Append(indent, $"mov {reg}, {constValue}  ; Load compile-time constant into register");
+        }
+    }
+
+    /// <summary>
+    /// Resolves an expression and places its value in the specified register.
+    /// Or, if it's a compile-time constant, returns the constant as a string instead.
+    /// </summary>
+    /// <param name="expr">The expression to evaluate.</param>
+    /// <param name="reg">The register to place the value in.</param>
+    /// <param name="file">The file to append the code to.</param>
+    /// <param name="indent">Whether to use indentation when writing.</param>
+    /// <returns>The compile time constant string or null.</returns>
+    private string? ResolveExpr(IValueExpression expr, string reg, AssemblyFileBuilder file, bool indent) {
         switch (expr) {
             case IntegerLiteral il: {
-                file.Append(indent, $"mov {reg}, {il.Value}  ; Load integer literal");
-                break;
+                return il.Value.ToString();
             }
 
             case StringLiteral sl: {
-                string label = GetStringLabel(sl.Value);
-                file.Append(indent, $"mov {reg}, {label}  ; Load address of string literal");
-                break;
+                return GetStringLabel(sl.Value);
             }
 
             case StructSizeof sso: {
                 uint size = GetStructSize(sso.StructName);
-                file.Append(indent, $"mov {reg}, {size}  ; Load size of struct '{sso.StructName}'");
-                break;
+                return size.ToString();
             }
 
             case StructOffsetOf soo: {
@@ -43,16 +77,13 @@ public partial class CodeGenerator {
                     throw new InvalidOperationException($"Member '{soo.ParamName}' not found in struct '{soo.StructName}'.");
                 }
 
-                file.Append(indent, $"mov {reg}, {offset}  ; Load offset of member '{soo.ParamName}' in struct '{soo.StructName}'");
-                break;
+                return offset.ToString();
             }
 
             case VariableToken vt: {
                 Function? function = program.Functions.FirstOrDefault(f => f.Name == vt.Name);
                 if (function != null) {
-                    // use the pointer to the function
-                    file.Append(indent, $"mov {reg}, {vt.Name}  ; Load address of function '{vt.Name}'");
-                    break;
+                    return vt.Name;
                 }
 
                 if (_localVarOffsets.TryGetValue(vt.Name, out int offset)) {
@@ -63,8 +94,7 @@ public partial class CodeGenerator {
                 }
 
                 if (_globals.Any(g => g.Name == vt.Name)) {
-                    file.Append(indent, $"mov {reg}, {vt.Name}  ; Load address of global '{vt.Name}'");
-                    break;
+                    return vt.Name;
                 }
                 
                 throw new InvalidOperationException($"Variable or function '{vt.Name}' not found.");
@@ -75,24 +105,22 @@ public partial class CodeGenerator {
                     // this doesn't actually use the scratch register
                     // expr:size
                     CompileTimeValue size = CompileTimeValue.From(bo.Right);
-                    GenerateExprInReg(bo.Left, reg, file, indent);
+                    
+                    string? ptrVal = ResolveExpr(bo.Left, reg, file, indent);
                     
                     // the pointer is now in reg
-                    file.Append(indent, $"{GetSizedMoveInstruction(size)} {reg}, [{reg}]  " +
+                    file.Append(indent, $"{GetSizedMoveInstruction(size)} {reg}, [{ptrVal ?? reg}]  " +
                                         $"; Dereference pointer with size {ResolveCompileConstant(size)}");
                     break;
                 }
                 
-                (string scratch, bool preserve) = AllocateRegister(reg);
-                if (preserve) {
-                    file.Push(indent, scratch);
-                }
                 
                 // reg = Left
                 // scratch = Right
-                GenerateExprInReg(bo.Left, reg, file, indent);
-                GenerateExprInReg(bo.Right, scratch, file, indent);
-
+                PlaceExprInReg(bo.Left, reg, file, indent);  // we actually need this
+                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(bo.Right, file, indent);
+                string arg2 = value ?? scratch;
+                
                 if (bo.IsMathematical()) {  // all regular ops
                     string instruction = bo.Operator switch {
                         BinaryOperationType.Add => "add",
@@ -110,11 +138,11 @@ public partial class CodeGenerator {
                         // BinaryOperationType.RightShift => "shr", THIS DOESNT EXIST YET
                         _ => throw new InvalidOperationException($"Mathematical operation not implemented for '{bo.Operator}'.")
                     };
-                    file.Append(indent, $"{instruction} {reg}, {scratch}  ; Perform binary operation");
+                    file.Append(indent, $"{instruction} {reg}, {arg2}  ; Perform binary operation");
 
                     if (bo.Operator is BinaryOperationType.UnsignedModulus or BinaryOperationType.SignedModulus) {
                         // for modulus, the result is in scratch (remainder)
-                        file.Append(indent, $"mov {reg}, {scratch}  ; Move modulus result to destination register");
+                        file.Append(indent, $"mov {reg}, {arg2}  ; Move modulus result to destination register");
                     }
                 }
                 else {  // comparisons
@@ -135,7 +163,7 @@ public partial class CodeGenerator {
                     string doneOpLabel = GetUniqueLogicLabel();
                     file.Append(indent, 
                         $"mov {reg}, 1  ; Set destination register for comparison result (we'll clear it if false)",
-                        $"cmp {reg}, {scratch}  ; Compare for binary operation",
+                        $"cmp {reg}, {arg2}  ; Compare for binary operation",
                         $"{jumpInstruction} {doneOpLabel}   ; Jump if comparison is true",
                         $"mov {reg}, 0   ; Set destination register to 0 (false)");
                     file.Label(doneOpLabel);
@@ -158,7 +186,7 @@ public partial class CodeGenerator {
             case UnaryOperation uo: {
                 switch (uo.Operator) {
                     case UnaryOperationType.Negate: {
-                        GenerateExprInReg(uo.Operand, reg, file, indent);
+                        PlaceExprInReg(uo.Operand, reg, file, indent);
                         file.Append(indent, 
                             $"not {reg}  ; Negate value",
                             $"add {reg}, 1  ; Add 1 to complete two's complement negation"
@@ -167,13 +195,13 @@ public partial class CodeGenerator {
                     }
                     
                     case UnaryOperationType.BitwiseNot: {
-                        GenerateExprInReg(uo.Operand, reg, file, indent);
+                        PlaceExprInReg(uo.Operand, reg, file, indent);
                         file.Append(indent, $"not {reg}  ; Bitwise NOT operation");
                         break;
                     }
 
                     case UnaryOperationType.LogicalNot: {
-                        GenerateExprInReg(uo.Operand, reg, file, indent);
+                        PlaceExprInReg(uo.Operand, reg, file, indent);
                         string doneNotLabel = GetUniqueLogicLabel();
                         file.Append(indent,
                             $"cmp {reg}, 0  ; Compare value to zero for logical NOT",
@@ -192,13 +220,16 @@ public partial class CodeGenerator {
                 break;
             }
         }
+
+        return null;
     }
 
     private void GenerateFunctionCall(FunctionCall fc, string returnReg, AssemblyFileBuilder file, bool indent) {
         // No more call validation here - done in analysis phase (partially)
         
         // place pointer to the function in the return register
-        GenerateExprInReg(fc.Target, returnReg, file, indent);
+        string? constTarget = ResolveExpr(fc.Target, returnReg, file, indent);
+        string target = constTarget ?? returnReg;
         
         // We need to evaluate all the args and put them in the right registers
         // according to the calling convention
@@ -208,20 +239,33 @@ public partial class CodeGenerator {
         Stack<(string Reg, bool Preserve)> borrowedRegisters = [];
         (string Reg, bool Preserve)? stackTempReg = null;
         for (int i = 0; i < fc.Arguments.Length; i++) {
-            string argReg;
-            if (i < CallingConventionArgRegisters.Length) {
-                argReg = CallingConventionArgRegisters[i];
-            }
-            else {
-                // grab a free register for stack args
-                if (stackTempReg == null) {
-                    stackTempReg = AllocateRegister(returnReg);
-                    borrowedRegisters.Push(stackTempReg.Value);
+            // stack arg
+            if (i >= CallingConventionArgRegisters.Length) {
+                (string reg, bool preserve) maybeReg = stackTempReg ?? AllocateRegister(returnReg);
+                
+                AssemblyFileBuilder tempFile = new();
+                string? constArg = ResolveExpr(fc.Arguments[i], maybeReg.reg, tempFile, indent);
+
+                if (constArg != null) {  // don't bother with temps or anything
+                    if (!maybeReg.preserve) {
+                        FreeRegister(maybeReg.reg);
+                    }
+                    
+                    file.Append(indent, $"" +
+                                        $"{GetSizedPushInstruction(4)} " +
+                                        $"{constArg}  ; Push argument {i + 1} onto stack");
+                    file.BlankLine();
+                    continue;
                 }
                 
-                GenerateExprInReg(fc.Arguments[i], stackTempReg.Value.Reg, file, indent);
+                // okay it used the register
+                if (stackTempReg == null) {
+                    stackTempReg = maybeReg;
+                    borrowedRegisters.Push(stackTempReg.Value);
+                    file.Push(indent, stackTempReg.Value.Reg);
+                }
                 
-                // only push the amount of bytes needed for the argument
+                file.Append(tempFile);  // it's in the temp reg now
                 file.Append(indent, $"" +
                                     $"{GetSizedPushInstruction(4)} " +
                                     $"{stackTempReg.Value.Reg}  ; Push argument {i + 1} onto stack");
@@ -229,17 +273,20 @@ public partial class CodeGenerator {
                 continue;
             }
 
+            // register arg
+            string argReg = CallingConventionArgRegisters[i];
+            
             bool preserve = AllocateSpecificRegister(argReg);
             borrowedRegisters.Push((argReg, preserve));
 
             file.Comment("Prepare argument " + (i + 1), indent);
             if (preserve) file.Push(indent, argReg);
-            GenerateExprInReg(fc.Arguments[i], argReg, file, indent);
+            PlaceExprInReg(fc.Arguments[i], argReg, file, indent);
             file.BlankLine();
         }
         
         // Now call the function
-        file.Append(indent, $"call {returnReg}");
+        file.Append(indent, $"call {target}");
         
         // Clean up stack arguments
         int stackArgsCount = Math.Max(0, fc.Arguments.Length - CallingConventionArgRegisters.Length);
@@ -289,5 +336,9 @@ public partial class CodeGenerator {
             4 => "push",
             _ => throw new InvalidOperationException($"Sized move instruction not implemented for size {size}.")
         };
+    }
+    
+    private static bool ConstantIsZero(string constValue) {
+        return uint.TryParse(constValue, out uint val) && val == 0;
     }
 }

@@ -163,6 +163,9 @@ public partial class CodeGenerator(CatProgram program) {
     /// </summary>
     /// <param name="register">The register to return.</param>
     private void FreeRegister(string register) {
+        if (_freeRegisters.Contains(register)) {
+            return;
+        }
         _freeRegisters.Push(register);
     }
 

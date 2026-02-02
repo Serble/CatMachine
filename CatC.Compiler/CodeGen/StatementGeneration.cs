@@ -39,15 +39,29 @@ public partial class CodeGenerator {
             }
 
             case IfStatement ifStatement: {
-                string logicLabel = GetUniqueLogicLabel();
-                
-                // Evaluate condition
-                (string scratch, bool preserve) = AllocateRegister();
-                if (preserve) {
-                    file.Push(indent, scratch);
+                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(ifStatement.Condition, file, indent);
+
+                if (value != null) {
+                    // constant condition
+                    // time to do some constant folding
+                    if (ConstantIsZero(value)) {  // condition is false
+                        // generate else statements
+                        foreach (IStatement elseStmnt in ifStatement.ElseStatements) {
+                            GenerateStatement(elseStmnt, file, indent);
+                        }
+                    }
+                    else {
+                        // generate then statements
+                        foreach (IStatement thenStmnt in ifStatement.ThenStatements) {
+                            GenerateStatement(thenStmnt, file, indent);
+                        }
+                    }
+                    
+                    break;
                 }
                 
-                GenerateExprInReg(ifStatement.Condition, scratch, file, indent);
+                string logicLabel = GetUniqueLogicLabel();
+                
                 file.Append(indent, 
                     $"cmp {scratch}, 0",
                     $"je {logicLabel}_else  ; if condition is false, jump to else");
@@ -78,14 +92,26 @@ public partial class CodeGenerator {
 
             case WhileStatement whileStatement: {
                 string loopLabel = GetUniqueLogicLabel();
-                
-                file.Label(loopLabel + "_start");
-                (string scratch, bool preserve) = AllocateRegister();
-                if (preserve) {
-                    file.Push(indent, scratch);
+                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(whileStatement.Condition, file, indent);
+
+                if (value != null) {
+                    // constant condition
+                    // time to do some constant folding
+                    if (ConstantIsZero(value)) {  // condition is false
+                        // do nothing, loop will never run
+                        break;
+                    }
+
+                    // generate body statements
+                    file.Label(loopLabel + "_start");
+                    foreach (IStatement thenStmnt in whileStatement.BodyStatements) {
+                        GenerateStatement(thenStmnt, file, indent);
+                    }
+                    file.Append(indent, $"jmp {loopLabel}_start  ; jump back to start of loop");
+                    break;
                 }
                 
-                GenerateExprInReg(whileStatement.Condition, scratch, file, indent);
+                file.Label(loopLabel + "_start");
                 file.Append(indent, 
                     $"cmp {scratch}, 0",
                     $"je {loopLabel}_end  ; if condition is false, exit loop");
@@ -131,7 +157,7 @@ public partial class CodeGenerator {
                 // Place inputs into their registers
                 foreach ((string register, IValueExpression value) in inlineAsm.Inputs) {
                     file.Comment($"Prepare inline asm input {register}", indent);
-                    GenerateExprInReg(value, register, file, indent);
+                    PlaceExprInReg(value, register, file, indent);
                 }
                 
                 // Emit the assembly
@@ -170,7 +196,7 @@ public partial class CodeGenerator {
 
             case ReturnStatement returnStatement: {
                 if (returnStatement.Value != null) {
-                    GenerateExprInReg(returnStatement.Value, DefaultReturnRegister, file, indent);
+                    PlaceExprInReg(returnStatement.Value, DefaultReturnRegister, file, indent);
                 }
 
                 file.Append(indent, "jmp .end");
@@ -186,43 +212,43 @@ public partial class CodeGenerator {
     
     private void GenerateVariableAssignment(VariableAssignment assignment, AssemblyFileBuilder file, bool indent) {
         file.Comment("Variable Assignment", indent);
-        (string reg, bool preserve) = AllocateRegister();
-        if (preserve) {
-            file.Push(indent, reg);
+        
+        (string? value, string reg, bool preserve) = GenerateExprInScratchRegOrGetConst(assignment.Value, file, indent);
+        if (value != null) {
+            GenerateVariableAssignment(assignment.Target, value, file, indent);
+            return;
         }
         
-        GenerateExprInReg(assignment.Value, reg, file, indent);
         GenerateVariableAssignment(assignment.Target, reg, file, indent);
-        
-        if (preserve) {
-            file.Pop(indent, reg);
-        }
-        else {
-            FreeRegister(reg);
+        if (value == null) {
+            if (preserve) {
+                file.Pop(indent, reg);
+            }
+            else {
+                FreeRegister(reg);
+            }
         }
     }
 
-    private void GenerateVariableAssignment(IValueExpression target, string sourceReg, AssemblyFileBuilder file, bool indent) {
+    private void GenerateVariableAssignment(IValueExpression target, string sourceValue, AssemblyFileBuilder file, bool indent) {
         BinaryOperation deref = (BinaryOperation)target;
         if (deref.Operator != BinaryOperationType.Dereference) {
             throw new Exception("Variable assignment target must be a dereference operation.");
         }
+
+        (string? value, string reg, bool preserve) = GenerateExprInScratchRegOrGetConst(deref.Left, file, indent);
+        string src = value ?? reg;
         
-        (string reg, bool preserve) = AllocateRegister();
-        if (preserve) {
-            file.Push(indent, reg);
-        }
-        
-        GenerateExprInReg(deref.Left, reg, file, indent);  // pointer to variable we are assigning to
         int size = (int)ResolveCompileConstant(CompileTimeValue.From(deref.Right));
-        
-        file.Append(indent, $"{GetSizedMoveInstruction(size)} [{reg}], {sourceReg}  ; store to variable");
-        
-        if (preserve) {
-            file.Pop(indent, reg);
-        }
-        else {
-            FreeRegister(reg);
+        file.Append(indent, $"{GetSizedMoveInstruction(size)} [{src}], {sourceValue}  ; store to variable");
+
+        if (value == null) {
+            if (preserve) {
+                file.Pop(indent, reg);
+            }
+            else {
+                FreeRegister(reg);
+            }
         }
     }
 }
