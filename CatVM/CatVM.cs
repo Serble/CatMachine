@@ -8,7 +8,7 @@ namespace CatVM;
 
 // a VM instance
 public class CatVM {
-    public const bool BenchmarkMode = true;
+    public const bool BenchmarkMode = false;
     public const bool DebugMode = false;
     
     public const long PicosecondsPerSecond = 1000000000000L;
@@ -244,11 +244,10 @@ public class CatVM {
         }
         catch (IndexOutOfRangeException e) {
             DumpError(e);
-                
+            
             // we need to check if this was due to an invalid opcode
             // check if the last stack frame was in ExecuteInstruction
             StackTrace trace = new(e);
-            Console.WriteLine(trace.ToString());
             StackFrame[] frames = trace.GetFrames();
             if (frames.Length > 1 && frames[1].GetMethod()?.Name == nameof(ExecuteInstruction)) {
                 // invalid opcode
@@ -258,6 +257,10 @@ public class CatVM {
                 // some other index out of range (we'll assume with memory)
                 Interrupt(SpecialInterupts.PageFault);
             }
+        }
+        catch (ArgumentException e) {
+            DumpError(e);
+            Interrupt(SpecialInterupts.PageFault);
         }
         catch (Exception e) {
             DumpError(e);
