@@ -134,8 +134,151 @@ public partial class CodeGenerator {
                 
                 // reg = Left
                 // scratch = Right
-                PlaceExprInReg(bo.Left, reg, file, indent);  // we actually need this
-                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(bo.Right, file, indent);
+                AssemblyFileBuilder leftSetData = new();
+                string? constLeftStr = ResolveExpr(bo.Left, reg, leftSetData, indent);
+                ConstantIsNumerical(constLeftStr, out uint? constLeft);
+                
+                // temp because we might not want it if both sides are constant
+                AssemblyFileBuilder rightSetData = new();
+                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(bo.Right, rightSetData, indent);
+
+                // IS A VALUE 0?
+                
+                if (value != null && ConstantIsZero(value)) {
+                    switch (bo.Operator) {
+                        case BinaryOperationType.Add:
+                        case BinaryOperationType.Subtract:
+                        case BinaryOperationType.BitwiseOr:
+                        case BinaryOperationType.BitwiseXor:
+                            // do nothing to the left
+                            if (!preserve) {
+                                FreeRegister(scratch);
+                            }
+                            file.Append(leftSetData);
+                            return constLeftStr;
+                        
+                        case BinaryOperationType.UnsignedMultiply:
+                        case BinaryOperationType.SignedMultiply:
+                            // multiplying by 0 results in 0
+                            if (!preserve) {
+                                FreeRegister(scratch);
+                            }
+                            return "0";
+                    }
+                }
+                
+                if (constLeftStr != null && ConstantIsZero(constLeftStr)) {
+                    // NOTHING HAS BEEN WRITTEN TO FILE YET
+                    switch (bo.Operator) {
+                        case BinaryOperationType.Add:
+                        case BinaryOperationType.Subtract:
+                        case BinaryOperationType.BitwiseOr:
+                        case BinaryOperationType.BitwiseXor:
+                            // do nothing to the left
+                            if (!preserve) {
+                                FreeRegister(scratch);
+                            }
+                            return ResolveExpr(bo.Right, reg, file, indent);
+                        
+                        case BinaryOperationType.UnsignedMultiply:
+                        case BinaryOperationType.SignedMultiply:
+                            // multiplying by 0 results in 0
+                            if (!preserve) {
+                                FreeRegister(scratch);
+                            }
+                            return "0";
+                    }
+                }
+                
+                // IS A VALUE 1?
+
+                if (value != null && ConstantIsNumerical(value, out uint? constRight)) {
+                    switch (bo.Operator) {
+                        case BinaryOperationType.SignedMultiply:
+                        case BinaryOperationType.UnsignedMultiply:
+                        case BinaryOperationType.SignedDivide:
+                        case BinaryOperationType.UnsignedDivide:
+                            if (constRight == 1) {
+                                // do nothing to the left
+                                if (!preserve) {
+                                    FreeRegister(scratch);
+                                }
+                                file.Append(leftSetData);
+                                return constLeftStr;
+                            }
+                            break;
+                    }
+                }
+                
+                if (constLeftStr != null && constLeft != null) {
+                    // divide depends on the order (so doesn't apply here)
+                    switch (bo.Operator) {
+                        case BinaryOperationType.SignedMultiply:
+                        case BinaryOperationType.UnsignedMultiply:
+                            if (constLeft == 1) {
+                                // do nothing to the left
+                                if (!preserve) {
+                                    FreeRegister(scratch);
+                                }
+                                return ResolveExpr(bo.Right, reg, file, indent);
+                            }
+                            break;
+                    }
+                }
+
+                if (constLeft != null && value != null && ConstantIsNumerical(value, out uint? rightCons)) {
+                    if (rightCons == null) {
+                        throw new InvalidOperationException("Failed to parse constant numerical value.");
+                    }
+                    
+                    // both sides are constants, we can just compute it now
+                    
+                    // so we don't need this register after all
+                    if (!preserve) {
+                        FreeRegister(scratch);
+                    }
+                    
+                    uint result = bo.Operator switch {
+                        BinaryOperationType.Add => constLeft.Value + rightCons.Value,
+                        BinaryOperationType.Subtract => constLeft.Value - rightCons.Value,
+                        BinaryOperationType.UnsignedMultiply => constLeft.Value * rightCons.Value,
+                        BinaryOperationType.SignedMultiply => unchecked((uint)((int)constLeft.Value * (int)rightCons.Value)),
+                        BinaryOperationType.UnsignedDivide => constLeft.Value / rightCons.Value,
+                        BinaryOperationType.SignedDivide => unchecked((uint)((int)constLeft.Value / (int)rightCons.Value)),
+                        BinaryOperationType.UnsignedModulus => constLeft.Value % rightCons.Value,
+                        BinaryOperationType.SignedModulus => unchecked((uint)((int)constLeft.Value % (int)rightCons.Value)),
+                        
+                        BinaryOperationType.BitwiseAnd => constLeft.Value & rightCons.Value,
+                        BinaryOperationType.BitwiseOr => constLeft.Value | rightCons.Value,
+                        BinaryOperationType.BitwiseXor => constLeft.Value ^ rightCons.Value,
+                        
+                        BinaryOperationType.Equals => constLeft.Value == rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.NotEquals => constLeft.Value != rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.UnsignedLessThan => constLeft.Value < rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.UnsignedLessThanOrEqual => constLeft.Value <= rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.SignedLessThan => (int)constLeft.Value < (int)rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.SignedLessThanOrEqual => (int)constLeft.Value <= (int)rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.UnsignedGreaterThan => constLeft.Value > rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.UnsignedGreaterThanOrEqual => constLeft.Value >= rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.SignedGreaterThan => (int)constLeft.Value > (int)rightCons.Value ? 1u : 0u,
+                        BinaryOperationType.SignedGreaterThanOrEqual => (int)constLeft.Value >= (int)rightCons.Value ? 1u : 0u,
+                        
+                        BinaryOperationType.LeftShift => constLeft.Value << (int)rightCons.Value,
+                        BinaryOperationType.RightShift => constLeft.Value >> (int)rightCons.Value,
+                        _ => throw new InvalidOperationException($"Operation '{bo.Operator}' not implemented for constant folding.")
+                    };
+                    
+                    return result.ToString();
+                }
+                
+                // we do need to do it at runtime
+                if (constLeftStr != null && constLeft == null) {
+                    // left is constant but not numerical, we need to put it in the register
+                    file.Append(indent, $"mov {reg}, {constLeftStr}  ; Load compile-time constant into register");
+                }
+                file.Append(leftSetData);
+                file.Append(rightSetData);  // scratch reg now has the right value
+                
                 string arg2 = value ?? scratch;
                 
                 if (bo.IsMathematical()) {  // all regular ops
@@ -374,5 +517,15 @@ public partial class CodeGenerator {
     
     private static bool ConstantIsZero(string constValue) {
         return uint.TryParse(constValue, out uint val) && val == 0;
+    }
+    
+    private static bool ConstantIsNumerical(string? constValue, out uint? value) {
+        if (constValue != null && uint.TryParse(constValue, out uint val)) {
+            value = val;
+            return true;
+        }
+
+        value = null;
+        return false;
     }
 }
