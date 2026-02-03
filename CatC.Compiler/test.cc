@@ -1,6 +1,15 @@
 #include "std.cc"
+#define WORD, 4
+
+global asd:${WORD} = 5; 
+debug_num(asd:${WORD} * 0);
+
+asd:${WORD} = asd:${WORD} + 0;
 
 print("hello world!");
+
+0:4 = 5;
+
 main();
 
 fun main() {

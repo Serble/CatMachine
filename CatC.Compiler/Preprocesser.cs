@@ -3,6 +3,8 @@ using System.Text;
 namespace CatC.Compiler;
 
 public class Preprocesser {
+    private const string MacroUseFormat = "${{{0}}}";
+    
     private readonly string _fileName;
     private readonly string[] _lines;
 
@@ -17,9 +19,16 @@ public class Preprocesser {
     }
 
     public string[] Process() {
+        Dictionary<string, string> macros = new();
         List<string> processedLines = [];
         for (int i = 0; i < _lines.Length; i++) {
             string line = _lines[i];
+            
+            // macros
+            foreach (string macro in macros.Keys) {
+                line = line.Replace(string.Format(MacroUseFormat, macro), macros[macro]);
+            }
+            
             if (!line.StartsWith('#')) {
                 processedLines.Add(line);
                 continue;
@@ -68,6 +77,20 @@ public class Preprocesser {
 
             // okay, actually handle directive
             switch (directive) {
+                case "define": {
+                    if (args.Count != 2) {
+                        throw new CompilationFailureException($"Invalid number of arguments for #define directive: {argsStr}");
+                    }
+
+                    string macroName = args[0];
+                    string macroValue = args[1];
+                    for (int j = 0; j < processedLines.Count; j++) {
+                        processedLines[j] = processedLines[j].Replace(string.Format(MacroUseFormat, macroName), macroValue);
+                    }
+                    macros[macroName] = macroValue;
+                    break;
+                }
+                
                 case "include": {
                     if (args.Count != 1) {
                         throw new CompilationFailureException($"Invalid number of arguments for #include directive: {argsStr}");
