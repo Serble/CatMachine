@@ -130,7 +130,7 @@ void main() {
         _serialQueue.Enqueue(device);
         _serialQueue.Enqueue(inputType);
         _serialQueue.Enqueue(value);
-        vm.Interrupt(SpecialInterupts.HandleInput);
+        vm.HardwareInterrupt(SpecialInterupts.HandleInput);
     }
     
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

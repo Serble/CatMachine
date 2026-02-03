@@ -26,7 +26,7 @@ public class CatVM {
     public (uint start, uint length)[] DisallowedWriteRegions { get; set; } = [];
     public (uint start, uint length)[] DisallowedReadRegions { get; set; } = [];
     public GCHandle? MemoryHandle { get; private set; }
-    public Queue<byte> InterruptQueue { get; } = [];
+    public Queue<byte> HardwareInterruptQueue { get; } = [];
     public long TicksPassed { get; private set; } // This isn't real time this is virtual time, 1 tick = 1 picosecond
     private DateTime lastSlowWarning = DateTime.MinValue;   
     public Stopwatch Runtime { get; } = new();
@@ -275,6 +275,10 @@ public class CatVM {
     }
     
     public void ExecuteInstruction(bool fast = false) {
+        if (InterruptsEnabled && HardwareInterruptQueue.Count != 0) {
+            HandleInterrupt(HardwareInterruptQueue.Dequeue());
+        }
+        
         byte opcode = Read8();
         
         // don't bounds check opcode because the array lookup
@@ -282,11 +286,6 @@ public class CatVM {
         (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
         instruction.executor(this);
         TicksPassed += instruction.cycles * PicosecondsPerCycle;
-        
-        // Don't use TryDequeue for performance reasons
-        if (InterruptsEnabled && InterruptQueue.Count != 0) {
-            HandleInterrupt(InterruptQueue.Dequeue());
-        }
         
         if (fast) return;  // don't bother calculating anything if fast
         
@@ -304,7 +303,12 @@ public class CatVM {
 
     public void Interrupt(SpecialInterupts id) => Interrupt((byte)id);
     public void Interrupt(byte id) {
-        InterruptQueue.Enqueue(id);
+        HandleInterrupt(id);
+    }
+    
+    public void HardwareInterrupt(SpecialInterupts id) => HardwareInterrupt((byte)id);
+    public void HardwareInterrupt(byte id) {
+        HardwareInterruptQueue.Enqueue(id);
     }
     
     public void HandleInterrupt(byte id) {
