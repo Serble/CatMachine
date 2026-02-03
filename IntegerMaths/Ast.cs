@@ -2,7 +2,14 @@ using System.Numerics;
 
 namespace IntegerMaths;
 
-internal abstract record Expr;
-internal record Literal(BigInteger Value) : Expr;
-internal record Variable(string Name) : Expr;
-internal record Binary(Expr Left, string Op, Expr Right) : Expr;
+public abstract record Expr {
+    public BigInteger LiteralValue() {
+        if (this is Literal l) {
+            return l.Value;
+        }
+        throw new InvalidOperationException($"Not a literal: {GetType().Name}");
+    }
+}
+public record Literal(BigInteger Value) : Expr;
+public record Variable(string Name) : Expr;
+public record Binary(Expr Left, string Op, Expr Right) : Expr;

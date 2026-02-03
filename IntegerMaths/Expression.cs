@@ -4,8 +4,6 @@ using Sprache;
 namespace IntegerMaths;
 
 public class Expression(string text) {
-    private static readonly BigInteger UIntSize = new BigInteger(uint.MaxValue) + 1;
-    
     public Dictionary<string, string> Variables { get; } = new();
     public event Action<string, EvaluateVariableEventArgs>? EvaluateVariableEvent;
     
@@ -19,8 +17,7 @@ public class Expression(string text) {
     }
     
     public uint EvalAsUInt() {
-        BigInteger result = Eval();
-        return (uint)((result % UIntSize + UIntSize) % UIntSize);
+        return Eval().ToUInt32WithOverflow();
     }
 
     private BigInteger Eval(string exprText) {
