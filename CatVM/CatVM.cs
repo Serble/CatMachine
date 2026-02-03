@@ -308,15 +308,6 @@ public class CatVM {
     }
     
     public void HandleInterrupt(byte id) {
-        if (id != 0x86 && id != 0x1 && id != 0x84 && id != 0x87 && id != 0x85) {
-            Console.WriteLine($"interrupt {id:x2}");
-            // return;
-        }
-
-        if (id == 0x70) {
-            Console.WriteLine("huh");
-        }
-        
         // System functions
         switch (id) {
             case 0x80: {
