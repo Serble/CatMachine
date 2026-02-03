@@ -149,7 +149,8 @@ void main() {
     public static string ReadResource(string name) {
         Assembly assembly = Assembly.GetExecutingAssembly();
 
-        using Stream stream = assembly.GetManifestResourceStream(name)!;
+        string resourceName = assembly.GetManifestResourceNames().First(resource => resource.EndsWith(name));
+        using Stream stream = assembly.GetManifestResourceStream(resourceName)!;
         using StreamReader reader = new(stream);
         return reader.ReadToEnd();
     }

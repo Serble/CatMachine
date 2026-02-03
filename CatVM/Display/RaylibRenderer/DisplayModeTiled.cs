@@ -28,13 +28,13 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         }
         
         _tileShader = Raylib.LoadShaderFromMemory(
-            RaylibRendering.ReadResource("CatVM.TileVertex.vert"),
-            RaylibRendering.ReadResource("CatVM.TileFragment.frag")
+            RaylibRendering.ReadResource("TileVertex.vert"),
+            RaylibRendering.ReadResource("TileFragment.frag")
         );
 
         _spriteShader = Raylib.LoadShaderFromMemory(
             null,
-            RaylibRendering.ReadResource("CatVM.SpriteFragment.frag")
+            RaylibRendering.ReadResource("SpriteFragment.frag")
         );
         
         foreach (Shader shader in (Shader[])[_tileShader, _spriteShader]) {
