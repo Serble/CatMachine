@@ -1,4 +1,4 @@
-namespace CatC.Compiler.Ast;
+namespace Catnip.Compiler.Ast;
 
 public record CatProgram(Struct[] Structs, Statement[] TopLevelStatements, Function[] Functions);
 

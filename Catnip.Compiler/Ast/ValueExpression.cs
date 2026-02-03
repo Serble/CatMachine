@@ -1,4 +1,4 @@
-namespace CatC.Compiler.Ast;
+namespace Catnip.Compiler.Ast;
 
 public interface IValueExpression;
 

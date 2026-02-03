@@ -1,6 +1,7 @@
-# CatC Language Specification
+# Catnip Language Specification
 
-**CatC** is a low-level, explicit, C-like systems language. It exposes memory and sizes directly with little abstraction. No real notion of "types"; only *sizes*, pointers, offsets, and raw values matter.
+**Catnip** is a low-level, explicit, systems language. It exposes memory and sizes directly with little abstraction. 
+No real notion of "types"; only *sizes*, pointers, offsets, and raw values matter.
 
 ---
 

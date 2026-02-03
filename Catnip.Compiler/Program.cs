@@ -1,16 +1,16 @@
 ﻿using System.Text.Json;
 using CatAssembler.Assembler;
 using CatAssembler.Parser;
-using CatC.Compiler;
-using CatC.Compiler.Analysis;
-using CatC.Compiler.Ast;
-using CatC.Compiler.CodeGen;
-using CatC.Compiler.Parser;
+using Catnip.Compiler;
+using Catnip.Compiler.Analysis;
+using Catnip.Compiler.Ast;
+using Catnip.Compiler.CodeGen;
+using Catnip.Compiler.Parser;
 using CatData;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 if (args.Length < 1) {
-    Console.WriteLine("Usage: ./CatAssembler <input file> [options]");
+    Console.WriteLine("Usage: ./Catnip.Compiler <input file> [options]");
     return 1;
 }
 string inputFilePath = args[0];
@@ -52,7 +52,7 @@ for (int i = 1; i < args.Length; i++) {
             break;
         
         case "--help" or "-h":
-            Console.WriteLine("Usage: ./CatC.Compiler <input file> [options]");
+            Console.WriteLine("Usage: ./Catnip.Compiler <input file> [options]");
             Console.WriteLine("Options:");
             Console.WriteLine("  --output, -o <file>        Specify output binary file (default: output.bin)");
             Console.WriteLine("  --asm-output, -s <file>    Specify output assembly file");

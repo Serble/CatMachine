@@ -1,6 +1,6 @@
-using CatC.Compiler.Ast;
+using Catnip.Compiler.Ast;
 
-namespace CatC.Compiler;
+namespace Catnip.Compiler;
 
 public class CompilationFailureException(string file, int line, int column, string msg, string? context = null) : Exception {
     /// <summary>

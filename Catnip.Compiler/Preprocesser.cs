@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace CatC.Compiler;
+namespace Catnip.Compiler;
 
 public class Preprocesser {
     private const string MacroUseFormat = "${{{0}}}";
@@ -93,7 +93,8 @@ public class Preprocesser {
             switch (directive) {
                 case "define": {
                     if (args.Count != 2) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), $"Invalid number of arguments for #define directive: {argsStr}");
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                            $"Invalid number of arguments for #define directive: {argsStr}");
                     }
 
                     string macroName = args[0];
@@ -107,12 +108,14 @@ public class Preprocesser {
                 
                 case "include": {
                     if (args.Count != 1) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), $"Invalid number of arguments for #include directive: {argsStr}");
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                            $"Invalid number of arguments for #include directive: {argsStr}");
                     }
 
                     string includePath = args[0].Trim('"');
                     if (!File.Exists(includePath)) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), "Included file not found: " + includePath);
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                            "Included file not found: " + includePath);
                     }
 
                     string[] includedLines = File.ReadAllLines(includePath);
@@ -125,7 +128,8 @@ public class Preprocesser {
                 }
 
                 default:
-                    throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), "Unknown preprocessor directive: " + directive);
+                    throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                        "Unknown preprocessor directive: " + directive);
             }
         }
 

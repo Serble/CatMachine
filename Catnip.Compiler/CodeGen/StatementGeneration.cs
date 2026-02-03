@@ -1,6 +1,6 @@
-using CatC.Compiler.Ast;
+using Catnip.Compiler.Ast;
 
-namespace CatC.Compiler.CodeGen;
+namespace Catnip.Compiler.CodeGen;
 
 public partial class CodeGenerator {
     

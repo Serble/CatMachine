@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace CatC.Compiler.CodeGen;
+namespace Catnip.Compiler.CodeGen;
 
 public class AssemblyFileBuilder {
     private readonly StringBuilder _builder = new();

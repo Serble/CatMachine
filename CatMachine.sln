@@ -8,7 +8,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatVM.Benchmarking", "CatVM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatData", "CatData\CatData.csproj", "{73AD458D-4EEF-457C-9006-D144614422C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatC.Compiler", "CatC.Compiler\CatC.Compiler.csproj", "{178C6307-E5D8-43AC-B560-75CF293324A0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catnip.Compiler", "Catnip.Compiler\Catnip.Compiler.csproj", "{178C6307-E5D8-43AC-B560-75CF293324A0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntegerMaths", "IntegerMaths\IntegerMaths.csproj", "{50964DEA-7551-4912-9B7A-0A319E340EC1}"
 EndProject

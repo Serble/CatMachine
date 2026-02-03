@@ -1,7 +1,7 @@
-using CatC.Compiler.Ast;
+using Catnip.Compiler.Ast;
 using Sprache;
 
-namespace CatC.Compiler.Parser;
+namespace Catnip.Compiler.Parser;
 
 public static class ParserUtils {
     public static (string File, int Line)[]? LineMappings = null;

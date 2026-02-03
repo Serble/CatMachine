@@ -1,8 +1,8 @@
-using CatC.Compiler.Ast;
+using Catnip.Compiler.Ast;
 using IntegerMaths;
 using Sprache;
 
-namespace CatC.Compiler.Parser;
+namespace Catnip.Compiler.Parser;
 
 public static class CodeParser {
     private const string FunctionBodyEndExpectation = "function body end ('}')";

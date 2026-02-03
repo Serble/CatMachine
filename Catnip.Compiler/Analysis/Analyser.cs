@@ -1,6 +1,6 @@
-using CatC.Compiler.Ast;
+using Catnip.Compiler.Ast;
 
-namespace CatC.Compiler.Analysis;
+namespace Catnip.Compiler.Analysis;
 
 public class Analyser(ParsedElement[] elements) {
     private static readonly string[] ValidRegisters = [
