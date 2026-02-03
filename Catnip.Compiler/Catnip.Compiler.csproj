@@ -13,16 +13,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Include="std.cc">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Include="test.cc">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
+      <PackageReference Include="Sprache" Version="3.0.0-develop-00049" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Sprache" Version="3.0.0-develop-00049" />
+      <EmbeddedResource Include="Libraries\std.nip" />
     </ItemGroup>
 
 </Project>

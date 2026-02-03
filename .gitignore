@@ -6,4 +6,7 @@ riderModule.iml
 .idea/
 **/*.DotSettings.user
 **/*.out
+**/*.out.debug
+**/output.bin
+**/output.bin.debug
 **/BenchmarkDotNet.Artifacts

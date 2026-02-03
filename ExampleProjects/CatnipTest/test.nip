@@ -1,7 +1,7 @@
 #define hello, 5
 #define asd, 2
 
-#include "std.cc"
+#include "std"
 #define WORD, 4
 
 global asd:${WORD} = 5; 

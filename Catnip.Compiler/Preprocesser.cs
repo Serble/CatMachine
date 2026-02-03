@@ -1,15 +1,20 @@
+using System.Reflection;
 using System.Text;
 
 namespace Catnip.Compiler;
 
 public class Preprocesser {
     private const string MacroUseFormat = "${{{0}}}";
+
+    private static readonly string[] BuiltinLibs = [
+        "std.nip"
+    ];
     
     private readonly string _mainFileName;
     private readonly List<string> _lines = [];
     
     private readonly Dictionary<string, string> _macros = new();
-    private List<string> _processedLines = [];
+    private readonly List<string> _processedLines = [];
     
     private readonly List<(string File, int Line)> _fileLineMapping = [];
     private readonly Stack<(string File, int Line)> _inclusionStack = [];
@@ -113,12 +118,7 @@ public class Preprocesser {
                     }
 
                     string includePath = args[0].Trim('"');
-                    if (!File.Exists(includePath)) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
-                            "Included file not found: " + includePath);
-                    }
-
-                    string[] includedLines = File.ReadAllLines(includePath);
+                    string[] includedLines = GetLibraryFile(includePath);
                     string fileName = Path.GetFileName(includePath);
                     _lines.InsertRange(i + 1, includedLines);
                     for (int j = includedLines.Length - 1; j >= 0; j--) {
@@ -134,13 +134,45 @@ public class Preprocesser {
         }
 
         return (_processedLines.ToArray(), _fileLineMapping.ToArray());
+    }
+    
+    private string GetCurrentLineFile() {
+        return _inclusionStack.Count > 0 ? _inclusionStack.Peek().File : _mainFileName;
+    }
         
-        string GetCurrentLineFile() {
-            return _inclusionStack.Count > 0 ? _inclusionStack.Peek().File : _mainFileName;
+    private int GetCurrentLineNumber() {
+        return _inclusionStack.Count > 0 ? _inclusionStack.Peek().Line - 1 : 0;
+    }
+
+    private string[] GetLibraryFile(string name) {
+        string originalName = name;
+        
+        if (File.Exists(name)) {
+            return File.ReadAllLines(name);
+        }
+
+        if (BuiltinLibs.Contains(name)) {
+            return ReadBuiltin(name);
         }
         
-        int GetCurrentLineNumber() {
-            return _inclusionStack.Count > 0 ? _inclusionStack.Peek().Line - 1 : 0;
+        name += ".nip";
+        if (File.Exists(name)) {
+            return File.ReadAllLines(name);
         }
+        
+        if (BuiltinLibs.Contains(name)) {
+            return ReadBuiltin(name);
+        }
+
+        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+            "Included file not found: " + originalName);
+    }
+
+    private static string[] ReadBuiltin(string name) {
+        Assembly assembly = Assembly.GetExecutingAssembly();
+
+        using Stream stream = assembly.GetManifestResourceStream($"Catnip.Compiler.Libraries.{name}")!;
+        using StreamReader reader = new(stream);
+        return reader.ReadToEnd().Split('\n');
     }
 }
