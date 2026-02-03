@@ -17,6 +17,8 @@ public class Analyser(ParsedElement[] elements) {
     private readonly List<(ParsedElement Element, string Struct, string? Member)> _neededStructs = [];
     private readonly List<(ParsedElement Element, string FunctionName, IValueExpression[] Args)> _functionCalls = [];
     private readonly List<(ParsedElement Element, CompileTimeValue Size)> _mustBeMovCompatible = [];
+    
+    private readonly List<CompilationFailureException> _errors = [];
 
     private void BeginScope() {
         _scopes.Enqueue(_locals.Count);
@@ -33,9 +35,9 @@ public class Analyser(ParsedElement[] elements) {
         }
     }
     
-    private static void ValidateRegister(ParsedElement element, string register) {
+    private void ValidateRegister(ParsedElement element, string register) {
         if (!ValidRegisters.Contains(register.ToLower())) {
-            throw new CompilationFailureException(element, $"Invalid register '{register.ToLower()}'.");
+            _errors.Add(new CompilationFailureException(element, $"Invalid register '{register.ToLower()}'."));
         }
     }
 
@@ -47,7 +49,7 @@ public class Analyser(ParsedElement[] elements) {
             switch (element) {
                 case Statement ps: {
                     if (ps is LocalDeclaration) {
-                        throw new CompilationFailureException(element, "Local declarations are not allowed at the top level.");
+                        _errors.Add(new CompilationFailureException(element, "Local declarations are not allowed at the top level."));
                     }
                     
                     topLevelStatements.Add(ps);
@@ -62,7 +64,7 @@ public class Analyser(ParsedElement[] elements) {
                 case Function pfe: {
                     Function func = AnalyseFunction(pfe);
                     if (_functions.Any(f => f.Name == func.Name)) {
-                        throw new CompilationFailureException(element, $"Function '{func.Name}' is already defined.");
+                        _errors.Add(new CompilationFailureException(element, $"Function '{func.Name}' is already defined."));
                     }
                     _functions.Add(func);
                     _locals.Clear();
@@ -82,24 +84,26 @@ public class Analyser(ParsedElement[] elements) {
         foreach ((ParsedElement element, string functionName, IValueExpression[] args) in _functionCalls) {
             Function? function = _functions.FirstOrDefault(f => f.Name == functionName);
             if (function == null) {
-                throw new CompilationFailureException(element, $"Function '{functionName}' is not defined.");
+                _errors.Add(new CompilationFailureException(element, $"Function '{functionName}' is not defined."));
+                continue;
             }
 
             if (function.Parameters.Length != args.Length) {
-                throw new CompilationFailureException(element, 
-                    $"Function '{functionName}' expects {function.Parameters.Length} arguments, but {args.Length} were provided.");
+                _errors.Add(new CompilationFailureException(element, 
+                    $"Function '{functionName}' expects {function.Parameters.Length} arguments, but {args.Length} were provided."));
             }
         }
 
         foreach ((ParsedElement element, string str, string? mem) in _neededStructs) {
             Struct? structure = _structs.FirstOrDefault(s => s.Name == str);
             if (structure == null) {
-                throw new CompilationFailureException(element, $"Struct '{str}' is not defined.");
+                _errors.Add(new CompilationFailureException(element, $"Struct '{str}' is not defined."));
+                continue;
             }
 
             if (mem == null) continue;
             if (structure.Fields.All(f => f.Name != mem)) {
-                throw new CompilationFailureException(element, $"Struct '{str}' does not have a member named '{mem}'.");
+                _errors.Add(new CompilationFailureException(element, $"Struct '{str}' does not have a member named '{mem}'."));
             }
         }
         
@@ -107,9 +111,13 @@ public class Analyser(ParsedElement[] elements) {
         foreach ((ParsedElement element, CompileTimeValue size) in _mustBeMovCompatible) {
             uint resolvedSize = size.Resolve(structsArray);
             if (resolvedSize is not (1 or 2 or 4)) {
-                throw new CompilationFailureException(element, 
-                    $"Size '{resolvedSize}' is not mov-compatible. Only sizes 1, 2 and 4 are allowed.");
+                _errors.Add(new CompilationFailureException(element, 
+                    $"Size '{resolvedSize}' is not mov-compatible. Only sizes 1, 2 and 4 are allowed."));
             }
+        }
+        
+        if (_errors.Count > 0) {
+            throw new AggregateException(_errors);
         }
 
         return new CatProgram(structsArray, topLevelStatements.ToArray(), _functions.ToArray());
@@ -131,7 +139,8 @@ public class Analyser(ParsedElement[] elements) {
         switch (statement) {
             case LocalDeclaration ld: {
                 if (_locals.Contains(ld.Name)) {
-                    throw new CompilationFailureException(statement, $"Local variable '{ld.Name}' is already declared in this scope.");
+                    _errors.Add(new CompilationFailureException(statement, 
+                        $"Local variable '{ld.Name}' is already declared in this scope."));
                 }
 
                 if (ld.Initial != null) {
@@ -145,7 +154,8 @@ public class Analyser(ParsedElement[] elements) {
 
             case GlobalDeclaration gd: {
                 if (_locals.Contains(gd.Name)) {
-                    throw new CompilationFailureException(statement, $"Variable '{gd.Name}' is already declared in this scope.");
+                    _errors.Add(new CompilationFailureException(statement, 
+                        $"Variable '{gd.Name}' is already declared in this scope."));
                 }
                 
                 if (gd.Initial != null) {
@@ -160,9 +170,19 @@ public class Analyser(ParsedElement[] elements) {
             case VariableAssignment ass: {
                 AnalyseExpression(statement, ass.Value);
 
-                if (ass.Target is not BinaryOperation { Operator: BinaryOperationType.Dereference }) {
-                    throw new CompilationFailureException(statement, "Variable assignment target must be a dereference");
+                if (ass.Target is not BinaryOperation { Operator: BinaryOperationType.Dereference } bo) {
+                    _errors.Add(new CompilationFailureException(statement, 
+                        "Variable assignment target must be a dereference."));
+                    break;
                 }
+
+                if (!CompileTimeValue.IsValid(bo.Right)) {
+                    _errors.Add(new CompilationFailureException(statement, 
+                        "Variable assignment target must be compile time constant."));
+                    break;
+                }
+                
+                _mustBeMovCompatible.Add((statement, CompileTimeValue.From(bo.Right)));
                 break;
             }
 
@@ -198,7 +218,8 @@ public class Analyser(ParsedElement[] elements) {
                     if (outp.Value is not BinaryOperation {
                             Operator: BinaryOperationType.Dereference
                         } && CompileTimeValue.IsValid(outp.Value)) {
-                        throw new CompilationFailureException(statement, "Inline assembly output must be a variable reference (var:size).");
+                        _errors.Add(new CompilationFailureException(statement, 
+                            "Inline assembly output must be a variable reference (var:size)."));
                     }
                 }
                 foreach (string clobber in ilasm.Clobbers) {
@@ -255,7 +276,8 @@ public class Analyser(ParsedElement[] elements) {
                     switch (bo.Operator) {
                         case BinaryOperationType.Dereference: {
                             if (!CompileTimeValue.IsValid(bo.Right)) {
-                                throw new CompilationFailureException(element, "Dereference size must be a compile-time constant.");
+                                _errors.Add(new CompilationFailureException(element, 
+                                    "Dereference size must be a compile-time constant."));
                             }
                             
                             // dereferences must be mov-compatible

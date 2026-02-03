@@ -76,6 +76,15 @@ if (lines.Length != lineMappings.Length) {
     throw new Exception("Preprocessor returned mismatched line and mapping counts");
 }
 
+void HandleFailure(CompilationFailureException e) {
+    Console.Error.WriteLine("Compilation Error: " + e.Message);
+    if (e.Context != null) {
+        Console.Error.WriteLine("-------------------------------------------------");
+        Console.Error.WriteLine(e.Context);
+        Console.Error.WriteLine("-------------------------------------------------");
+    }
+}
+
 string asm;
 try {
     ParsedElement[] tokens = CodeParser.ParseCode(string.Join('\n', lines), lineMappings);
@@ -93,12 +102,16 @@ try {
     Console.WriteLine("Generated assembly" + (asmOutputFile != null ? $" to {asmOutputFile}" : ""));
 }
 catch (CompilationFailureException e) {
-    Console.Error.WriteLine("Compilation Error: " + e.Message);
-    if (e.Context != null) {
-        Console.Error.WriteLine("-------------------------------------------------");
-        Console.Error.WriteLine(e.Context);
-        Console.Error.WriteLine("-------------------------------------------------");
+    HandleFailure(e);
+    return 1;
+}
+catch (AggregateException e) {
+    foreach (Exception inner in e.InnerExceptions) {
+        if (inner is CompilationFailureException cf) {
+            HandleFailure(cf);
+        }
     }
+    
     return 1;
 }
 
