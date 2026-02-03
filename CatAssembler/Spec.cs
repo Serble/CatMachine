@@ -137,7 +137,13 @@ public static class Spec {
         new(["out"], 0x4c, (InstructionArgTypes.Immediate32, false), (InstructionArgTypes.Immediate32, false)), // i, i
 
         // NOP
-        new(["nop"], 0x4d)
+        new(["nop"], 0x4d),
+        
+        // SHL, SHR
+        new(["shl"], 0x4e, (InstructionArgTypes.Register, false), (InstructionArgTypes.Register, false)),
+        new(["shl"], 0x4f, (InstructionArgTypes.Register, false), (InstructionArgTypes.Immediate32, false)),
+        new(["shr"], 0x50, (InstructionArgTypes.Register, false), (InstructionArgTypes.Register, false)),
+        new(["shr"], 0x51, (InstructionArgTypes.Register, false), (InstructionArgTypes.Immediate32, false)),
     ];
 
     public static readonly (string[] Mneumonics, IOutputSegment Segment)[] CustomInstructions = [

@@ -19,7 +19,7 @@ void main() {
 }
 """;
 
-    public bool DrawFps { get; set; } = true;
+    public bool DrawFps { get; set; } = false;
     
     private readonly Queue<uint> _serialQueue = [];
     private IDisplayModeRenderer? _renderer;
