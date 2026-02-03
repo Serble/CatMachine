@@ -15,11 +15,12 @@
       <None Include="std.cc">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
-      <ClCompile Include="test.cc" />
+      <None Include="test.cc">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Newtonsoft.Json" Version="13.0.5-beta1" />
       <PackageReference Include="Sprache" Version="3.0.0-develop-00049" />
     </ItemGroup>
 

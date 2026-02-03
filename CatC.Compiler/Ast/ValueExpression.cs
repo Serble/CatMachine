@@ -18,7 +18,8 @@ public record VariableToken(string Name) : IValueExpression;
 
 public record BinaryOperation(IValueExpression Left, BinaryOperationType Operator, IValueExpression Right) : IValueExpression;
 
-public record FunctionCall(IValueExpression Target, IValueExpression[] Arguments) : IValueExpression, IStatement;
+public record FunctionCall(IValueExpression Target, IValueExpression[] Arguments, FileInformation? FileInformation = null)
+    : Statement(FileInformation), IValueExpression;
 
 public record UnaryOperation(UnaryOperationType Operator, IValueExpression Operand) : IValueExpression;
 
@@ -32,6 +33,25 @@ public abstract record CompileTimeValue : IValueExpression {
             StructSizeof sso => new CompileTimeStructSize(sso.StructName),
             _ => throw new InvalidOperationException("Cannot convert expression to compile-time value.")
         };
+    }
+    
+    public static bool IsValid(IValueExpression expr) {
+        return expr is CompileTimeValue or IntegerLiteral or StructSizeof;
+    }
+
+    public uint Resolve(Struct[] structs) {
+        switch (this) {
+            case CompileTimeNumber ctn:
+                return ctn.Value;
+            case CompileTimeStructSize cts:
+                Struct? structDef = structs.FirstOrDefault(s => s.Name == cts.StructName);
+                if (structDef == null) {
+                    throw new InvalidOperationException($"Struct '{cts.StructName}' not found when resolving compile-time struct size.");
+                }
+                return (uint)structDef.Fields.Sum(f => From(f.Size).Resolve(structs));
+            default:
+                throw new InvalidOperationException("Cannot resolve compile-time value.");
+        }
     }
 }
 

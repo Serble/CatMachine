@@ -19,14 +19,20 @@ public static class ExpressionParser {
     // "\"hello\""
     private static readonly Parser<IValueExpression> StringLiteral =
         from openQuote in Parse.Char('"')
-        from content in Parse.CharExcept(c => c == '"', "\\")
+        from content in Parse.CharExcept(ch => ch is '"' or '\\', "quote or backslash")
             .Or(Parse.Char('\\').Then(_ => Parse.AnyChar.Select(escaped => escaped switch {
-                'n' => '\n',
-                'r' => '\r',
-                't' => '\t',
+                '\'' => '\'',
+                '\"' => '\"',
                 '\\' => '\\',
-                '0' => '\0',
-                '"' => '"',
+                '0'  => '\0',
+                'a'  => '\a',
+                'b'  => '\b',
+                'f'  => '\f',
+                'n'  => '\n',
+                'r'  => '\r',
+                't'  => '\t',
+                'v'  => '\v',
+                's'  => ' ',
                 _ => escaped
             })))
             .Many()

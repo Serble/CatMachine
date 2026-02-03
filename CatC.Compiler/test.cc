@@ -1,3 +1,6 @@
+#define hello, 5
+#define asd, 2
+
 #include "std.cc"
 #define WORD, 4
 
@@ -5,6 +8,8 @@ global asd:${WORD} = 5;
 debug_num(asd:${WORD} * 0);
 
 asd:${WORD} = asd:${WORD} + 0;
+
+// global helloasd:6 = 5;
 
 print("hello world!");
 
@@ -19,7 +24,7 @@ fun main() {
     // let's use a struct
     let t:$Thingy;
     t[Thingy#a]:4 = 42;
-        
+    
     debug_num(Thingy#a);
     
     debug_num(t[Thingy#a]:4);
@@ -35,8 +40,18 @@ fun main() {
     debug_num(myArr[2,4]:4);
     debug_num(myArr[3,4]:4);
     
+    let inpType:4;
     while (!0) {
-        
+        let inp:4 = poll_input(inpType);
+        if (inp:4 != -1) {
+            print("input code: ");
+            debug_num(inp:4);
+            if (inpType:4 == 0) {
+                print("pressed\n");
+            } else {
+                print("unpressed\n");
+            }
+        }
     }
 }
 

@@ -4,7 +4,7 @@ namespace CatC.Compiler.CodeGen;
 
 public partial class CodeGenerator {
     
-    private void GenerateStatement(IStatement statement, AssemblyFileBuilder file, bool indent = true) {
+    private void GenerateStatement(Statement statement, AssemblyFileBuilder file, bool indent = true) {
         switch (statement) {
             case LocalDeclaration localDeclaration: {
                 _currentStackOffset += (int)ResolveCompileConstant(localDeclaration.Size);
@@ -39,24 +39,27 @@ public partial class CodeGenerator {
             }
 
             case IfStatement ifStatement: {
+                file.Comment("If Statement", indent);
                 (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(ifStatement.Condition, file, indent);
 
                 if (value != null) {
+                    file.Comment("Constant condition has been folded", indent);
                     // constant condition
                     // time to do some constant folding
                     if (ConstantIsZero(value)) {  // condition is false
                         // generate else statements
-                        foreach (IStatement elseStmnt in ifStatement.ElseStatements) {
+                        foreach (Statement elseStmnt in ifStatement.ElseStatements) {
                             GenerateStatement(elseStmnt, file, indent);
                         }
                     }
                     else {
                         // generate then statements
-                        foreach (IStatement thenStmnt in ifStatement.ThenStatements) {
+                        foreach (Statement thenStmnt in ifStatement.ThenStatements) {
                             GenerateStatement(thenStmnt, file, indent);
                         }
                     }
                     
+                    file.Comment("End If Statement", indent);
                     break;
                 }
                 
@@ -67,14 +70,14 @@ public partial class CodeGenerator {
                     $"je {logicLabel}_else  ; if condition is false, jump to else");
                 
                 // then
-                foreach (IStatement thenStmnt in ifStatement.ThenStatements) {
+                foreach (Statement thenStmnt in ifStatement.ThenStatements) {
                     GenerateStatement(thenStmnt, file, indent);
                 }
                 file.Append(indent, $"jmp {logicLabel}_end  ; jump to end after then");
                 
                 // else
                 file.Label($"{logicLabel}_else");
-                foreach (IStatement elseStmnt in ifStatement.ElseStatements) {
+                foreach (Statement elseStmnt in ifStatement.ElseStatements) {
                     GenerateStatement(elseStmnt, file, indent);
                 }
                 
@@ -87,6 +90,7 @@ public partial class CodeGenerator {
                 else {
                     FreeRegister(scratch);
                 }
+                file.Comment("End If Statement", indent);
                 break;
             }
 
@@ -104,7 +108,7 @@ public partial class CodeGenerator {
 
                     // generate body statements
                     file.Label(loopLabel + "_start");
-                    foreach (IStatement thenStmnt in whileStatement.BodyStatements) {
+                    foreach (Statement thenStmnt in whileStatement.BodyStatements) {
                         GenerateStatement(thenStmnt, file, indent);
                     }
                     file.Append(indent, $"jmp {loopLabel}_start  ; jump back to start of loop");
@@ -116,7 +120,7 @@ public partial class CodeGenerator {
                     $"cmp {scratch}, 0",
                     $"je {loopLabel}_end  ; if condition is false, exit loop");
                 
-                foreach (IStatement bodyStatement in whileStatement.BodyStatements) {
+                foreach (Statement bodyStatement in whileStatement.BodyStatements) {
                     GenerateStatement(bodyStatement, file);
                 }
                 
@@ -169,15 +173,8 @@ public partial class CodeGenerator {
                 
                 // Retrieve outputs from their registers
                 foreach ((string register, IValueExpression var) in inlineAsm.Outputs) {
-                    if (var is not BinaryOperation {
-                            Operator: BinaryOperationType.Dereference,
-                            Right: CompileTimeValue
-                        } vr) {
-                        throw new Exception("Inline assembly output must be a variable reference.");
-                    }
-                    
                     // Store the output register value into the variable
-                    GenerateVariableAssignment(vr, register, file, indent);
+                    GenerateVariableAssignment(var, register, file, indent);
                 }
                 
                 // Restore borrowed registers

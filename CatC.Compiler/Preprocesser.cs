@@ -5,34 +5,48 @@ namespace CatC.Compiler;
 public class Preprocesser {
     private const string MacroUseFormat = "${{{0}}}";
     
-    private readonly string _fileName;
-    private readonly string[] _lines;
+    private readonly string _mainFileName;
+    private readonly List<string> _lines = [];
+    
+    private readonly Dictionary<string, string> _macros = new();
+    private List<string> _processedLines = [];
+    
+    private readonly List<(string File, int Line)> _fileLineMapping = [];
+    private readonly Stack<(string File, int Line)> _inclusionStack = [];
 
-    public Preprocesser(string fileName, string[] lines) {
-        _lines = lines;
-        _fileName = fileName;
+    public Preprocesser(string mainFileName, string[] lines) {
+        _lines.AddRange(lines);
+        _mainFileName = mainFileName;
     }
     
-    public Preprocesser(string fileName, string text) {
-        _lines = text.Split(["\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        _fileName = fileName;
+    public Preprocesser(string mainFileName, string text) {
+        _lines.AddRange(text.Split(["\n"], StringSplitOptions.None));
+        _mainFileName = mainFileName;
     }
 
-    public string[] Process() {
-        Dictionary<string, string> macros = new();
-        List<string> processedLines = [];
-        for (int i = 0; i < _lines.Length; i++) {
+    public (string[] lines, (string File, int Line)[] lineMappings) Process() {
+        // initialize inclusion stack
+        for (int i = _lines.Count - 1; i >= 0; i--) {
+            _inclusionStack.Push((_mainFileName, i + 1));
+        }
+        
+        for (int i = 0; i < _lines.Count; i++) {
             string line = _lines[i];
             
+            // record file/line mapping
+            (string currentFile, int currentLine) = _inclusionStack.Pop();
+            _fileLineMapping.Add((currentFile, currentLine-1));
+            
             // macros
-            foreach (string macro in macros.Keys) {
-                line = line.Replace(string.Format(MacroUseFormat, macro), macros[macro]);
+            foreach (string macro in _macros.Keys) {
+                line = line.Replace(string.Format(MacroUseFormat, macro), _macros[macro]);
             }
             
             if (!line.StartsWith('#')) {
-                processedLines.Add(line);
+                _processedLines.Add(line);
                 continue;
             }
+            _processedLines.Add("// preprocessor directive processed");
 
             // okay it's a preprocessor directive
             string directiveData = line[1..].Trim();
@@ -79,39 +93,50 @@ public class Preprocesser {
             switch (directive) {
                 case "define": {
                     if (args.Count != 2) {
-                        throw new CompilationFailureException($"Invalid number of arguments for #define directive: {argsStr}");
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), $"Invalid number of arguments for #define directive: {argsStr}");
                     }
 
                     string macroName = args[0];
                     string macroValue = args[1];
-                    for (int j = 0; j < processedLines.Count; j++) {
-                        processedLines[j] = processedLines[j].Replace(string.Format(MacroUseFormat, macroName), macroValue);
+                    for (int j = 0; j < _processedLines.Count; j++) {
+                        _processedLines[j] = _processedLines[j].Replace(string.Format(MacroUseFormat, macroName), macroValue);
                     }
-                    macros[macroName] = macroValue;
+                    _macros[macroName] = macroValue;
                     break;
                 }
                 
                 case "include": {
                     if (args.Count != 1) {
-                        throw new CompilationFailureException($"Invalid number of arguments for #include directive: {argsStr}");
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), $"Invalid number of arguments for #include directive: {argsStr}");
                     }
 
                     string includePath = args[0].Trim('"');
                     if (!File.Exists(includePath)) {
-                        throw new CompilationFailureException("Included file not found: " + includePath);
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), "Included file not found: " + includePath);
                     }
 
                     string[] includedLines = File.ReadAllLines(includePath);
-                    Preprocesser includedPreprocesser = new(Path.GetFileName(includePath), includedLines);
-                    processedLines.AddRange(includedPreprocesser.Process());
+                    string fileName = Path.GetFileName(includePath);
+                    _lines.InsertRange(i + 1, includedLines);
+                    for (int j = includedLines.Length - 1; j >= 0; j--) {
+                        _inclusionStack.Push((fileName, j + 1));
+                    }
                     break;
                 }
 
                 default:
-                    throw new CompilationFailureException(_fileName, i, "Unknown preprocessor directive: " + directive);
+                    throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), "Unknown preprocessor directive: " + directive);
             }
         }
 
-        return processedLines.ToArray();
+        return (_processedLines.ToArray(), _fileLineMapping.ToArray());
+        
+        string GetCurrentLineFile() {
+            return _inclusionStack.Count > 0 ? _inclusionStack.Peek().File : _mainFileName;
+        }
+        
+        int GetCurrentLineNumber() {
+            return _inclusionStack.Count > 0 ? _inclusionStack.Peek().Line - 1 : 0;
+        }
     }
 }

@@ -1,5 +1,4 @@
 using CatC.Compiler.Ast;
-using CatC.Compiler.Parser;
 
 namespace CatC.Compiler.Analysis;
 
@@ -15,8 +14,9 @@ public class Analyser(ParsedElement[] elements) {
     private readonly List<Function> _functions = [];
 
     private readonly List<string> _locals = [];
-    private readonly List<(string Struct, string? Member)> _neededStructs = [];
-    private readonly List<(string FunctionName, IValueExpression[] Args)> _functionCalls = [];
+    private readonly List<(ParsedElement Element, string Struct, string? Member)> _neededStructs = [];
+    private readonly List<(ParsedElement Element, string FunctionName, IValueExpression[] Args)> _functionCalls = [];
+    private readonly List<(ParsedElement Element, CompileTimeValue Size)> _mustBeMovCompatible = [];
 
     private void BeginScope() {
         _scopes.Enqueue(_locals.Count);
@@ -33,36 +33,36 @@ public class Analyser(ParsedElement[] elements) {
         }
     }
     
-    private static void ValidateRegister(string register) {
+    private static void ValidateRegister(ParsedElement element, string register) {
         if (!ValidRegisters.Contains(register.ToLower())) {
-            throw new CompilationFailureException($"Invalid register '{register.ToLower()}'.");
+            throw new CompilationFailureException(element, $"Invalid register '{register.ToLower()}'.");
         }
     }
 
     public CatProgram Analyse() {
-        List<IStatement> topLevelStatements = [];
+        List<Statement> topLevelStatements = [];
 
         // top level
         foreach (ParsedElement element in elements) {
             switch (element) {
-                case ParsedStatementElement ps: {
-                    if (ps.Statement is LocalDeclaration) {
-                        throw new CompilationFailureException("Local declarations are not allowed at the top level.");
+                case Statement ps: {
+                    if (ps is LocalDeclaration) {
+                        throw new CompilationFailureException(element, "Local declarations are not allowed at the top level.");
                     }
                     
-                    topLevelStatements.Add(ps.Statement);
+                    topLevelStatements.Add(ps);
                     break;
                 }
                 
-                case ParsedStructElement pse: {
-                    _structs.Add(pse.Struct);
+                case Struct pse: {
+                    _structs.Add(pse);
                     break;
                 }
 
-                case ParsedFunctionElement pfe: {
-                    Function func = AnalyseFunction(pfe.Function);
+                case Function pfe: {
+                    Function func = AnalyseFunction(pfe);
                     if (_functions.Any(f => f.Name == func.Name)) {
-                        throw new CompilationFailureException($"Function '{func.Name}' is already defined.");
+                        throw new CompilationFailureException(element, $"Function '{func.Name}' is already defined.");
                     }
                     _functions.Add(func);
                     _locals.Clear();
@@ -75,35 +75,44 @@ public class Analyser(ParsedElement[] elements) {
             }
         }
 
-        foreach (IStatement statement in topLevelStatements) {
+        foreach (Statement statement in topLevelStatements) {
             AnalyseStatement(statement);
         }
 
-        foreach ((string functionName, IValueExpression[] args) in _functionCalls) {
+        foreach ((ParsedElement element, string functionName, IValueExpression[] args) in _functionCalls) {
             Function? function = _functions.FirstOrDefault(f => f.Name == functionName);
             if (function == null) {
-                throw new CompilationFailureException($"Function '{functionName}' is not defined.");
+                throw new CompilationFailureException(element, $"Function '{functionName}' is not defined.");
             }
 
             if (function.Parameters.Length != args.Length) {
-                throw new CompilationFailureException(
+                throw new CompilationFailureException(element, 
                     $"Function '{functionName}' expects {function.Parameters.Length} arguments, but {args.Length} were provided.");
             }
         }
 
-        foreach ((string str, string? mem) in _neededStructs) {
+        foreach ((ParsedElement element, string str, string? mem) in _neededStructs) {
             Struct? structure = _structs.FirstOrDefault(s => s.Name == str);
             if (structure == null) {
-                throw new CompilationFailureException($"Struct '{str}' is not defined.");
+                throw new CompilationFailureException(element, $"Struct '{str}' is not defined.");
             }
 
             if (mem == null) continue;
             if (structure.Fields.All(f => f.Name != mem)) {
-                throw new CompilationFailureException($"Struct '{str}' does not have a member named '{mem}'.");
+                throw new CompilationFailureException(element, $"Struct '{str}' does not have a member named '{mem}'.");
+            }
+        }
+        
+        Struct[] structsArray = _structs.ToArray();
+        foreach ((ParsedElement element, CompileTimeValue size) in _mustBeMovCompatible) {
+            uint resolvedSize = size.Resolve(structsArray);
+            if (resolvedSize is not (1 or 2 or 4)) {
+                throw new CompilationFailureException(element, 
+                    $"Size '{resolvedSize}' is not mov-compatible. Only sizes 1, 2 and 4 are allowed.");
             }
         }
 
-        return new CatProgram(_structs.ToArray(), topLevelStatements.ToArray(), _functions.ToArray());
+        return new CatProgram(structsArray, topLevelStatements.ToArray(), _functions.ToArray());
     }
 
     private Function AnalyseFunction(Function function) {
@@ -111,54 +120,56 @@ public class Analyser(ParsedElement[] elements) {
             _locals.Add(arg.Name);
         }
         
-        foreach (IStatement statement in function.Statements) {
+        foreach (Statement statement in function.Statements) {
             AnalyseStatement(statement);
         }
         
         return function;
     }
 
-    private void AnalyseStatement(IStatement statement) {
+    private void AnalyseStatement(Statement statement) {
         switch (statement) {
             case LocalDeclaration ld: {
                 if (_locals.Contains(ld.Name)) {
-                    throw new CompilationFailureException($"Local variable '{ld.Name}' is already declared in this scope.");
+                    throw new CompilationFailureException(statement, $"Local variable '{ld.Name}' is already declared in this scope.");
                 }
 
                 if (ld.Initial != null) {
-                    AnalyseExpression(ld.Initial);
+                    AnalyseExpression(statement, ld.Initial);
+                    _mustBeMovCompatible.Add((statement, ld.Size));
                 }
-                    
+                
                 _locals.Add(ld.Name);
                 break;
             }
 
             case GlobalDeclaration gd: {
                 if (_locals.Contains(gd.Name)) {
-                    throw new CompilationFailureException($"Variable '{gd.Name}' is already declared in this scope.");
+                    throw new CompilationFailureException(statement, $"Variable '{gd.Name}' is already declared in this scope.");
                 }
                 
                 if (gd.Initial != null) {
-                    AnalyseExpression(gd.Initial);
+                    AnalyseExpression(statement, gd.Initial);
+                    _mustBeMovCompatible.Add((statement, gd.Size));
                 }
-                    
+                
                 _locals.Add(gd.Name);
                 break;
             }
 
             case VariableAssignment ass: {
-                AnalyseExpression(ass.Value);
+                AnalyseExpression(statement, ass.Value);
 
                 if (ass.Target is not BinaryOperation { Operator: BinaryOperationType.Dereference }) {
-                    throw new CompilationFailureException("Variable assignment target must be a dereference");
+                    throw new CompilationFailureException(statement, "Variable assignment target must be a dereference");
                 }
                 break;
             }
 
             case IfStatement ifs: {
-                AnalyseExpression(ifs.Condition);
+                AnalyseExpression(statement, ifs.Condition);
                 BeginScope();
-                foreach (IStatement thenStmnt in ifs.ThenStatements) {
+                foreach (Statement thenStmnt in ifs.ThenStatements) {
                     AnalyseStatement(thenStmnt);
                 }
                 EndScope();
@@ -166,9 +177,9 @@ public class Analyser(ParsedElement[] elements) {
             }
 
             case WhileStatement ws: {
-                AnalyseExpression(ws.Condition);
+                AnalyseExpression(statement, ws.Condition);
                 BeginScope();
-                foreach (IStatement bodyStatement in ws.BodyStatements) {
+                foreach (Statement bodyStatement in ws.BodyStatements) {
                     AnalyseStatement(bodyStatement);
                 }
                 EndScope();
@@ -177,45 +188,44 @@ public class Analyser(ParsedElement[] elements) {
 
             case InlineAsm ilasm: {
                 foreach ((string Register, IValueExpression Value) inp in ilasm.Inputs) {
-                    AnalyseExpression(inp.Value);
-                    ValidateRegister(inp.Register);
+                    AnalyseExpression(statement, inp.Value);
+                    ValidateRegister(statement, inp.Register);
                 }
                 foreach ((string Register, IValueExpression Value) outp in ilasm.Outputs) {
-                    ValidateRegister(outp.Register);
-                    AnalyseExpression(outp.Value);
+                    ValidateRegister(statement, outp.Register);
+                    AnalyseExpression(statement, outp.Value);
 
                     if (outp.Value is not BinaryOperation {
-                            Operator: BinaryOperationType.Dereference,
-                            Right: CompileTimeValue
-                        }) {
-                        throw new CompilationFailureException("Inline assembly output must be a variable reference (var:size).");
+                            Operator: BinaryOperationType.Dereference
+                        } && CompileTimeValue.IsValid(outp.Value)) {
+                        throw new CompilationFailureException(statement, "Inline assembly output must be a variable reference (var:size).");
                     }
                 }
                 foreach (string clobber in ilasm.Clobbers) {
-                    ValidateRegister(clobber);
+                    ValidateRegister(statement, clobber);
                 }
                 break;
             }
 
             case ReturnStatement retStmt: {
                 if (retStmt.Value != null) {
-                    AnalyseExpression(retStmt.Value);
+                    AnalyseExpression(statement, retStmt.Value);
                 }
                 break;
             }
             
             case FunctionCall fc: {
-                AnalyseExpression(fc);
+                AnalyseExpression(statement, fc);
                 break;
             }
 
             default: {
-                throw new NotImplementedException($"Statement analysis not implemented yet for '{statement.GetType().Name}'.");
+                throw new Exception($"Statement analysis not implemented yet for '{statement.GetType().Name}'.");
             }
         }
     }
 
-    private void AnalyseExpression(IValueExpression expr) {
+    private void AnalyseExpression(ParsedElement element, IValueExpression expr) {
         while (true) {
             switch (expr) {
                 // these are fine as-is
@@ -224,12 +234,12 @@ public class Analyser(ParsedElement[] elements) {
                     break;
                 
                 case StructSizeof sso: {
-                    _neededStructs.Add((sso.StructName, null));
+                    _neededStructs.Add((element, sso.StructName, null));
                     break;
                 }
                 
                 case StructOffsetOf sof: {
-                    _neededStructs.Add((sof.StructName, sof.ParamName));
+                    _neededStructs.Add((element, sof.StructName, sof.ParamName));
                     break;
                 }
                 
@@ -239,8 +249,20 @@ public class Analyser(ParsedElement[] elements) {
                 }
 
                 case BinaryOperation bo: {
-                    AnalyseExpression(bo.Left);
+                    AnalyseExpression(element, bo.Left);
                     expr = bo.Right;
+
+                    switch (bo.Operator) {
+                        case BinaryOperationType.Dereference: {
+                            if (!CompileTimeValue.IsValid(bo.Right)) {
+                                throw new CompilationFailureException(element, "Dereference size must be a compile-time constant.");
+                            }
+                            
+                            // dereferences must be mov-compatible
+                            _mustBeMovCompatible.Add((element, CompileTimeValue.From(bo.Right)));
+                            break;
+                        }
+                    }
                     continue;
                 }
 
@@ -251,14 +273,14 @@ public class Analyser(ParsedElement[] elements) {
 
                 case FunctionCall fc: {
                     foreach (IValueExpression arg in fc.Arguments) {
-                        AnalyseExpression(arg);
+                        AnalyseExpression(element, arg);
                     }
                     
                     if (fc.Target is VariableToken vt) {
                         if (_locals.Contains(vt.Name)) {
                             break;  // calling a local variable, can't validate further
                         }
-                        _functionCalls.Add((vt.Name, fc.Arguments));
+                        _functionCalls.Add((element, vt.Name, fc.Arguments));
                     }
                     break;
                 }

@@ -207,7 +207,7 @@ public partial class CodeGenerator(CatProgram program) {
 
     // ================ CODE GENERATION ==================
     
-    public void Generate() {
+    public string Generate() {
         AssemblyFileBuilder file = new();
         
         // File header comments
@@ -218,7 +218,7 @@ public partial class CodeGenerator(CatProgram program) {
         
         // Generate top-level statements
         // these don't require function prologues/epilogues
-        foreach (IStatement topLevelStatement in program.TopLevelStatements) {
+        foreach (Statement topLevelStatement in program.TopLevelStatements) {
             GenerateStatement(topLevelStatement, file, false);
         }
         
@@ -250,7 +250,7 @@ public partial class CodeGenerator(CatProgram program) {
             }
         }
         
-        File.WriteAllText("output.asm", file.ToString());
+        return file.ToString();
     }
 
     private void GenerateFunction(Function function, AssemblyFileBuilder file) {
@@ -276,7 +276,7 @@ public partial class CodeGenerator(CatProgram program) {
         
         // Generate the body to see which registers are used
         AssemblyFileBuilder tempBody = new();
-        foreach (IStatement statement in function.Statements) {
+        foreach (Statement statement in function.Statements) {
             GenerateStatement(statement, tempBody);
         }
         
@@ -320,7 +320,7 @@ public partial class CodeGenerator(CatProgram program) {
 
         // Get the body first to know which registers are used
         AssemblyFileBuilder body = new();
-        foreach (IStatement statement in function.Statements) {
+        foreach (Statement statement in function.Statements) {
             GenerateStatement(statement, body);
         }
         

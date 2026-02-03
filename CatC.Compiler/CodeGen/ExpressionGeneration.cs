@@ -321,9 +321,10 @@ public partial class CodeGenerator {
                     };
                     
                     string doneOpLabel = GetUniqueLogicLabel();
+                    file.Comment($"Perform comparison operation: {Enum.GetName(bo.Operator)}", indent);
                     file.Append(indent, 
-                        $"mov {reg}, 1  ; Set destination register for comparison result (we'll clear it if false)",
                         $"cmp {reg}, {arg2}  ; Compare for binary operation",
+                        $"mov {reg}, 1   ; Set destination register to 1 (true)",
                         $"{jumpInstruction} {doneOpLabel}   ; Jump if comparison is true",
                         $"mov {reg}, 0   ; Set destination register to 0 (false)");
                     file.Label(doneOpLabel);
