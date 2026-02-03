@@ -25,8 +25,8 @@ public class Analyser {
     public (IOutputSegment[] segments, Dictionary<string, string> constants, DebugTable debugSymbols) Analyse() {
         int filePos = 0;
         Dictionary<string, (string expr, string file, int line)> constants = [];
+        List<(Token, IExpression)> expressions = [];  // list of expressions that are used as args (we need to validate)
         List<DebugSymbol> debugSymbols = [];
-
         List<IOutputSegment> segments = [];
         
         while (_tokens.TryPop(out Token? token)) {
@@ -146,6 +146,10 @@ public class Analyser {
                     if (customInstr != null) {
                         customInstr = customInstr.Copy();
                         if (customInstr is ArgumentOutputSegment argSeg) {
+                            if (argSeg.PerformExpressionValidation) {
+                                expressions.AddRange(instruction.Args.Select(arg => (instruction as Token, arg)));
+                            }
+                            
                             if (!argSeg.ValidateArgs(instruction, instruction.Args, CompactConstants(), out string? customError)) {
                                 Fail(instruction, $"Invalid arguments for custom instruction {instruction.Name}: {customError}");
                             }
@@ -156,6 +160,7 @@ public class Analyser {
                     }
                     
                     // regular instruction
+                    expressions.AddRange(instruction.Args.Select(arg => (instruction as Token, arg)));
                     InstructionSpec? spec = FindInstruction(instruction);
                     if (spec == null) {
                         Fail(instruction, $"Unknown instruction or invalid arguments: {instruction.Name}, args: " +
@@ -174,8 +179,42 @@ public class Analyser {
             }
         }
         
-        
-        
+        // check to make sure all expressions are valid
+        foreach ((Token token, IExpression expr) in expressions) {
+            NumberExpression numberExpr = null!;
+            switch (expr) {
+                case RegisterExpression:
+                    // valid
+                    continue;
+                
+                case NumberExpression n:
+                    numberExpr = n;
+                    break;
+                
+                case NameExpression nameExpr:
+                    numberExpr = nameExpr.ToNumber();
+                    break;
+                
+                case StringExpression:
+                    Fail(token, "String expressions are not valid here");
+                    break;
+                
+                default:
+                    throw new Exception("Unknown expression type: " + expr.GetType().FullName);
+            }
+            
+            // try to evaluate the expression to make sure it's valid
+            string exprStr = numberExpr.Value;
+            Dictionary<string, string> modConstants = CompactConstants();
+            string evalId = Guid.NewGuid().ToString();
+            modConstants.Add(evalId, exprStr);
+            try {
+                _ = EvaluateVariable(evalId, modConstants);
+            } catch (Exception e) when (e is CircularDependencyException or KeyNotFoundException or InvalidOperationException) {
+                throw Fail(token, "Invalid expression: " + exprStr + " (" + e.Message + ")");
+            }
+        }
+
         Console.WriteLine("Analysis complete. Debug symbols generated. Generated " +
                           $"{segments.Count} segments, " +
                           $"{constants.Count} constants, " +

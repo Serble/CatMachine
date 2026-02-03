@@ -23,6 +23,12 @@ public record OutputSegment(byte[] Bytes) : IOutputSegment {
 
 public abstract record ArgumentOutputSegment : IOutputSegment {
     public abstract int SizeInBytes { get; }
+    /// <summary>
+    /// Whether to automatically validate expressions in arguments.
+    /// Set to false for instructions that handle their own expression validation.
+    /// Or if they need string arguments, etc.
+    /// </summary>
+    public virtual bool PerformExpressionValidation => true;
     public abstract bool ValidateArgs(InstructionToken token, IExpression[] args, 
         Dictionary<string, string> prelimConstants, out string? error);
     public abstract byte[] GetBytes(Dictionary<string, string> constants);
@@ -149,6 +155,7 @@ public record DefineInstruction(int BytesPerEntry) : ArgumentOutputSegment {
 
 public record DirectFileInstruction : ArgumentOutputSegment {
     public override int SizeInBytes => _fileBytes.Length;
+    public override bool PerformExpressionValidation => false;
     private byte[] _fileBytes = [];
     
     public override bool ValidateArgs(InstructionToken token, IExpression[] args, Dictionary<string, string> prelimConstants, out string? error) {
@@ -190,6 +197,7 @@ public record DirectFileInstruction : ArgumentOutputSegment {
 
 public record DirectStringInstruction : ArgumentOutputSegment {
     public override int SizeInBytes => _stringBytes.Length;
+    public override bool PerformExpressionValidation => false;
     private byte[] _stringBytes = [];
     
     public override bool ValidateArgs(InstructionToken token, IExpression[] args, Dictionary<string, string> prelimConstants, out string? error) {

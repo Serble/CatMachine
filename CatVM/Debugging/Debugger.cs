@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using CatData;
 
@@ -275,7 +276,6 @@ public class Debugger {
                 case "dumpmem":
                 case "dump-memory": {  // dump-memory [symbol/line/addr] [point] [size]
                     uint addr = 0;
-                    int size = _vm.Memory.Length;
                     
                     if (parts.Length >= 3) {
                         uint? address = GetAddr(parts[1], parts[2]);
@@ -284,15 +284,23 @@ public class Debugger {
                         }
                         addr = address.Value;
                     }
+
+                    if (addr >= _vm.Memory.Length) {
+                        Console.WriteLine("Address out of bounds.");
+                        continue;
+                    }
                     
+                    uint size = (uint)(_vm.Memory.Length - addr);
                     if (parts.Length >= 4) {
-                        if (!int.TryParse(parts[3], out size) || size <= 0) {
-                            Console.WriteLine("Invalid size.");
+                        if (!TryParseNumber(parts[3], out size)
+                            || size <= 0 
+                            || addr + size > _vm.Memory.Length) {
+                            Console.WriteLine($"Invalid size (Must be between 0 and {_vm.Memory.Length - addr}).");
                             continue;
                         }
                     }
                     
-                    Console.WriteLine($"Dumping memory from 0x{addr:X8} size {size} bytes");
+                    Console.WriteLine($"Dumping memory from 0x{addr:X8} size {size} bytes.");
 
                     if (size <= 1024*1024) {  // print it in console
                         for (int i = 0; i < size; i += 16) {
@@ -304,6 +312,9 @@ public class Debugger {
                             Console.WriteLine();
                         }
                     }
+                    else {
+                        Console.WriteLine("Memory dump too large to display in console.");
+                    }
                     
                     const string dumpFile = "memory_dump.bin";
                     using FileStream fs = new(dumpFile, FileMode.Create, FileAccess.Write);
@@ -311,7 +322,7 @@ public class Debugger {
                         byte b = _vm.Read8(addr + (uint)i);
                         fs.WriteByte(b);
                     }
-                    Console.WriteLine($"Wrote memory dump to {dumpFile}");
+                    Console.WriteLine($"Wrote memory dump to {dumpFile}.");
                     break;
                 }
                 
@@ -349,7 +360,7 @@ public class Debugger {
 
                 case "l":
                 case "line": {
-                    if (!uint.TryParse(argValue, out uint line)) {
+                    if (!TryParseNumber(argValue, out uint line)) {
                         Console.WriteLine("Invalid line number.");
                         return null;
                     }
@@ -367,11 +378,9 @@ public class Debugger {
                 case "a":
                 case "address":
                 case "addr": {
-                    if (!uint.TryParse(argValue, out uint address)) {
-                        Console.WriteLine("Invalid line number.");
-                        return null;
-                    }
-                    return address;
+                    if (TryParseNumber(argValue, out uint address)) return address;
+                    Console.WriteLine("Invalid address.");
+                    return null;
                 }
                         
                 default:
@@ -432,5 +441,13 @@ public class Debugger {
             
             _vm.ExecuteInstruction(fast);
         }
+    }
+    
+    private static bool TryParseNumber(string str, out uint value) {
+        str = str.Trim();
+        if (str.StartsWith("0x")) {
+            return uint.TryParse(str[2..], NumberStyles.HexNumber, null, out value);
+        }
+        return uint.TryParse(str, out value);
     }
 }
