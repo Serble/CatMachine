@@ -33,7 +33,7 @@ void main() {
         
         Raylib.SetWindowSize(vm.DisplayWidth, vm.DisplayHeight);
 
-        Console.WriteLine("Setting renderer to " + vm.DisplayMode);
+        // Console.WriteLine("Setting renderer to " + vm.DisplayMode);
         _renderer = ((int)vm.DisplayMode & 0xf0) switch {
             0x00 => new DisplayModeBuffer(vm),
             0x10 => new DisplayModeTiled(vm),

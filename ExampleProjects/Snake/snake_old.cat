@@ -1,0 +1,122 @@
+#const INT_DISPLAY_BUFFER, 0x84
+#const INT_UPDATE_SCREEN, 0x86
+#const SCREEN_WIDTH, 512
+#const SCREEN_HEIGHT, 512
+
+jmp main
+
+msg:
+    dstr "Hello"
+    d8 '\n', 0
+
+display_buffer:
+    d32 0
+
+move_dir_x:
+    d32 0
+move_dir_y:
+    d32 1
+
+snake_parts:
+    d32 128
+    d32 128
+    res32 1024
+
+main:
+    int INT_DISPLAY_BUFFER
+    mov @display_buffer, r0
+    jmp loop
+
+loop:
+    call handle_input
+
+    mov r0, @snake_parts  ; add x
+    mov r1, @move_dir_x
+    add r0, r1
+    mov @snake_parts, r0
+    
+    mov r0, [snake_parts + 4]   ; add y
+    mov r1, @move_dir_y
+    add r0, r1
+    mov [snake_parts + 4], r0
+    
+    mov r1, msg
+    int 0x80
+    
+    mov r0, @display_buffer
+    
+    ; r0 += snake_parts[0] + snake_parts[1] * 512
+    mov r1, @snake_parts
+    umul r1, 4 ; 4 bytes per pixel
+    add r0, r1
+    
+    mov r1, [snake_parts + 4]
+    umul r1, SCREEN_WIDTH*4
+    add r0, r1
+    
+    mov @r0, 0xFF0000FF ; red
+    ; int 0x81
+    
+    int INT_UPDATE_SCREEN  ; update screen
+    
+    jmp loop
+
+handle_input:
+    ; di
+    push r1
+    push r2
+    push r3
+    
+    in r1, 0
+    cmp r1, -1 ; is there any info
+    je .done   ; if not we r done
+    
+    in r2, 0
+    in r3, 0
+    
+    int 0x90
+    cmp r1, 0 ; is keyboard
+    jne .done
+    
+    mov r1, r2
+    int 0x90
+    cmp r2, 0 ; is pressed
+    jne .done
+
+    mov r1, r3
+    int 0x90
+    
+    cmp r3, 'D'
+    jne .skip_d
+        mov @move_dir_x, 1
+        mov @move_dir_y, 0
+        jmp .done
+    .skip_d:
+    
+    cmp r3, 'A'
+    jne .skip_a
+        mov @move_dir_x, -1
+        mov @move_dir_y, 0
+        jmp .done
+    .skip_a:
+    
+    cmp r3, 'W'
+    jne .skip_w
+        mov @move_dir_x, 0
+        mov @move_dir_y, -1
+        jmp .done
+    .skip_w:
+    
+    cmp r3, 'S'
+    jne .skip_s
+        mov @move_dir_x, 0
+        mov @move_dir_y, 1
+        jmp .done
+    .skip_s:
+    
+.done:
+    pop r3
+    pop r2
+    pop r1
+    ; ei
+    ret

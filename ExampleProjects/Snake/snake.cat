@@ -1,49 +1,341 @@
+jmp main
+
+#const INT_DISPLAY_BUFFER, 0x84
+#const INT_DISPLAY_MODE, 0x87
+#const INT_UPDATE_SCREEN, 0x86
+#const INT_UPTIME, 0x85
+
+#const SCREEN_WIDTH, 512
+#const SCREEN_HEIGHT, 384
+#const GAME_WIDTH, 32
+#const GAME_HEIGHT, 24
+
+#const PALETTE_OFFSET, 4
+#const IMAGE_OFFSET, PALETTE_OFFSET + 512
+#const TILE_SCROLL_OFFSET, IMAGE_OFFSET + 32768
+#const TILE_INDEX_OFFSET, TILE_SCROLL_OFFSET + 2
+#const TILE_PALETTE_OFFSET, TILE_INDEX_OFFSET + 884
+#const SPRITE_OFFSET, TILE_PALETTE_OFFSET + 442
+
+#const SPRITE_VISIBLE,     0b10000000
+#const SPRITE_DRAW_BEHIND, 0b01000000
+#const SPRITE_V_FLIP,      0b00100000
+#const SPRITE_H_FLIP,      0b00010000
+
+#const SNAKE_TILE, 1
+#const APPLE_TILE, 2
+
+#const TARGET_TIME, 100 ; 100ms per frame
+
+; IMAGES
+snake_body_image:
+    dfile snake_body.bin
+
+apple_image:
+    dfile apple.bin
+
+; VARIABLES
+display_buffer:
+    d32 0
+
+move_dir_x:
+    d32 1
+move_dir_y:
+    d32 0
+
+grow_count:
+    d32 6
+
+snake_length:
+    d32 1
+
+last_time:
+    d32 0
+
+last_input:
+    d8 0
+
+apple_pos:
+    d8 16, 16
+
+apple_bob_pos:
+    d8 0
+apple_bob_count:
+    d8 0
+
+; a array of body positions
+; 2 bytes per body segment bc x and y pos, 32*24 is max size with 8 segments of leeway
+#const snake_body_len, (GAME_WIDTH*GAME_HEIGHT + 8) * 2
+snake_body:
+    res8 snake_body_len
+
+; CODE
+
+#macro debug, 1
+push r1
+mov r1, $1
+int 0x90
+pop r1
+#endmacro
 
 main:
-    ; mov it, interrupt_table
-    mov sp, 16_777_088
-    jmp loop
-
-loop:
+    mov r1, 0x11
+    int INT_DISPLAY_MODE
+    int INT_DISPLAY_BUFFER
+    mov @display_buffer, r0
+    
+    mov @r0, 0x1e1d1d ; clear color is black
+    
+    ; palettes
+    add r0, PALETTE_OFFSET + 4 ; skip color 0 bc it is black
+    mov @r0, 0xffd4d1d1 ; white
+    add r0, 4
+    mov @r0, 0xffed271f ; red
+    add r0, 4
+    mov @r0, 0xffc5221b ; dark red
+    add r0, 4
+    mov @r0, 0xff543018 ; brown
+    
+    ; images
+    mov r0, @display_buffer
+    add r0, IMAGE_OFFSET + 128 ; first image is blank
+    cpy snake_body_image, 128
+    add r0, 128
+    cpy apple_image, 128
+    
+    ; scroll so there is 1 tile to the left and right of the screen instead of 2 tiles to the right
+    mov r0, @display_buffer
+    add r0, TILE_SCROLL_OFFSET
+    mov8 @r0, 16
+    add r0, 1
+    mov8 @r0, 16
+    
+.main_loop:
+    ; timing
+    int INT_UPTIME ; in r0
+    mov r2, @last_time
+    mov r1, r0
+    add r1, TARGET_TIME ; r1 is now time to sleep until
+    
+    .sleep_loop:
+        cmp r0, r1
+        jug .exit_sleep_loop
+        
+        int INT_UPTIME
+        jmp .sleep_loop
+    .exit_sleep_loop:
+    
+    mov @last_time, r0
+    
     call handle_input
     
-    mov r0, @snake_parts  ; add x
-    mov r1, @move_dir_x
-    add r0, r1
-    mov @snake_parts, r0
-    mov r0, snake_parts   ; add y
-    add r0, 4
-    mov r1, @r0
-    mov r2, @move_dir_y
-    add r1, r2
-    mov @r0, r1
+    ; move snake
+    mov r0, @snake_length
+    sub r0, 1
+    umul r0, 2 ; 2 bytes per body segment
+    add r0, snake_body ; this is index for snake body
     
-    int 0x84 ; get display buffer
+    ; get current head position
+    mov8 r4, @r0
+    mov r1, r4
+    add r0, 1
+    mov8 r5, @r0
+    add r0, 1
     
-    ; r0 += snake_parts[0] + snake_parts[1] * 512
-    mov r1, @snake_parts
-    umul r1, 4 ; 4 bytes per pixel
-    add r0, r1
+    ; move to new position
+    push r0 ; preserve r0
+        mov r1, @move_dir_x            ; new pos 
+        add r1, r4                     
+        mov r2, 0                      ; min
+        mov r3, GAME_WIDTH - 1         ; max
+        call wrap_signed
+        mov r4, r0
+        
+        mov r1, @move_dir_y            ; new pos
+        add r1, r5                     
+        ; mov r2, 0 ; r2 is already 0  ; min
+        mov r3, GAME_HEIGHT - 1        ; max
+        call wrap_signed
+        mov r5, r0
+    pop r0
+        
+    ; check if new head intersects with snake
+    mov r6, 0             ; whether new pos collides with snake
+    mov r1, snake_body    ; index
+                          ; r0 is end index (already set yay)
     
-    mov r1, snake_parts
-    add r1, 4
-    mov r2, @r1
-    umul r2, 2048 ; 512 * 4 bytes per row
-    add r0, r2
+    ; check if collided with snake
+    .collision_snake_loop:
+        mov8 r2, @r1 ; x pos
+        add r1, 1
+        mov8 r3, @r1 ; y pos
+        add r1, 1
+        
+        cmp r2, r4
+        jne .fail_collision
+        cmp r3, r5
+        jne .fail_collision
+        
+        mov r6, 1
+        jmp .end_collision_checks
+        
+        .fail_collision:        
+        cmp r1, r0
+        jul .collision_snake_loop
     
-    mov @r0, 0xFF0000FF ; red
-    ; int 0x81
+    ; check if collided with apple (will get skipped on collide with snake)
+    mov8 r2, @apple_pos
+    cmp r2, r4
+    jne .end_collision_checks
+    mov8 r2, [apple_pos + 1]
+    cmp r2, r5
+    jne .end_collision_checks
     
-    int 0x86  ; update screen
+    ; we did collide with apple
+    mov r1, @grow_count
+    add r1, 3
+    mov @grow_count, r1
     
-    jmp loop
+    ; move apple to "random" spot
+    mov r1, @last_time
+    mov r2, GAME_HEIGHT
+    udiv r1, r2
+    and r1, 31 ; is like r1 % GAME_WIDTH but faster bc its and instead of div
+    mov8 @apple_pos, r1
+    mov8 [apple_pos + 1], r2
+    
+    .end_collision_checks:
+    
+    ; add new head
+    ; if collided, do not add head and subtract length by 1
+    cmp r6, 0
+    je .add_head_pos
+        mov r1, @snake_length ; this will be compensated for later 
+        sub r1, 1
+        mov @snake_length, r1
+        jmp .skip_adding_head
+    .add_head_pos:
+        mov8 @r0, r4
+        add r0, 1
+        mov8 @r0, r5
+    .skip_adding_head:
+    
+    ; TODO: if they are not growing, move everything back instead of updating length
+    mov r1, @grow_count
+    cmp r1, 0
+    jne .grow
+        ; we are removing the first index, so move all data left one
+        mov r0, snake_body
+        cpy snake_body + 2, snake_body_len - 2 ; 2 bytes per snake part
+        jmp .end_grow_if
+    .grow:
+        ; update length
+        mov r1, @snake_length
+        add r1, 1
+        mov @snake_length, r1
+        
+        ; update grow count
+        mov r1, @grow_count
+        sub r1, 1
+        mov @grow_count, r1
+    .end_grow_if:
+    
+    ; Draw snake
+    
+    ; clear current indexes
+    mov r0, @display_buffer
+    add r0, TILE_INDEX_OFFSET
+    cpy empty_for_884, 884
+    
+    ; iterate through snake and add tile for each position
+    mov r1, snake_body    ; index
+    mov r2, @snake_length ; end index
+    umul r2, 2
+    add r2, snake_body
+    .snake_loop:
+        mov8 r3, @r1 ; x pos
+        add r1, 1
+        mov8 r4, @r1 ; y pos
+        add r1, 1
+        
+        mov r5, r0 ; tile index start
+        add r5, r3
+        umul r4, 34
+        add r5, r4
+        add r5, 1 + 34 ; extra offset because we want to add (1, 1) to the position bc we centered the screen with scroll
+        
+        mov8 @r5, SNAKE_TILE
+                
+        cmp r1, r2
+        jul .snake_loop
+    
+    ; draw apple as a sprite
+    mov r0, @display_buffer
+    add r0, SPRITE_OFFSET
+    
+    mov8 @r0, APPLE_TILE
+    add r0, 1
+    mov8 @r0, SPRITE_VISIBLE | SPRITE_DRAW_BEHIND ; attributes
+    add r0, 1
+    
+    ; apple bob
+    mov8 r2, @apple_bob_count
+    mov8 r3, @apple_bob_pos
+    sub r2, 1
+    
+    cmp r2, 6
+    jige panic
+    
+    cmp r2, 0
+    jig .skip_bob
+        mov r2, 4
+        
+        not r3
+        and r3, 1
+    .skip_bob:
+    
+    ; put new combined apple_bob in r3
+    mov8 @apple_bob_count, r2
+    mov8 @apple_bob_pos, r3
+    
+    ; change bob position from 0 or 1 to -1 or 1
+    shl r3, 1
+    sub r3, 1
+    
+    mov8 r1, @apple_pos       ; x pos
+    add r1, 1
+    umul r1, 16
+    mov16 @r0, r1
+    add r0, 2
+    
+    mov8 r1, [apple_pos + 1]  ; y pos
+    add r1, 1
+    umul r1, 16
+    add r1, r3
+    mov16 @r0, r1
+    
+    int INT_UPDATE_SCREEN
+    jmp .main_loop
+
+; value in r1, min in r2 (inclusive), max in r3 (inclusive), result in r0
+; when below r2, result is r3, when above r3 result is r2, otherwise result is r1
+wrap_signed:
+    cmp r1, r2
+    jige .skip_less
+    mov r0, r3
+    ret
+    .skip_less:
+    
+    cmp r1, r3
+    jile .done
+    mov r0, r2
+    ret
+    
+    .done:
+    mov r0, r1
+    ret
 
 handle_input:
-    ; di
-    push r1
-    push r2
-    push r3
-    
     in r1, 0
     cmp r1, -1 ; is there any info
     je .done   ; if not we r done
@@ -51,67 +343,57 @@ handle_input:
     in r2, 0
     in r3, 0
     
-    int 0x90
     cmp r1, 0 ; is keyboard
-    jne .done
+    jne handle_input ; try again
     
-    mov r1, r2
-    int 0x90
     cmp r2, 0 ; is pressed
-    jne .done
-
-    mov r1, r3
-    int 0x90
+    jne handle_input ; try again
+    
+    mov8 r1, @last_input ; repeated inputs are ignored
+    cmp r3, r1
+    je handle_input 
     
     cmp r3, 'D'
-    je .d
+    jne .skip_d
+        mov8 @last_input, 'D'
+        mov @move_dir_x, 1
+        mov @move_dir_y, 0
+        jmp .done
+    .skip_d:
+    
     cmp r3, 'A'
-    je .a
+    jne .skip_a
+        mov8 @last_input, 'A'
+        mov @move_dir_x, -1
+        mov @move_dir_y, 0
+        jmp .done
+    .skip_a:
+    
     cmp r3, 'W'
-    je .w
+    jne .skip_w
+        mov8 @last_input, 'W'
+        mov @move_dir_x, 0
+        mov @move_dir_y, -1
+        jmp .done
+    .skip_w:
+    
     cmp r3, 'S'
-    je .s
+    jne .skip_s
+        mov8 @last_input, 'S'
+        mov @move_dir_x, 0
+        mov @move_dir_y, 1
+        jmp .done
+    .skip_s:
     
-    ; other key, do nothing
-    jmp .done
-    
-.d:
-    mov @move_dir_x, 1
-    mov @move_dir_y, 0
-    jmp .done
-
-.a:
-    mov @move_dir_x, -1
-    mov @move_dir_y, 0
-    jmp .done
-
-.w:
-    mov @move_dir_x, 0
-    mov @move_dir_y, -1
-    jmp .done
-
-.s:
-    mov @move_dir_x, 0
-    mov @move_dir_y, 1
-    jmp .done
-
-.done:
-    pop r3
-    pop r2
-    pop r1
-    ; ei
+    .done:
     ret
 
-move_dir_x:
-    d32 0
-move_dir_y:
-    d32 1
+panic_msg:
+dstr "PANIC!\n\0"
+panic:
+    mov r1, panic_msg
+    int 0x80
+    int 0x81
 
-interrupt_table:
-    d8 1             ; entry count
-    d8 0x70          ; input
-    d32 handle_input
-
-snake_parts:
-    d32 128
-    res32 1024
+empty_for_884:
+    res8 884
