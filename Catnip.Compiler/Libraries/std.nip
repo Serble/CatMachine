@@ -77,3 +77,9 @@ fun poll_input(type:4) {
     return val:4;
 }
 
+fun memcpy(dest:4, src:4, len:4) {
+    ~~~ r0[dest:4], r1[src:4], r2[len:4] | | ;
+    cpy r1, r2
+    ~~~
+}
+

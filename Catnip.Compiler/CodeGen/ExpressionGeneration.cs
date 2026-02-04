@@ -110,10 +110,11 @@ public partial class CodeGenerator {
                     break;
                 }
 
-                if (_globals.Any(g => g.Name == vt.Name)) {
+                if (_globals.Any(g => g.Name == vt.Name) 
+                    || program.BinaryGlobals.Any(g => g.Name == vt.Name)) {
                     return vt.Name;
                 }
-                
+
                 throw new InvalidOperationException($"Variable or function '{vt.Name}' not found.");
             }
 

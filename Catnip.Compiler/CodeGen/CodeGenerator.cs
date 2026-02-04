@@ -235,6 +235,18 @@ public partial class CodeGenerator(CatProgram program) {
             file.Label(name);
             file.AppendIndented($"res8 {bytes}");
         }
+
+        file.BlankLine();
+        file.Comment("Binary global data allocations");
+        foreach (BinaryGlobal bg in program.BinaryGlobals) {
+            file.Label(bg.Name);
+            if (bg.FileName != null) {
+                file.AppendIndented("dfile \"" + bg.FileName + "\"");
+                continue;
+            }
+            string byteList = string.Join(", ", bg.Data!.Select(b => b.ToString()));
+            file.AppendIndented($"d8 {byteList}");
+        }
         
         // Allocate application strings
         if (_applicationStrings.Count > 0) {

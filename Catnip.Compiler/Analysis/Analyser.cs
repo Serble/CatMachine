@@ -2,7 +2,7 @@ using Catnip.Compiler.Ast;
 
 namespace Catnip.Compiler.Analysis;
 
-public class Analyser(ParsedElement[] elements) {
+public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
     private static readonly string[] ValidRegisters = [
         "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
         "fl", "sp", "ip", "it"  // probably don't use these
@@ -120,7 +120,7 @@ public class Analyser(ParsedElement[] elements) {
             throw new AggregateException(_errors);
         }
 
-        return new CatProgram(structsArray, topLevelStatements.ToArray(), _functions.ToArray());
+        return new CatProgram(structsArray, topLevelStatements.ToArray(), _functions.ToArray(), binaryGlobals);
     }
 
     private Function AnalyseFunction(Function function) {

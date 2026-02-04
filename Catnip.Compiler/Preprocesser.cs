@@ -1,7 +1,13 @@
 using System.Reflection;
 using System.Text;
+using Catnip.Compiler.Ast;
 
 namespace Catnip.Compiler;
+
+public record PreprocessedResult(
+    string[] Lines, 
+    (string File, int Line)[] LineMappings, 
+    BinaryGlobal[] BinaryGlobals);
 
 public class Preprocesser {
     private const string MacroUseFormat = "${{{0}}}";
@@ -16,6 +22,8 @@ public class Preprocesser {
     private readonly Dictionary<string, string> _macros = new();
     private readonly List<string> _processedLines = [];
     
+    private readonly List<BinaryGlobal> _binaryGlobals = [];
+    
     private readonly List<(string File, int Line)> _fileLineMapping = [];
     private readonly Stack<(string File, int Line)> _inclusionStack = [];
 
@@ -29,7 +37,7 @@ public class Preprocesser {
         _mainFileName = mainFileName;
     }
 
-    public (string[] lines, (string File, int Line)[] lineMappings) Process() {
+    public PreprocessedResult Process() {
         // initialize inclusion stack
         for (int i = _lines.Count - 1; i >= 0; i--) {
             _inclusionStack.Push((_mainFileName, i + 1));
@@ -127,13 +135,30 @@ public class Preprocesser {
                     break;
                 }
 
+                case "binary": {
+                    if (args.Count != 2) {
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                            $"Invalid number of arguments for #binary directive: {argsStr}");
+                    }
+
+                    string name = args[0];
+                    string includePath = args[1].Trim('"');
+                    if (!Path.Exists(includePath)) {
+                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                            "Included file not found: " + includePath);
+                    }
+
+                    _binaryGlobals.Add(new BinaryGlobal(name, includePath));
+                    break;
+                }
+
                 default:
                     throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
                         "Unknown preprocessor directive: " + directive);
             }
         }
 
-        return (_processedLines.ToArray(), _fileLineMapping.ToArray());
+        return new PreprocessedResult(_processedLines.ToArray(), _fileLineMapping.ToArray(), _binaryGlobals.ToArray());
     }
     
     private string GetCurrentLineFile() {

@@ -71,8 +71,8 @@ Directory.SetCurrentDirectory(Path.GetDirectoryName(Path.GetFullPath(inputFilePa
 
 string fileName = Path.GetFileName(inputFilePath);
 Preprocesser preprocesser = new(fileName, File.ReadAllText(inputFilePath));
-(string[] lines, (string File, int Line)[] lineMappings) = preprocesser.Process();
-if (lines.Length != lineMappings.Length) {
+PreprocessedResult preprocessedResult = preprocesser.Process();
+if (preprocessedResult.Lines.Length != preprocessedResult.LineMappings.Length) {
     throw new Exception("Preprocessor returned mismatched line and mapping counts");
 }
 
@@ -87,9 +87,9 @@ void HandleFailure(CompilationFailureException e) {
 
 string asm;
 try {
-    ParsedElement[] tokens = CodeParser.ParseCode(string.Join('\n', lines), lineMappings);
+    ParsedElement[] tokens = CodeParser.ParseCode(string.Join('\n', preprocessedResult.Lines), preprocessedResult.LineMappings);
 
-    Analyser analyser = new(tokens);
+    Analyser analyser = new(tokens, preprocessedResult.BinaryGlobals);
     CatProgram program = analyser.Analyse();
 
     CodeGenerator gen = new(program);
