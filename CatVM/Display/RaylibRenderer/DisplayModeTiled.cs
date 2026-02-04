@@ -16,6 +16,7 @@ public class DisplayModeTiled : IDisplayModeRenderer {
     
     private readonly Shader _tileShader;
     private readonly Texture2D _displayData;
+    private readonly int _tileShaderBoundsLocation;
     
     private readonly Shader _spriteShader;
     private readonly Sprite[] _sprites = new Sprite[32];
@@ -36,6 +37,8 @@ public class DisplayModeTiled : IDisplayModeRenderer {
             null,
             RaylibRendering.ReadResource("SpriteFragment.frag")
         );
+        
+        _tileShaderBoundsLocation = Raylib.GetShaderLocation(_tileShader, "bounds");
         
         foreach (Shader shader in (Shader[])[_tileShader, _spriteShader]) {
             Raylib.SetShaderValue(shader, Raylib.GetShaderLocation(shader, "paletteLocation"), 
@@ -124,25 +127,39 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         
         Raylib.ClearBackground(_clearColor);
         
+        (Rectangle _, Rectangle dest) = RaylibRendering.GetCenteredBounds(vm);
+        
         Raylib.BeginShaderMode(_spriteShader);
         foreach (Sprite sprite in _sprites) {
             if (sprite.DoDraw && sprite.DrawBehind) {
-                sprite.Draw(this);
+                sprite.Draw(this, vm, dest);
             }
         }
         Raylib.EndShaderMode();
 
         Raylib.BeginShaderMode(_tileShader);
-        Raylib.DrawTextureRec(_displayData, new Rectangle(0, 0, vm.DisplayWidth, vm.DisplayHeight), Vector2.Zero, Color.White);
+        Raylib.SetShaderValue(_tileShader, _tileShaderBoundsLocation, dest, ShaderUniformDataType.Vec4);
+        Raylib.DrawTexturePro(_displayData, new Rectangle(0, 0, 177, 196), 
+            dest, Vector2.Zero, 0, Color.White);
         Raylib.EndShaderMode();
 
         Raylib.BeginShaderMode(_spriteShader);
         foreach (Sprite sprite in _sprites) {
             if (sprite.DoDraw && !sprite.DrawBehind) {
-                sprite.Draw(this);
+                sprite.Draw(this, vm, dest);
             }
         }
         Raylib.EndShaderMode();
+        
+        // black bars (draw after everything so you cant see sprites outside the screen bounds)
+        if (dest.X != 0) {
+            Raylib.DrawRectangle(0, 0, (int)dest.X, Raylib.GetRenderHeight(), Color.Black);
+            Raylib.DrawRectangle((int)(dest.X + dest.Width), 0, (int)dest.X, Raylib.GetRenderHeight(), Color.Black);
+        }
+        else {
+            Raylib.DrawRectangle(0, 0, Raylib.GetRenderWidth(), (int)dest.Y, Color.Black);
+            Raylib.DrawRectangle(0, (int)(dest.Y + dest.Height), Raylib.GetRenderWidth(), (int)dest.Y, Color.Black);
+        }
     }
 
     private record Sprite(
@@ -156,13 +173,21 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         ushort YPos,
         ushort Rotation
     ) {
-        public void Draw(DisplayModeTiled dm) {
+        public void Draw(DisplayModeTiled dm, CatVM vm, Rectangle dest) {
             // Console.WriteLine($"{XPos} {YPos} {Rotation / (float)ushort.MaxValue * 360} {HFlip} {VFlip}");
+
+            Vector2 displayRatio = dest.Size / new Vector2(vm.DisplayWidth, vm.DisplayHeight);
+            
+            Vector2 pos = new(XPos + 8 - dm._scrollX, YPos + 8 - dm._scrollY);
+            pos = pos * displayRatio + dest.Position;
+            
+            Vector2 size = new Vector2(16, 16) * displayRatio;
+            
             Raylib.DrawTexturePro(
                 dm._displayData,
                 new Rectangle(0, 0, 177, 196),
-                new Rectangle(XPos + 8 - dm._scrollX, YPos + 8 - dm._scrollY, 16, 16),
-                new Vector2(8, 8),
+                new Rectangle(pos, size),
+                size / 2f,
                 Rotation / (float)ushort.MaxValue * 360,
                 new Color(ImageIndex, (byte)(HFlip ? 255 : 0), (byte)(VFlip ? 255 : 0), Palette)
             );

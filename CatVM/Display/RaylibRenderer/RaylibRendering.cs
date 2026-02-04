@@ -30,8 +30,6 @@ void main() {
 
     private void SetRenderer(CatVM vm) {
         _renderer?.Unload(vm);
-        
-        Raylib.SetWindowSize(vm.DisplayWidth, vm.DisplayHeight);
 
         // Console.WriteLine("Setting renderer to " + vm.DisplayMode);
         _renderer = ((int)vm.DisplayMode & 0xf0) switch {
@@ -77,6 +75,7 @@ void main() {
             }
             
             Raylib.InitWindow(vm.DisplayWidth, vm.DisplayHeight, "CatVM Display");
+            Raylib.SetWindowState(ConfigFlags.ResizableWindow);
             Raylib.SetTargetFPS(1024);
 
             if (!vm.MemoryHandle.HasValue) {
@@ -191,5 +190,29 @@ void main() {
             
             return texture;
         }
+    }
+
+    public static (Rectangle source, Rectangle dest) GetCenteredBounds(CatVM vm) {
+        int width = Raylib.GetRenderWidth();
+        int height = Raylib.GetRenderHeight();
+        int innerWidth = width;
+        int innerHeight = height;
+        
+        float aspect = (float)vm.DisplayWidth / vm.DisplayHeight;
+
+        // convert height to relative width and see which is bigger
+        if (width > height * aspect) {
+            innerWidth = (int)(height * aspect);
+        }
+        else {
+            innerHeight = (int)(width / aspect);
+        }
+
+        return (
+            new Rectangle(0, 0, vm.DisplayWidth, vm.DisplayHeight),
+            new Rectangle(MathF.Round((width - innerWidth) / 2.0f), 
+                MathF.Round((height - innerHeight) / 2.0f), 
+                innerWidth, innerHeight)
+        );
     }
 }

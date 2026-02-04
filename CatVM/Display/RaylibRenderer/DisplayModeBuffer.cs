@@ -1,3 +1,4 @@
+using System.Numerics;
 using Raylib_cs;
 
 namespace CatVM.Display.RaylibRenderer;
@@ -24,8 +25,13 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
     }
 
     public void Draw(CatVM vm) {
+        Raylib.ClearBackground(Color.Black);
+        
         Raylib.BeginShaderMode(_textureShader);
-        Raylib.DrawTexture(_texture, 0, 0, Color.White);
+        
+        (Rectangle source, Rectangle dest) = RaylibRendering.GetCenteredBounds(vm);
+        Raylib.DrawTexturePro(_texture, source, dest, Vector2.Zero, 0, Color.White);
+        
         Raylib.EndShaderMode();
     }
 
