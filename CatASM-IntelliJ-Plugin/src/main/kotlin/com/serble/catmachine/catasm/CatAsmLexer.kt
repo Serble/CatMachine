@@ -151,7 +151,7 @@ class CatAsmLexer : LexerBase() {
                     currentOffset++
                     tokenType = CatAsmTypes.LABEL
                 } else {
-                    val text = buffer.substring(startOffset, currentOffset).toLowerCase()
+                    val text = buffer.substring(startOffset, currentOffset).lowercase()
                     tokenType = when {
                         INSTRUCTIONS.contains(text) -> CatAsmTypes.INSTRUCTION
                         REGISTERS.contains(text) -> CatAsmTypes.REGISTER
