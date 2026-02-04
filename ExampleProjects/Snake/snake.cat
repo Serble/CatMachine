@@ -25,7 +25,8 @@ jmp main
 #const SNAKE_TILE, 1
 #const APPLE_TILE, 2
 
-#const TARGET_TIME, 100 ; 100ms per frame
+#const TARGET_TIME, 100   ; 100ms per frame
+#const EAT_GROW_AMOUNT, 3 ; grow 3 times every time you eat
 
 ; IMAGES
 snake_body_image:
@@ -53,7 +54,7 @@ last_time:
     d32 0
 
 last_input:
-    d8 0
+    d8 'D' ; we default to moving right, so the D input makes sense
 
 apple_pos:
     d8 16, 16
@@ -62,6 +63,9 @@ apple_bob_pos:
     d8 0
 apple_bob_count:
     d8 0
+
+random_number:
+    d16 0
 
 ; a array of body positions
 ; 2 bytes per body segment bc x and y pos, 32*24 is max size with 8 segments of leeway
@@ -157,54 +161,49 @@ main:
         mov r3, GAME_HEIGHT - 1        ; max
         call wrap_signed
         mov r5, r0
-    pop r0
         
-    ; check if new head intersects with snake
-    mov r6, 0             ; whether new pos collides with snake
-    mov r1, snake_body    ; index
-                          ; r0 is end index (already set yay)
-    
-    ; check if collided with snake
-    .collision_snake_loop:
-        mov8 r2, @r1 ; x pos
-        add r1, 1
-        mov8 r3, @r1 ; y pos
-        add r1, 1
+        ; check if new pos intersects with snake
+        mov r1, r4
+        mov r2, r5
+        call check_snake_collision
+        mov r6, r0 ; move result to r6
         
+        ; if we collided with snake, jump past all remaining collision checks
+        cmp r6, 0
+        jne .end_collision_checks
+        
+        ; check if collided with apple
+        mov8 r2, @apple_pos
         cmp r2, r4
-        jne .fail_collision
-        cmp r3, r5
-        jne .fail_collision
+        jne .end_collision_checks
+        mov8 r2, [apple_pos + 1]
+        cmp r2, r5
+        jne .end_collision_checks
         
-        mov r6, 1
-        jmp .end_collision_checks
+        ; we did collide with apple
+        mov r1, @grow_count
+        add r1, EAT_GROW_AMOUNT
+        mov @grow_count, r1
         
-        .fail_collision:        
-        cmp r1, r0
-        jul .collision_snake_loop
-    
-    ; check if collided with apple (will get skipped on collide with snake)
-    mov8 r2, @apple_pos
-    cmp r2, r4
-    jne .end_collision_checks
-    mov8 r2, [apple_pos + 1]
-    cmp r2, r5
-    jne .end_collision_checks
-    
-    ; we did collide with apple
-    mov r1, @grow_count
-    add r1, 3
-    mov @grow_count, r1
-    
-    ; move apple to "random" spot
-    mov r1, @last_time
-    mov r2, GAME_HEIGHT
-    udiv r1, r2
-    and r1, 31 ; is like r1 % GAME_WIDTH but faster bc its and instead of div
-    mov8 @apple_pos, r1
-    mov8 [apple_pos + 1], r2
-    
-    .end_collision_checks:
+        ; move apple to "random" spot
+        .apple_spawn_loop:
+            call rand_int
+            mov r1, r0
+            mov r2, GAME_HEIGHT
+            udiv r1, r2
+            and r1, 31 ; is like r1 % GAME_WIDTH but faster bc its and instead of div
+            
+            ; if apple is on snake, we try again (does not clobber r1 or r2)
+            call check_snake_collision
+            cmp r0, 0
+            jne .apple_spawn_loop
+        
+        ; save new apple pos
+        mov8 @apple_pos, r1
+        mov8 [apple_pos + 1], r2
+        
+        .end_collision_checks:
+    pop r0
     
     ; add new head
     ; if collided, do not add head and subtract length by 1
@@ -355,6 +354,9 @@ handle_input:
     
     cmp r3, 'D'
     jne .skip_d
+        cmp r1, 'A'
+        je handle_input
+    
         mov8 @last_input, 'D'
         mov @move_dir_x, 1
         mov @move_dir_y, 0
@@ -363,6 +365,9 @@ handle_input:
     
     cmp r3, 'A'
     jne .skip_a
+        cmp r1, 'D'
+        je handle_input
+        
         mov8 @last_input, 'A'
         mov @move_dir_x, -1
         mov @move_dir_y, 0
@@ -371,6 +376,9 @@ handle_input:
     
     cmp r3, 'W'
     jne .skip_w
+        cmp r1, 'S'
+        je handle_input
+        
         mov8 @last_input, 'W'
         mov @move_dir_x, 0
         mov @move_dir_y, -1
@@ -379,6 +387,9 @@ handle_input:
     
     cmp r3, 'S'
     jne .skip_s
+        cmp r1, 'W'
+        je handle_input
+        
         mov8 @last_input, 'S'
         mov @move_dir_x, 0
         mov @move_dir_y, 1
@@ -386,6 +397,103 @@ handle_input:
     .skip_s:
     
     .done:
+    ret
+
+; check if position intersects with snake
+; r1: x pos, r2: y pos (will not clobber r1 or r2 but will clobber r3)
+check_snake_collision:
+    push r4
+    push r5
+    push r6
+    
+    mov r0, 0             ; whether new pos collides with snake
+    mov r3, snake_body    ; index
+    mov r4, @snake_length
+    umul r4, 2            ; 2 bytes per body segment
+    add r4, snake_body    ; end index for snake
+    
+    ; check if collided with snake
+    .collision_snake_loop:
+        mov8 r5, @r3 ; x pos
+        add r3, 1
+        mov8 r6, @r3 ; y pos
+        add r3, 1
+        
+        cmp r5, r1
+        jne .fail_collision
+        cmp r6, r2
+        jne .fail_collision
+        
+        mov r0, 1
+        jmp .end_collision_checks
+        
+        .fail_collision:        
+        cmp r3, r4
+        jul .collision_snake_loop
+    .end_collision_checks:
+    
+    pop r6
+    pop r5
+    pop r4
+    ret
+
+; Mario 64 RNG method
+; r0 is output random number
+; automatically updates random global
+rand_int:
+    push r4
+
+    mov16 r0, @random_number
+    
+    cmp r0, 0x560A
+    jne .skip_reset_seed
+        mov r0, 0
+    .skip_reset_seed:
+    
+    mov r1, r0
+    shl r1, 8
+    
+    xor r1, r0
+    
+    mov r0, r1
+    and r0, 0x00ff
+    shl r0, 8
+    
+    mov r2, r1
+    and r2, 0xff00
+    shr r2, 8
+    
+    or r0, r2
+    
+    shl r1, 1
+    and r1, 0xffff ; make 16 bit
+    xor r1, r0
+    
+    mov r3, r1
+    shr r3, 1
+    xor r3, 0xff80
+    
+    mov r4, r1
+    and r4, 1
+    cmp r4, 0
+    jne .odd
+    .even:
+        cmp r3, 0xaa55
+        jne .not_equal
+            mov r0, 0
+            jmp .done_odd_even
+        .not_equal:
+            mov r0, r3
+            xor r0, 0x1ff4
+            jmp .done_odd_even
+    .odd:
+        mov r0, r3
+        xor r0, 0x8180
+    .done_odd_even:
+    
+    mov16 @random_number, r0
+    
+    pop r4
     ret
 
 panic_msg:
