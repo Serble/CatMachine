@@ -1,6 +1,4 @@
-﻿
-using CatVM;
-using CatVM.Debugging;
+﻿using CatVM.Debugging;
 using CatVM.Display;
 using CatVM.Display.RaylibRenderer;
 

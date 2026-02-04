@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Raylib_cs;
 
 namespace CatVM.Display.RaylibRenderer;

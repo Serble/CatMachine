@@ -1,10 +1,7 @@
-using System.Runtime.CompilerServices;
-
 namespace CatVM.Ops;
 
 public static class SubOperation {
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SubRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -13,7 +10,6 @@ public static class SubOperation {
         Sub(vm, destReg, left, right);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SubRI(CatVM vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
@@ -21,7 +17,6 @@ public static class SubOperation {
         Sub(vm, destReg, left, immediate);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Sub(CatVM vm, byte destReg, uint a, uint b) {
         uint result = a - b;
         int sResult = (int)result;

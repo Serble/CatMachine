@@ -1,10 +1,7 @@
-using System.Runtime.CompilerServices;
-
 namespace CatVM.Ops;
 
 public static class MulOperation {
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MulRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -14,7 +11,6 @@ public static class MulOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MulRI(CatVM vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
@@ -23,7 +19,6 @@ public static class MulOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IMulRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -33,7 +28,6 @@ public static class MulOperation {
         vm.Cpu.Set(destReg, (uint)result);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IMulRI(CatVM vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();

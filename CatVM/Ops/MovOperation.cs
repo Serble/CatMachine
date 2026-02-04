@@ -1,10 +1,7 @@
-using System.Runtime.CompilerServices;
-
 namespace CatVM.Ops;
 
 public static class MovOperation {
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -12,7 +9,6 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovRI(CatVM vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
@@ -20,7 +16,6 @@ public static class MovOperation {
     }
 
     // Move from memory (pointer in register) to register
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovRRP(CatVM vm) {
         byte destReg = vm.Read8();
         byte ptrReg = vm.Read8();
@@ -31,7 +26,6 @@ public static class MovOperation {
     }
     
     // Move from memory (immediate address) to register
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovRIP(CatVM vm) {
         byte destReg = vm.Read8();
         uint address = vm.ReadWord();
@@ -40,7 +34,6 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovRPR(CatVM vm) {
         byte ptrReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -51,7 +44,6 @@ public static class MovOperation {
         Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovRPI(CatVM vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -61,7 +53,6 @@ public static class MovOperation {
         Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovIPR(CatVM vm) {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
@@ -71,7 +62,6 @@ public static class MovOperation {
         Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void MovIPI(CatVM vm) {
         uint address = vm.ReadWord();
         uint immediate = vm.ReadWord();
@@ -82,7 +72,6 @@ public static class MovOperation {
     
     // Mov byte sized values
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void BMovIPR(CatVM vm) {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
@@ -91,7 +80,6 @@ public static class MovOperation {
         vm.Memory[address] = value;
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void BMovRPR(CatVM vm) {
         byte ptrReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -101,7 +89,6 @@ public static class MovOperation {
         vm.Memory[address] = value;
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void BMovRIP(CatVM vm) {
         byte destReg = vm.Read8();
         uint address = vm.ReadWord();
@@ -110,7 +97,6 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void BMovRRP(CatVM vm) {
         byte destReg = vm.Read8();
         byte ptrReg = vm.Read8();
@@ -120,7 +106,6 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void BMovIPI(CatVM vm) {
         uint address = vm.ReadWord();
         byte immediate = vm.Read8();
@@ -128,7 +113,6 @@ public static class MovOperation {
         vm.Memory[address] = immediate;
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void BMovRPI(CatVM vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -139,7 +123,6 @@ public static class MovOperation {
     
     // Mov short sized values
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SMovIPR(CatVM vm) {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
@@ -149,7 +132,6 @@ public static class MovOperation {
         Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SMovRPR(CatVM vm) {
         byte ptrReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -160,7 +142,6 @@ public static class MovOperation {
         Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SMovRIP(CatVM vm) {
         byte destReg = vm.Read8();
         uint address = vm.ReadWord();
@@ -169,7 +150,6 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SMovRRP(CatVM vm) {
         byte destReg = vm.Read8();
         byte ptrReg = vm.Read8();
@@ -179,7 +159,6 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SMovIPI(CatVM vm) {
         uint address = vm.ReadWord();
         ushort immediate = vm.Read16();
@@ -188,7 +167,6 @@ public static class MovOperation {
         Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SMovRPI(CatVM vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);

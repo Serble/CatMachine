@@ -1,10 +1,7 @@
-using System.Runtime.CompilerServices;
-
 namespace CatVM.Ops;
 
 public static class XorOperation {
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void XorRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
@@ -14,7 +11,6 @@ public static class XorOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void XorRI(CatVM vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();

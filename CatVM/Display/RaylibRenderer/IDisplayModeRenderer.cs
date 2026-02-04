@@ -1,5 +1,3 @@
-using Raylib_cs;
-
 namespace CatVM.Display.RaylibRenderer;
 
 public interface IDisplayModeRenderer {

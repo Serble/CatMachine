@@ -1,10 +1,7 @@
-using System.Runtime.CompilerServices;
-
 namespace CatVM.Ops;
 
 public static class SerialOperation {
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void InRR(CatVM vm) {
         byte destReg = vm.Read8();
         byte portReg = vm.Read8();
@@ -17,7 +14,6 @@ public static class SerialOperation {
         vm.Cpu.Set(destReg, serial.input(vm));
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void InRI(CatVM vm) {
         byte destReg = vm.Read8();
         uint port = vm.ReadWord();
@@ -29,7 +25,6 @@ public static class SerialOperation {
         vm.Cpu.Set(destReg, serial.input(vm));
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void OutRR(CatVM vm) {
         byte portReg = vm.Read8();
         byte dataReg = vm.Read8();
@@ -43,7 +38,6 @@ public static class SerialOperation {
         serial.output(vm, data);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void OutRI(CatVM vm) {
         byte portReg = vm.Read8();
         uint port = vm.Cpu.Get(portReg);
@@ -56,7 +50,6 @@ public static class SerialOperation {
         serial.output(vm, data);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void OutIR(CatVM vm) {
         uint port = vm.ReadWord();
         byte dataReg = vm.Read8();
@@ -69,7 +62,6 @@ public static class SerialOperation {
         serial.output(vm, data);
     }
     
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void OutII(CatVM vm) {
         uint port = vm.ReadWord();
         uint data = vm.ReadWord();
