@@ -84,7 +84,7 @@ class CatAsmLexer : LexerBase() {
                 tokenType = CatAsmTypes.WHITE_SPACE
             }
             // Numbers (hex or decimal)
-            c == '0' && currentOffset + 1 < endOffset && buffer[currentOffset + 1].toLowerCase() == 'x' -> {
+            c == '0' && currentOffset + 1 < endOffset && buffer[currentOffset + 1].lowercaseChar() == 'x' -> {
                 currentOffset += 2
                 while (currentOffset < endOffset && buffer[currentOffset].isHexDigit()) {
                     currentOffset++
