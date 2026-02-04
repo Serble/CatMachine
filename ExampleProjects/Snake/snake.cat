@@ -191,16 +191,18 @@ main:
         call check_snake_collision
         mov r6, r0 ; move result to r6
         
+        mov r2, 0  ; whether we touched apple
+        
         ; if we collided with snake, jump past all remaining collision checks
         cmp r6, 0
         jne .end_collision_checks
         
         ; check if collided with apple
-        mov8 r2, @apple_pos
-        cmp r2, r4
+        mov8 r1, @apple_pos
+        cmp r1, r4
         jne .end_collision_checks
-        mov8 r2, [apple_pos + 1]
-        cmp r2, r5
+        mov8 r1, [apple_pos + 1]
+        cmp r1, r5
         jne .end_collision_checks
         
         ; we did collide with apple
@@ -208,22 +210,7 @@ main:
         add r1, EAT_GROW_AMOUNT
         mov @grow_count, r1
         
-        ; move apple to "random" spot
-        .apple_spawn_loop:
-            call rand_int
-            mov r1, r0
-            mov r2, GAME_HEIGHT
-            udiv r1, r2
-            and r1, 31 ; is like r1 % GAME_WIDTH but faster bc its and instead of div
-            
-            ; if apple is on snake, we try again (does not clobber r1 or r2)
-            call check_snake_collision
-            cmp r0, 0
-            jne .apple_spawn_loop
-        
-        ; save new apple pos
-        mov8 @apple_pos, r1
-        mov8 [apple_pos + 1], r2
+        mov r2, 1 ; mark it as collided for later
         
         .end_collision_checks:
     pop r0
@@ -261,6 +248,26 @@ main:
         sub r1, 1
         mov @grow_count, r1
     .end_grow_if:
+    
+    ; place new apple if needed
+    cmp r2, 0
+    je .skip_move_apple
+        .apple_spawn_loop:
+            call rand_int
+            mov r1, r0
+            mov r2, GAME_HEIGHT
+            udiv r1, r2
+            and r1, 31 ; is like r1 % GAME_WIDTH but faster bc its and instead of div
+            
+            ; if apple is on snake, we try again (does not clobber r1 or r2)
+            call check_snake_collision
+            cmp r0, 0
+            jne .apple_spawn_loop
+        
+        ; save new apple pos
+        mov8 @apple_pos, r1
+        mov8 [apple_pos + 1], r2
+    .skip_move_apple:
     
     ; Draw snake
     
