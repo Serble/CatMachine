@@ -30,3 +30,12 @@ Catnip is a high-level programming language designed specifically for
 programming the Cat VM. It compiles into Cat Assembly.
 
 It lives in the `Catnip` folder.
+
+### CatASM IntelliJ Plugin
+An IntelliJ IDEA plugin that provides syntax highlighting and language support
+for CatASM files (.asm). Features include syntax highlighting for instructions,
+registers, directives, labels, and comments.
+
+It lives in the `CatASM-IntelliJ-Plugin` folder.
+
+See the [plugin README](CatASM-IntelliJ-Plugin/README.md) for installation and usage instructions.
