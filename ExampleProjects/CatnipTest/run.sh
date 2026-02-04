@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 MAIN_FILE=test.nip
 
 echo "Compiling..."
-dotnet run --project ../../Catnip.Compiler/Catnip.Compiler.csproj $MAIN_FILE -o a.out
+dotnet run --project ../../Catnip.Compiler/Catnip.Compiler.csproj $MAIN_FILE -o a.out -d a.out.debug -s a.asm
 status=$?
 if [ $status -ne 0 ]; then
   echo "Compile failed: exit $status"
