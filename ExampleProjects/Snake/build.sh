@@ -9,6 +9,7 @@ mkdir -p bin
 echo "Building images"
 python ../tools/image_to_tiles.py -i snake_body.png -p palette0.palette
 python ../tools/image_to_tiles.py -i apple.png -p palette0.palette
+python ../tools/image_to_buffer.py title_screen.png
 
 echo "Assembling..."
 dotnet run --project ../../CatAssembler/CatAssembler.csproj $MAIN_FILE -o bin/snake.bin

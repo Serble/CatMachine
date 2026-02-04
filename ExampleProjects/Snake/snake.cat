@@ -1,10 +1,11 @@
 jmp main
 
-#const INT_DISPLAY_BUFFER, 0x84
 #const INT_DISPLAY_MODE, 0x87
 #const INT_UPDATE_SCREEN, 0x86
 #const INT_UPTIME, 0x85
 
+#const DISPLAY_MODE_BUFFER, 0x01
+#const DISPLAY_MODE_TILED, 0x11
 #const SCREEN_WIDTH, 512
 #const SCREEN_HEIGHT, 384
 #const GAME_WIDTH, 32
@@ -16,6 +17,7 @@ jmp main
 #const TILE_INDEX_OFFSET, TILE_SCROLL_OFFSET + 2
 #const TILE_PALETTE_OFFSET, TILE_INDEX_OFFSET + 884
 #const SPRITE_OFFSET, TILE_PALETTE_OFFSET + 442
+#const DISPLAY_SIZE, SPRITE_OFFSET + 256
 
 #const SPRITE_VISIBLE,     0b10000000
 #const SPRITE_DRAW_BEHIND, 0b01000000
@@ -35,10 +37,10 @@ snake_body_image:
 apple_image:
     dfile apple.bin
 
-; VARIABLES
-display_buffer:
-    d32 0
+title_screen:
+    dfile title_screen.bin
 
+; VARIABLES
 move_dir_x:
     d32 1
 move_dir_y:
@@ -83,11 +85,32 @@ pop r1
 #endmacro
 
 main:
-    mov r1, 0x11
+    ; Title screen
+    mov r1, DISPLAY_MODE_BUFFER
+    mov r2, title_screen
     int INT_DISPLAY_MODE
-    int INT_DISPLAY_BUFFER
-    mov @display_buffer, r0
+    cmp r0, 0
+    jne panic
     
+    int INT_UPDATE_SCREEN
+    
+    .press_any_key_loop:
+    in r0, 0
+    cmp r0, -1
+    je .press_any_key_loop
+    
+    ; consume the rest of the input event
+    in r0, 0
+    in r0, 0
+    
+    ; change display mode because now we are loading into the game
+    mov r1, DISPLAY_MODE_TILED
+    mov r2, display_buffer
+    int INT_DISPLAY_MODE
+    cmp r0, 0
+    jne panic
+    
+    mov r0, display_buffer
     mov @r0, 0x1e1d1d ; clear color is black
     
     ; palettes
@@ -101,14 +124,14 @@ main:
     mov @r0, 0xff543018 ; brown
     
     ; images
-    mov r0, @display_buffer
+    mov r0, display_buffer
     add r0, IMAGE_OFFSET + 128 ; first image is blank
     cpy snake_body_image, 128
     add r0, 128
     cpy apple_image, 128
     
     ; scroll so there is 1 tile to the left and right of the screen instead of 2 tiles to the right
-    mov r0, @display_buffer
+    mov r0, display_buffer
     add r0, TILE_SCROLL_OFFSET
     mov8 @r0, 16
     add r0, 1
@@ -242,7 +265,7 @@ main:
     ; Draw snake
     
     ; clear current indexes
-    mov r0, @display_buffer
+    mov r0, display_buffer
     add r0, TILE_INDEX_OFFSET
     cpy empty_for_884, 884
     
@@ -269,7 +292,7 @@ main:
         jul .snake_loop
     
     ; draw apple as a sprite
-    mov r0, @display_buffer
+    mov r0, display_buffer
     add r0, SPRITE_OFFSET
     
     mov8 @r0, APPLE_TILE
@@ -505,3 +528,6 @@ panic:
 
 empty_for_884:
     res8 884
+
+display_buffer:
+    res8 DISPLAY_SIZE

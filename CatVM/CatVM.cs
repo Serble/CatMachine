@@ -22,7 +22,7 @@ public class CatVM {
     public bool ErrorOnRomWrite { get; set; }
     public bool EnableTestingInterrupts { get; set; }
     public bool DumpErrors { get; set; }
-    public uint DisplayBufferOffset => (uint)_memoryBytes - (uint)DisplayBufferSize;
+    public uint DisplayBufferOffset = 0;
     public (uint start, uint length)[] DisallowedWriteRegions { get; set; } = [];
     public (uint start, uint length)[] DisallowedReadRegions { get; set; } = [];
     public GCHandle? MemoryHandle { get; private set; }
@@ -34,8 +34,8 @@ public class CatVM {
     public event Action? UpdateDisplayEvent;  // Event for when the program requests the display to update
     public event Action? DisplayModeUpdated;
     public CatCpuState Cpu;
-    public int DisplayWidth { get; private set; } = 512;
-    public int DisplayHeight { get; private set; } = 512;
+    public int DisplayWidth { get; private set; }
+    public int DisplayHeight { get; private set; }
 
     private readonly int _memoryBytes;
     
@@ -54,34 +54,40 @@ public class CatVM {
     public DisplayMode DisplayMode { get;
         set {
             field = value;
-            
-            switch ((int)value & 0xf) {
-                case 0:
-                    DisplayWidth = 512;
-                    DisplayHeight = 512;
-                    break;
+
+            if (value == DisplayMode.DummyDisplay) {
+                DisplayWidth = 0;
+                DisplayHeight = 0;
+            }
+            else {
+                switch ((int)value & 0xf) {
+                    case 0:
+                        DisplayWidth = 512;
+                        DisplayHeight = 512;
+                        break;
                 
-                case 1:
-                    DisplayWidth = 512;
-                    DisplayHeight = 384;
-                    break;
+                    case 1:
+                        DisplayWidth = 512;
+                        DisplayHeight = 384;
+                        break;
+                }
             }
             
             DisplayModeUpdated?.Invoke();
         }
-    } = DisplayMode.Raw512X512;
+    } = DisplayMode.DummyDisplay;
     
     public int DisplayBufferSize {
         get {
-            switch ((int)DisplayMode & 0xf) {
-                case 0:
-                    return DisplayWidth * DisplayHeight * 4;
-                
-                case 1:
-                    return 34_868;
+            if (DisplayMode == DisplayMode.DummyDisplay) {
+                return 0;
             }
-
-            return 0;
+            
+            return ((int)DisplayMode & 0xf) switch {
+                0 => DisplayWidth * DisplayHeight * 4,
+                1 => 34_868,
+                _ => 0
+            };
         }
     }
 
@@ -92,8 +98,8 @@ public class CatVM {
         Rom = rom ?? [];
         PicosecondsPerCycle = PicosecondsPerSecond / cyclesPerSecond;
 
-        if (memoryBytes < Rom.Length + DisplayBufferSize) {
-            throw new Exception($"Not enough memory for Rom and Display Buffer, needed: {Rom.Length+DisplayBufferSize}, got: {memoryBytes}");
+        if (memoryBytes < Rom.Length) {
+            throw new Exception($"Not enough memory for Rom, needed: {Rom.Length}, got: {memoryBytes}");
         }
         
         Reset();
@@ -109,7 +115,7 @@ public class CatVM {
         }
         
         // get offset for display buffer (it will go at the end of memory)
-        Cpu.Sp = DisplayBufferOffset;  // end of regular memory (non display buffer)
+        Cpu.Sp = (uint)_memoryBytes;  // end of regular memory (non display buffer)
         
         if (Rom.Length > 0) {
             LoadData(Rom);
@@ -335,12 +341,6 @@ public class CatVM {
             case 0x83: {
                 // reset
                 InterruptHandlers.ResetInterrupt(this);
-                return;
-            }
-            
-            case 0x84: {
-                // get display buffer
-                InterruptHandlers.GetDisplayBufferInterrupt(this);
                 return;
             }
             

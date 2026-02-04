@@ -7,7 +7,7 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
     private readonly Shader _textureShader;
     
     public DisplayModeBuffer(CatVM vm) {
-        if (((int)vm.DisplayMode & 0xf) != 0) {
+        if (((int)vm.DisplayMode & 0xf) > 1) {
             throw new NotImplementedException($"Display mode {vm.DisplayMode} not implemented!");
         }
         

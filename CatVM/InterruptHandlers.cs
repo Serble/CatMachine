@@ -20,14 +20,9 @@ public static class InterruptHandlers {
     public static void ResetInterrupt(CatVM vm) {
         vm.Reset();
     }
-    
-    public static void GetDisplayBufferInterrupt(CatVM vm) {
-        // return pointer to display buffer in r1
-        vm.Cpu.R0 = vm.DisplayBufferOffset;
-    }
 
     public static void PrintNumInterrupt(CatVM vm) {
-        Console.WriteLine(vm.Cpu.R1);
+        Console.WriteLine($"{vm.Cpu.R1} 0x{vm.Cpu.R1:x8}");
     }
 
     public static void GetUptimeInterrupt(CatVM vm) {
@@ -45,7 +40,18 @@ public static class InterruptHandlers {
             return;
         }
 
+        DisplayMode oldMode = vm.DisplayMode;
+        uint oldOffset = vm.DisplayBufferOffset;
         vm.DisplayMode = (DisplayMode)displayMode;
+        vm.DisplayBufferOffset = vm.Cpu.R2;
+
+        if (vm.DisplayBufferOffset + vm.DisplayBufferSize > vm.Memory.Length) {
+            vm.Cpu.R0 = 2;
+            vm.DisplayMode = oldMode;
+            vm.DisplayBufferOffset = oldOffset;
+            return;
+        }
+        
         vm.Cpu.R0 = 0;
     }
 

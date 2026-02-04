@@ -49,12 +49,28 @@ void main() {
         
         ManualResetEventSlim updateDisplay = new(true);
         
+        bool changeDisplayMode = false;
+        vm.DisplayModeUpdated += () => {
+            changeDisplayMode = true;
+        };
+        
         vm.UpdateDisplayEvent += () => {
             updateDisplay.Reset(); // mark as outdated
             updateDisplay.Wait();  // wait for it to be updated
         };
         
         return Task.Run((Action) (() => {
+            start:
+            
+            // wait for display mode to not be DummyDisplay
+            while (!changeDisplayMode) {
+                Thread.Sleep(8);
+            }
+            
+            if (vm.DisplayMode == DisplayMode.DummyDisplay) {
+                goto start;
+            }
+            
             unsafe {
                 delegate* unmanaged[Cdecl]<int, sbyte*, sbyte*, void> ptr = &NopLogging;
                 Raylib.SetTraceLogCallback(ptr);
@@ -69,13 +85,8 @@ void main() {
             
             SetRenderer(vm);
             
-            bool changeDisplayMode = false;
-            vm.DisplayModeUpdated += () => {
-                changeDisplayMode = true;
-            };
-            
             HashSet<KeyboardKey> pressedKeys = [];
-
+            
             while (!Raylib.WindowShouldClose()) {
                 pressedKeys.RemoveWhere(key => {
                     if (!Raylib.IsKeyUp(key)) {
@@ -85,18 +96,24 @@ void main() {
                     SendInput(vm, 0, 1, (uint)key);
                     return true;
                 });
-                    
+                
                 while (true) {
                     int key = Raylib.GetKeyPressed();
                     if (key == 0) {
                         break;
                     }
-
+                    
                     pressedKeys.Add((KeyboardKey) key);
                     SendInput(vm, 0, 0, (uint)key);
                 }
-
+                
                 if (changeDisplayMode) {
+                    if (vm.DisplayMode == DisplayMode.DummyDisplay) {
+                        _renderer?.Unload(vm);
+                        Raylib.CloseWindow();
+                        goto start;
+                    }
+                    
                     SetRenderer(vm);
                     changeDisplayMode = false;
                 }
@@ -111,7 +128,7 @@ void main() {
                 
                 Raylib.BeginDrawing();
                 _renderer!.Draw(vm);
-
+                
                 if (DrawFps) {
                     Raylib.DrawFPS(8, 8);
                 }

@@ -85,7 +85,7 @@ public class DisplayModeTiled : IDisplayModeRenderer {
 
             byte attributes = vm.Read8(pointer);
             pointer++;
-            byte palette = (byte)(attributes & 0b1111);
+            byte palette = (byte)(attributes & 0b111);
             bool hFlip = ((attributes >> 4) & 0b1) != 0;
             bool vFlip = ((attributes >> 5) & 0b1) != 0;
             bool drawBehind = ((attributes >> 6) & 0b1) != 0;
