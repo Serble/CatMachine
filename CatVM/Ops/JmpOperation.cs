@@ -5,16 +5,16 @@ namespace CatVM.Ops;
 public static class JmpOperation {
 
     public static void JmpRI(CatVM vm) => ConditionalJmp(vm, _ => true);
-    public static void JzRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.ZeroFlag);  // jz
-    public static void JnzRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.ZeroFlag);  // jnz
-    public static void JlRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.SignFlag != v.Cpu.OverflowFlag);  // jil
-    public static void JleRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.ZeroFlag || v.Cpu.SignFlag != v.Cpu.OverflowFlag);  // jile
-    public static void JgRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.ZeroFlag && v.Cpu.SignFlag == v.Cpu.OverflowFlag);  // jug
-    public static void JgeRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.SignFlag == v.Cpu.OverflowFlag);  // jige
-    public static void JaRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.CarryFlag && !v.Cpu.ZeroFlag);  // jug
-    public static void JaeRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.CarryFlag);  // juge
-    public static void JbRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.CarryFlag);  // jul
-    public static void JbeRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.CarryFlag || v.Cpu.ZeroFlag);  // jule
+    public static void JzRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.ZeroFlag);
+    public static void JnzRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.ZeroFlag);
+    public static void JilRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.SignFlag != v.Cpu.OverflowFlag);
+    public static void JileRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.ZeroFlag || v.Cpu.SignFlag != v.Cpu.OverflowFlag);
+    public static void JigRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.ZeroFlag && v.Cpu.SignFlag == v.Cpu.OverflowFlag);
+    public static void JigeRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.SignFlag == v.Cpu.OverflowFlag);
+    public static void JugRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.CarryFlag && !v.Cpu.ZeroFlag);
+    public static void JugeRI(CatVM vm) => ConditionalJmp(vm, v => !v.Cpu.CarryFlag);
+    public static void JulRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.CarryFlag);
+    public static void JuleRI(CatVM vm) => ConditionalJmp(vm, v => v.Cpu.CarryFlag || v.Cpu.ZeroFlag);
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ConditionalJmp(CatVM vm, Func<CatVM, bool> condition) {
