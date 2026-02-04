@@ -1,0 +1,38 @@
+<idea-plugin>
+    <id>com.serble.catmachine.catasm</id>
+    <name>CatASM Language Support</name>
+    <vendor email="support@serble.net" url="https://github.com/Serble/CatMachine">Serble</vendor>
+
+    <description><![CDATA[
+        Provides language support for CatASM (Cat Assembly), the assembly language for Cat Machine.
+        
+        Features:
+        <ul>
+            <li>Syntax highlighting for CatASM files (.asm)</li>
+            <li>Recognition of instructions, registers, labels, and directives</li>
+            <li>Support for comments and constants</li>
+            <li>Custom file type with icon</li>
+        </ul>
+        
+        CatASM is a custom assembly language designed for the Cat Machine virtual machine architecture.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- File Type -->
+        <fileType name="CatASM File"
+                  implementationClass="com.serble.catmachine.catasm.CatAsmFileType"
+                  fieldName="INSTANCE"
+                  language="CatASM"
+                  extensions="asm"/>
+        
+        <!-- Language -->
+        <lang.parserDefinition language="CatASM"
+                               implementationClass="com.serble.catmachine.catasm.CatAsmParserDefinition"/>
+        
+        <!-- Syntax Highlighter -->
+        <lang.syntaxHighlighterFactory language="CatASM"
+                                       implementationClass="com.serble.catmachine.catasm.CatAsmSyntaxHighlighterFactory"/>
+    </extensions>
+</idea-plugin>

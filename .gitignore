@@ -10,3 +10,8 @@ riderModule.iml
 **/output.bin
 **/output.bin.debug
 **/BenchmarkDotNet.Artifacts
+
+# IntelliJ Plugin Build
+CatASM-IntelliJ-Plugin/.gradle/
+CatASM-IntelliJ-Plugin/build/
+CatASM-IntelliJ-Plugin/.idea/
