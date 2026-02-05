@@ -16,12 +16,19 @@ syntax match catnipComment "\s*//.*$"
 highlight def link catnipComment Comment
 
 " --- Highlight Strings ---
-syntax region catnipString start=+"+ skip=+\\\\\|\\"+ end=+"+
+syntax region catnipString start=+"+ skip=+\\\\\|\\"+ end=+"+ contains=catnipEscape
 highlight def link catnipString String
+
+syntax region asmChar start=+'+ end=+'+ contains=catnipEscape,catnipNumber oneline
+highlight link asmChar Number
+
+syntax match catnipEscape /\\./ contained
+highlight link catnipEscape SpecialChar
 
 " --- Highlight Numbers (decimal, hex) ---
 syntax match catnipNumber "\<0x[0-9A-Fa-f]\+\>"
 syntax match catnipNumber "\<[0-9]\+\>"
+syntax match asmCharContent /[ -~]/ contained
 highlight def link catnipNumber Number
 
 " --- Highlight Keywords (fun, struct, global, let, return, if, etc.) ---

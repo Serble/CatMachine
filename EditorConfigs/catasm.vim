@@ -26,13 +26,19 @@ highlight def link asmDirective PreProc
 " 5. Number literals: decimal, hex, char ('A'), binary
 syntax match asmNumber "\<0x[0-9A-Fa-f]\+\>"
 syntax match asmNumber "\<0b[01]\+\>"
-syntax match asmNumber "'[ -~]'"
+syntax match asmCharContent /[ -~]/ contained
 syntax match asmNumber "\<[0-9]\+\>"
 highlight def link asmNumber Number
 
 " 6. Strings: "..."
-syntax region asmString start=+\"+ skip=+\\\\\|\\"+ end=+\"+
+syntax region asmString start=+\"+ skip=+\\\\\|\\"+ end=+\"+ contains=catnipEscape
 highlight def link asmString String
+
+syntax region asmChar start=+'+ end=+'+ contains=catnipEscape,asmNumber oneline
+highlight link asmChar Number
+
+syntax match catnipEscape /\\./ contained
+highlight link catnipEscape SpecialChar
 
 " 7. Comments: ; to end of line
 syntax match asmComment ";.*$"

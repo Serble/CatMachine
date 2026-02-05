@@ -37,6 +37,30 @@ public static class MathsParser {
             let dec = first + rest
             select (Expr)new Literal(Convert.ToUInt64(dec.Replace("_", ""), 10))
         )
+        // Char ('A' or '\n')
+        .Or(
+            from openQuote in Parse.Char('\'')
+            from content in 
+                // Handle escaped char: e.g. '\n', '\''
+                Parse.Char('\\').Then(_ => Parse.AnyChar.Select(escaped => escaped switch {
+                        '\'' => '\'',
+                        '\"' => '\"',
+                        '\\' => '\\',
+                        '0'  => '\0',
+                        'a'  => '\a',
+                        'b'  => '\b',
+                        'f'  => '\f',
+                        'n'  => '\n',
+                        'r'  => '\r',
+                        't'  => '\t',
+                        'v'  => '\v',
+                        's'  => ' ',
+                        _ => escaped // Unknown escapes just literal
+                    }))
+                    .Or(Parse.CharExcept(c => c is '\'' or '\\', "")) // Normal character except quote and backslash
+            from closeQuote in Parse.Char('\'')
+            select (Expr)new Literal((ulong)content)
+        )
         // Variables (identifiers)
         .Or(
             from ident in Parse.Letter.Or(Parse.Char('_'))

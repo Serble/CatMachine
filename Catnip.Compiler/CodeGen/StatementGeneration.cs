@@ -112,7 +112,6 @@ public partial class CodeGenerator {
                     }
 
                     // generate body statements
-                    file.Label(loopLabel + "_start");
                     foreach (Statement thenStmnt in whileStatement.BodyStatements) {
                         GenerateStatement(thenStmnt, file, indent);
                     }

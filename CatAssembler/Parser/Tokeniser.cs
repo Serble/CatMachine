@@ -182,7 +182,7 @@ public partial class Tokeniser {
 
         Match stringMatch = StringMatcher().Match(text);
         if (!stringMatch.Success) {
-            return new NumberExpression(raw, PreprocessExpression(text), pointer);
+            return new NumberExpression(raw, text, pointer);
         }
 
         if (pointer) {
@@ -242,90 +242,6 @@ public partial class Tokeniser {
     private void Fail(string msg) {
         throw new ParseException(_file, _line + _lineOffset, msg);
     }
-    
-    // Preprocesses an input expression, replacing parseable numbers with their uint decimal value
-    public static string PreprocessExpression(string expr) {
-        return ExpressionMatcher().Replace(expr, match => 
-            TryParseNumber(match.Value, out uint val) ? val.ToString() : match.Value);
-    }
-    
-    private static bool TryParseNumber(string text, out uint value) {
-        value = 0;
-        if (string.IsNullOrWhiteSpace(text)) {
-            return false;
-        }
-
-        text = text.Trim();
-
-        if (text.Length >= 3 && text[0] == '\'') {
-            if (text[1] == '\\') {
-                if (text is not ['\'', '\\', _, '\'']) {
-                    return false;
-                }
-                
-                value = text[2] switch {
-                    '\'' => '\'',
-                    '\"' => '\"',
-                    '\\' => '\\',
-                    '0'  => '\0',
-                    'a'  => '\a',
-                    'b'  => '\b',
-                    'f'  => '\f',
-                    'n'  => '\n',
-                    'r'  => '\r',
-                    't'  => '\t',
-                    'v'  => '\v',
-                    's'  => ' ',
-                    _ => uint.MaxValue
-                };
-                
-                return value != uint.MaxValue;
-            }
-            
-            if (text is not ['\'', _, '\'']) {
-                return false;
-            }
-            
-            value = text[1];
-            return true;
-        }
-        
-        text = text.Replace("_", "").Trim();
-
-        bool negative = text.StartsWith('-');
-        if (negative) {
-            text = text[1..];
-        }
-
-        int numberBase = 10;
-
-        if (text.StartsWith("0b", StringComparison.OrdinalIgnoreCase)) {
-            numberBase = 2;
-            text = text[2..];
-        }
-        else if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) {
-            numberBase = 16;
-            text = text[2..];
-        }
-        else if (text.StartsWith("0o", StringComparison.OrdinalIgnoreCase)) {
-            numberBase = 8;
-            text = text[2..];
-        }
-
-        try {
-            value = Convert.ToUInt32(text, numberBase);
-            if (negative) {
-                value = unchecked((uint)-(int)value);
-            }
-            return true;
-        }
-        catch {
-            return false;
-        }
-    }
-
-    [GeneratedRegex(@"(0x[0-9a-fA-F_]+|0b[01_]+|0o[0-7_]+|'([^']|\\[\\'""0abfnrtvs])'|\d+)")]
-    private static partial Regex ExpressionMatcher();
 
     [GeneratedRegex("""^"((?:(?!.*[^\\]\\[^\\'"0abfnrtvs])(?:[^"]|[^\\]\\")*)(?:[^\\]|\\\\)|)"$""")]
     private static partial Regex StringMatcher();
