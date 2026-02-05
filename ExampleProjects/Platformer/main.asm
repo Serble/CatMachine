@@ -17,7 +17,7 @@ jmp main
 #const INT_PANIC, 0x09
 #const INT_DEBUG_PRINT, 0x90
 #const INT_PRINT, 0x80
-#const INT_GET_DISP_BUFF, 0x84
+#const INT_SET_DISP_MODE, 0x87
 #const INT_UPDATE_DISP, 0x86
 #const INT_GET_TIME, 0x85
 
@@ -83,7 +83,7 @@ held_up:
 held_down:
     d8 0
 disp_buff:
-    d32 0
+    res8 SCREEN_BUFF_SIZE
 
 ; =================
 ; Code section
@@ -97,8 +97,13 @@ main:
     ; load the display buffer into memory
     ; we do this because memory loads are 
     ; much faster than interrupts.
-    int INT_GET_DISP_BUFF
-    mov @disp_buff, r0
+    mov r1, 0x00
+    mov r2, disp_buff
+    int INT_SET_DISP_MODE
+    
+    ; returns status code in r0
+    cmp r0, 0
+    jne panic
     
     ; show title screen
     mov r1, title_screen

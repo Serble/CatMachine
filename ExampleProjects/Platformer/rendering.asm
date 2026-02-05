@@ -62,7 +62,7 @@ draw_level:
 
 ; paint background colour over where the player is
 unrender_player:
-    mov r0, @disp_buff
+    mov r0, disp_buff
 
     mov r1, @last_draw_player_y ; player start y
     mov r2, @last_draw_player_x ; player start x
@@ -119,7 +119,7 @@ render_player:
 ; draw a 512x512 image onto the screen
 ; img pointer in r1
 draw_screen:
-    mov r0, @disp_buff
+    mov r0, disp_buff
     cpy r1, SCREEN_BUFF_SIZE
     ret
 
@@ -130,7 +130,7 @@ draw_screen:
 fill_screen:
     push r4
     
-    mov r0, @disp_buff          ; start of buffer (to change)
+    mov r0, disp_buff          ; start of buffer (to change)
     mov r4, r0                  ; place buffer start in r4 (to never change)
     mov r2, SCREEN_BUFF_SIZE    ; buffer size
     
@@ -184,7 +184,7 @@ draw_rect:
     cmp r4, SCREEN_HEIGHT
     juge panic
     
-    mov r0, @disp_buff
+    mov r0, disp_buff
     
     umul r3, 4                  ; multiply width by 4 to get line byte count (4 bytes per pixel)
     
@@ -247,7 +247,7 @@ draw_recta:
     cmp r4, SCREEN_HEIGHT
     juge panic
     
-    mov r0, @disp_buff
+    mov r0, disp_buff
     
     umul r1, 4                  ; turn x into pixel offset from left
     add r0, r1                  ; add it to start
