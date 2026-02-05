@@ -49,7 +49,7 @@ jmp main
 ; =================
 ; Data Section
 ; =================
-#include levels.asm
+#include levels.cat
 
 title_screen:
     dfile title_img.data
@@ -89,9 +89,9 @@ disp_buff:
 ; Code section
 ; =================
 
-#include utils.asm
-#include physics.asm
-#include rendering.asm
+#include utils.cat
+#include physics.cat
+#include rendering.cat
 
 main:
     ; load the display buffer into memory

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Constants
-MAIN_FILE=main.asm
+MAIN_FILE=main.cat
 
 echo "Assembling..."
 dotnet run --project ../../CatAssembler/CatAssembler.csproj $MAIN_FILE -o a.out
