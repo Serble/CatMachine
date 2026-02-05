@@ -3,7 +3,7 @@ using Catnip.Compiler.Ast;
 namespace Catnip.Compiler.Analysis;
 
 public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
-    private static readonly string[] ValidRegisters = [
+    public static readonly string[] ValidRegisters = [
         "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
         "fl", "sp", "ip", "it"  // probably don't use these
     ];

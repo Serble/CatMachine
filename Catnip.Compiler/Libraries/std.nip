@@ -1,3 +1,33 @@
+#define SPRITE_VISIBLE, 0b10000000
+#define SPRITE_DRAW_BEHIND, 0b01000000
+#define SPRITE_V_FLIP, 0b00100000
+#define SPRITE_H_FLIP, 0b00010000
+
+struct Pixel {
+    blue:1;
+    green:1;
+    red:1;
+    alpha:1;
+}
+
+struct TileMode {
+    clear_colour:4;
+    palettes:512;
+    images:32768;
+    tile_scroll_x:1;
+    tile_scroll_y:1;
+    tile_indexes:884;
+    tile_palettes:442;
+    sprites:256;
+}
+
+struct Sprite {
+    image_index:1;
+    attributes:1;
+    x_pos:2;
+    y_pos:2;
+    rotation:2;
+}
 
 fun debug_num(n:4) {
     ~~~r1[n:4] | | ;
@@ -11,11 +41,13 @@ fun print(s:4) {
     ~~~
 }
 
-fun get_display_buffer() {
-    ~~~ | | ;
-    int 0x84
+// change the display mode and return
+// 0 for success, non zero for failure.
+fun set_display_mode(mode:4, buff_addr:4) {
+    ~~~r1[mode:4], r2[buff_addr:4] | | ;
+    int 0x87
     ~~~
-    // r0 is now the display buffer address
+    // r0 is now success or failure
 }
 
 fun update_display() {

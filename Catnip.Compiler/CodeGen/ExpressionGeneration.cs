@@ -5,9 +5,9 @@ namespace Catnip.Compiler.CodeGen;
 public partial class CodeGenerator {
     
     private (string? value, string reg, bool preserve) GenerateExprInScratchRegOrGetConst(
-        IValueExpression expr, AssemblyFileBuilder file, bool indent) {
+        IValueExpression expr, AssemblyFileBuilder file, bool indent, params string[] not) {
         
-        (string scratch, bool preserve) = AllocateRegister();
+        (string scratch, bool preserve) = AllocateRegister(not);
         
         AssemblyFileBuilder tempFile = new();
         string? constValue = ResolveExpr(expr, scratch, tempFile, indent);
@@ -141,7 +141,8 @@ public partial class CodeGenerator {
                 
                 // temp because we might not want it if both sides are constant
                 AssemblyFileBuilder rightSetData = new();
-                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(bo.Right, rightSetData, indent);
+                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(bo.Right, 
+                    rightSetData, indent, reg);
 
                 // IS A VALUE 0?
                 
@@ -211,7 +212,7 @@ public partial class CodeGenerator {
                     }
                 }
                 
-                if (constLeftStr != null && constLeft != null) {
+                if (constLeft != null) {
                     // divide depends on the order (so doesn't apply here)
                     switch (bo.Operator) {
                         case BinaryOperationType.SignedMultiply:
@@ -273,14 +274,28 @@ public partial class CodeGenerator {
                 }
                 
                 // we do need to do it at runtime
-                if (constLeftStr != null && constLeft == null) {
-                    // left is constant but not numerical, we need to put it in the register
+                if (constLeftStr != null) {
+                    // left is constant but not evaluatable, we need to put it in the register
                     file.Append(indent, $"mov {reg}, {constLeftStr}  ; Load compile-time constant into register");
                 }
                 file.Append(leftSetData);
                 file.Append(rightSetData);  // scratch reg now has the right value
                 
                 string arg2 = value ?? scratch;
+                if (value != null && bo.Operator 
+                        is BinaryOperationType.UnsignedDivide 
+                        or BinaryOperationType.SignedDivide 
+                        or BinaryOperationType.UnsignedModulus 
+                        or BinaryOperationType.SignedModulus) {
+                    // these instructions require reg, reg args.
+                    // so we need to move the constant to a register
+                    (scratch, preserve) = AllocateRegister(reg);
+                    if (preserve) {
+                        file.Push(indent, scratch);
+                    }
+                    file.Append(indent, $"mov {scratch}, {value}  ; Move constant divisor/modulus to register for division/modulus operation");
+                    arg2 = scratch;
+                }
                 
                 if (bo.IsMathematical()) {  // all regular ops
                     string instruction = bo.Operator switch {
@@ -295,8 +310,8 @@ public partial class CodeGenerator {
                         BinaryOperationType.BitwiseAnd => "and",
                         BinaryOperationType.BitwiseOr => "or",
                         BinaryOperationType.BitwiseXor => "xor",
-                        // BinaryOperationType.LeftShift => "shl",  THIS DOESNT EXIST YET
-                        // BinaryOperationType.RightShift => "shr", THIS DOESNT EXIST YET
+                        BinaryOperationType.LeftShift => "shl",
+                        BinaryOperationType.RightShift => "shr",
                         _ => throw new InvalidOperationException($"Mathematical operation not implemented for '{bo.Operator}'.")
                     };
                     file.Append(indent, $"{instruction} {reg}, {arg2}  ; Perform binary operation");

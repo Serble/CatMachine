@@ -1,3 +1,4 @@
+using Catnip.Compiler.Analysis;
 using Catnip.Compiler.Ast;
 
 namespace Catnip.Compiler.CodeGen;
@@ -96,6 +97,10 @@ public partial class CodeGenerator {
 
             case WhileStatement whileStatement: {
                 string loopLabel = GetUniqueLogicLabel();
+                
+                file.Comment("While Loop", indent);
+                file.Label(loopLabel + "_start");
+                
                 (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(whileStatement.Condition, file, indent);
 
                 if (value != null) {
@@ -115,7 +120,6 @@ public partial class CodeGenerator {
                     break;
                 }
                 
-                file.Label(loopLabel + "_start");
                 file.Append(indent, 
                     $"cmp {scratch}, 0",
                     $"je {loopLabel}_end  ; if condition is false, exit loop");
@@ -233,7 +237,10 @@ public partial class CodeGenerator {
             throw new Exception("Variable assignment target must be a dereference operation.");
         }
 
-        (string? value, string reg, bool preserve) = GenerateExprInScratchRegOrGetConst(deref.Left, file, indent);
+        // if the source value is a register, we can't use it to get the addr
+        string[] dontGiveRegisters = Analyser.ValidRegisters.Contains(sourceValue) ? [sourceValue] : [];
+        (string? value, string reg, bool preserve) = GenerateExprInScratchRegOrGetConst(deref.Left, file, 
+            indent, dontGiveRegisters);
         string src = value ?? reg;
         
         int size = (int)ResolveCompileConstant(CompileTimeValue.From(deref.Right));
