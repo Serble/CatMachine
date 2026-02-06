@@ -126,25 +126,46 @@ public partial class Tokeniser {
     private IExpression[] ParseExpressionList(string input) {
         List<IExpression> exprs = [];
         StringBuilder current = new();
-
-        int parenDepth = 0;
-        foreach (char c in input) {
-            if (c == ',' && parenDepth == 0) {
-                exprs.Add(ParseExpression(current.ToString()));
-                current.Clear();
-            }
-            else {
-                if (c == '(') {
-                    parenDepth++;
-                }
-                else if (c == ')') {
-                    parenDepth--;
-                }
-
-                current.Append(c);
-            }
-        }
         
+        int parenDepth = 0;
+        int inQuotes = 0;
+        
+        for (int i = 0; i < input.Length; i++) {
+            char c = input[i];
+            if (inQuotes != 0) {
+                if ((inQuotes == 1 && c == '"') || (inQuotes == 2 && c == '\'')) {
+                    inQuotes = 0;
+                }
+                
+                current.Append(c);
+                continue;
+            }
+            
+            switch (c) {
+                case '\\':
+                    i++; // skip next character
+                    continue;
+                case ',' when parenDepth == 0:
+                    exprs.Add(ParseExpression(current.ToString()));
+                    current.Clear();
+                    continue;
+                case '(':
+                    parenDepth++;
+                    break;
+                case ')':
+                    parenDepth--;
+                    break;
+                case '"':
+                    inQuotes = 1;
+                    break;
+                case '\'':
+                    inQuotes = 2;
+                    break;
+            }
+
+            current.Append(c);
+        }
+
         if (current.Length > 0) {
             exprs.Add(ParseExpression(current.ToString()));
         }
@@ -173,8 +194,21 @@ public partial class Tokeniser {
             return new RegisterExpression(raw, reg, pointer);
         }
         
-        text = LocalLabelMatcher().Replace(text, match => 
-            TransformLocalLabel(match.Groups[0].Value[1..]));
+        text = LocalLabelMatcher().Replace(text, match => {
+            bool isInString = false;
+            for (int i = 0; i < match.Index; i++) {
+                switch (text[i]) {
+                    case '\\': // skip next character
+                        i++;
+                        continue;
+                    case '"':
+                        isInString = !isInString;
+                        break;
+                }
+            }
+            
+            return isInString ? match.Groups[0].Value : TransformLocalLabel(match.Groups[0].Value[1..]);
+        });
 
         if (!pointer && NameMatcher().IsMatch(text)) {
             return new NameExpression(raw, text);
@@ -252,6 +286,6 @@ public partial class Tokeniser {
     [GeneratedRegex("^.?[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex LabelMatcher();
     
-    [GeneratedRegex("(?<=([^a-zA-Z]|^))\\.[A-Za-z_][A-Za-z0-9_]*")]
+    [GeneratedRegex(@"(?<=\s|,|^)\.[A-Za-z_][A-Za-z0-9_]*")]
     private static partial Regex LocalLabelMatcher();
 }
