@@ -154,11 +154,11 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         // black bars (draw after everything so you cant see sprites outside the screen bounds)
         if (dest.X != 0) {
             Raylib.DrawRectangle(0, 0, (int)dest.X, Raylib.GetRenderHeight(), Color.Black);
-            Raylib.DrawRectangle((int)(dest.X + dest.Width), 0, (int)dest.X, Raylib.GetRenderHeight(), Color.Black);
+            Raylib.DrawRectangle((int)(dest.X + dest.Width), 0, (int)dest.X + 100, Raylib.GetRenderHeight(), Color.Black);
         }
         else {
             Raylib.DrawRectangle(0, 0, Raylib.GetRenderWidth(), (int)dest.Y, Color.Black);
-            Raylib.DrawRectangle(0, (int)(dest.Y + dest.Height), Raylib.GetRenderWidth(), (int)dest.Y, Color.Black);
+            Raylib.DrawRectangle(0, (int)(dest.Y + dest.Height), Raylib.GetRenderWidth(), (int)dest.Y + 100, Color.Black);
         }
     }
 
