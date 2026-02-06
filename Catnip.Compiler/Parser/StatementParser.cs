@@ -87,13 +87,13 @@ public static class StatementParser {
         from thenLBrace in Parse.Char('{').Token()
         from thenStatements in StatementElement.Many()
         from thenOptionalSemicolon in Parse.Char(';').Token().Optional()
-        from thenRBrace in Parse.Char('}').Token()
+        from thenRBrace in Parse.Char('}').Token().Named(CodeParser.FunctionBodyEndExpectation)
         from elsePart in
             (from elseKeyword in Parse.String("else").Token()
              from elseLBrace in Parse.Char('{').Token()
              from elseStatements in StatementElement.Many()
              from elseOptionalSemicolon in Parse.Char(';').Token().Optional()
-             from elseRBrace in Parse.Char('}').Token()
+             from elseRBrace in Parse.Char('}').Token().Named(CodeParser.FunctionBodyEndExpectation)
              select elseStatements).Optional()
         from trailing in CodeParser.Ignored
         select new IfStatement(
@@ -114,7 +114,7 @@ public static class StatementParser {
         from lbrace in Parse.Char('{').Token()
         from bodyStatements in StatementElement.Many()
         from optionalSemicolon in Parse.Char(';').Token().Optional()
-        from rbrace in Parse.Char('}').Token()
+        from rbrace in Parse.Char('}').Token().Named(CodeParser.FunctionBodyEndExpectation)
         from trailing in CodeParser.Ignored
         select new WhileStatement(condition, bodyStatements.ToArray());
     

@@ -5,7 +5,7 @@ using Sprache;
 namespace Catnip.Compiler.Parser;
 
 public static class CodeParser {
-    private const string FunctionBodyEndExpectation = "function body end ('}')";
+    public const string FunctionBodyEndExpectation = "block body end ('}')";
     
     /*
      * Comments:
@@ -138,7 +138,7 @@ public static class CodeParser {
         
         // okay it failed, let's see if we can dig deeper
         // did we fail on a function statement?
-        if (element.Expectations.Contains(FunctionBodyEndExpectation)) {
+        while (element.Expectations.Contains(FunctionBodyEndExpectation)) {
             // we failed in a statement most likely
             IResult<ParsedElement> statementElement = StatementParser.StatementElement(element.Remainder);
             if (!statementElement.WasSuccessful) {

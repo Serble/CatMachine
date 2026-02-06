@@ -68,7 +68,7 @@ public static class ExpressionParser {
             .Or(VariableToken);
 
     private static readonly Parser<IValueExpression> Postfix =
-        from primary in Parse.Ref(() => Unary)
+        from primary in Parse.Ref(() => Atom)
         from calls in CallSuffix.Many()
             .Concat(IndexSuffix.Many())
         select calls.Aggregate(primary, (expr, call) => call(expr));
@@ -131,7 +131,7 @@ public static class ExpressionParser {
     
     private static readonly Parser<IValueExpression> Unary =
         from ops in UnaryOp.Many()
-        from expr in Atom
+        from expr in Dereference
         select ops
             .Reverse()
             .Aggregate(expr, (acc, makeOp) => makeOp(acc));
@@ -150,7 +150,7 @@ public static class ExpressionParser {
     private static readonly Parser<IValueExpression> MulDivMod =
         Parse.ChainOperator(
             Op("*", "/", "~*", "~/", "%", "~%"),
-            Dereference,
+            Unary,
             (op, left, right) => new BinaryOperation(left, op switch {
                 "*" => BinaryOperationType.UnsignedMultiply,
                 "/" => BinaryOperationType.UnsignedDivide,

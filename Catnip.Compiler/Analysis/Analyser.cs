@@ -8,20 +8,22 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
         "fl", "sp", "ip", "it"  // probably don't use these
     ];
     
-    private readonly Queue<int> _scopes = [];  // each scope is length of locals at scope start
+    private readonly Stack<int> _scopes = [];  // each scope is length of locals at scope start
     
     private readonly List<Struct> _structs = [];
     private readonly List<Function> _functions = [];
 
     private readonly List<string> _locals = [];
+    private readonly List<string> _globals = [];
     private readonly List<(ParsedElement Element, string Struct, string? Member)> _neededStructs = [];
     private readonly List<(ParsedElement Element, string FunctionName, IValueExpression[] Args)> _functionCalls = [];
     private readonly List<(ParsedElement Element, CompileTimeValue Size)> _mustBeMovCompatible = [];
+    private readonly List<(ParsedElement Element, string GlobalName)> _neededGlobals = [];
     
     private readonly List<CompilationFailureException> _errors = [];
 
     private void BeginScope() {
-        _scopes.Enqueue(_locals.Count);
+        _scopes.Push(_locals.Count);
     }
 
     private void EndScope() {
@@ -29,9 +31,14 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
             throw new Exception("No scope to end.");
         }
 
-        int scopeStart = _scopes.Dequeue();
+        int scopeStart = _scopes.Pop();
         while (_locals.Count > scopeStart) {
             _locals.RemoveAt(_locals.Count - 1);
+        }
+
+        if (scopeStart != _locals.Count) {
+            throw new Exception("Scope end did not restore locals to correct state. Expected " + 
+                                scopeStart + " but got " + _locals.Count);
         }
     }
     
@@ -43,6 +50,9 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
 
     public CatProgram Analyse() {
         List<Statement> topLevelStatements = [];
+        
+        // these are all implicitly global, so add them to the global list right away
+        _globals.AddRange(binaryGlobals.Select(b => b.Name));
 
         // top level
         foreach (ParsedElement element in elements) {
@@ -67,6 +77,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                         _errors.Add(new CompilationFailureException(element, $"Function '{func.Name}' is already defined."));
                     }
                     _functions.Add(func);
+                    _globals.Add(func.Name);
                     _locals.Clear();
                     break;
                 }
@@ -113,6 +124,12 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
             if (resolvedSize is not (1 or 2 or 4)) {
                 _errors.Add(new CompilationFailureException(element, 
                     $"Size '{resolvedSize}' is not mov-compatible. Only sizes 1, 2 and 4 are allowed."));
+            }
+        }
+
+        foreach ((ParsedElement element, string neededGlobal) in _neededGlobals) {
+            if (!_globals.Contains(neededGlobal)) {
+                _errors.Add(new CompilationFailureException(element, $"Global variable '{neededGlobal}' is not defined."));
             }
         }
         
@@ -163,7 +180,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                     _mustBeMovCompatible.Add((statement, gd.Size));
                 }
                 
-                _locals.Add(gd.Name);
+                _globals.Add(gd.Name);
                 break;
             }
 
@@ -176,11 +193,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                     break;
                 }
 
-                if (!CompileTimeValue.IsValid(bo.Right)) {
-                    _errors.Add(new CompilationFailureException(statement, 
-                        "Variable assignment target must be compile time constant."));
-                    break;
-                }
+                AnalyseExpression(ass, bo);
                 
                 _mustBeMovCompatible.Add((statement, CompileTimeValue.From(bo.Right)));
                 break;
@@ -265,7 +278,11 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                 }
                 
                 case VariableToken vt: {
-                    // TODO: check existence?
+                    if (_locals.Contains(vt.Name)) {
+                        break;  // local variable, it exists
+                    }
+                    
+                    _neededGlobals.Add((element, vt.Name));  // global variable, will validate later
                     break;
                 }
 
@@ -278,6 +295,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                             if (!CompileTimeValue.IsValid(bo.Right)) {
                                 _errors.Add(new CompilationFailureException(element, 
                                     "Dereference size must be a compile-time constant."));
+                                break;
                             }
                             
                             // dereferences must be mov-compatible
