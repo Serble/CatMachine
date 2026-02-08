@@ -4,7 +4,7 @@ namespace Catnip.Compiler.CodeGen;
 
 public partial class CodeGenerator {
     
-    private (string? value, string reg, bool preserve) GenerateExprInScratchRegOrGetConst(
+    private (string? value, string? reg, bool preserve) GenerateExprInScratchRegOrGetConst(
         IValueExpression expr, AssemblyFileBuilder file, bool indent, params string[] not) {
         
         (string scratch, bool preserve) = AllocateRegister(not);
@@ -13,7 +13,7 @@ public partial class CodeGenerator {
         string? constValue = ResolveExpr(expr, scratch, tempFile, indent);
         if (constValue != null) {
             if (!preserve) FreeRegister(scratch);  // we didn't need the scratch reg after all
-            return (constValue, null!, false);
+            return (constValue, null, false);
         }
         
         // we do need the scratch reg
@@ -141,7 +141,7 @@ public partial class CodeGenerator {
                 
                 // temp because we might not want it if both sides are constant
                 AssemblyFileBuilder rightSetData = new();
-                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(bo.Right, 
+                (string? value, string? scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(bo.Right, 
                     rightSetData, indent, reg);
 
                 // IS A VALUE 0?
@@ -153,18 +153,12 @@ public partial class CodeGenerator {
                         case BinaryOperationType.BitwiseOr:
                         case BinaryOperationType.BitwiseXor:
                             // do nothing to the left
-                            if (!preserve) {
-                                FreeRegister(scratch);
-                            }
                             file.Append(leftSetData);
                             return constLeftStr;
                         
                         case BinaryOperationType.UnsignedMultiply:
                         case BinaryOperationType.SignedMultiply:
                             // multiplying by 0 results in 0
-                            if (!preserve) {
-                                FreeRegister(scratch);
-                            }
                             return "0";
                     }
                 }
@@ -177,7 +171,7 @@ public partial class CodeGenerator {
                         case BinaryOperationType.BitwiseOr:
                         case BinaryOperationType.BitwiseXor:
                             // do nothing to the left
-                            if (!preserve) {
+                            if (!preserve && scratch != null) {
                                 FreeRegister(scratch);
                             }
                             return ResolveExpr(bo.Right, reg, file, indent);
@@ -185,7 +179,7 @@ public partial class CodeGenerator {
                         case BinaryOperationType.UnsignedMultiply:
                         case BinaryOperationType.SignedMultiply:
                             // multiplying by 0 results in 0
-                            if (!preserve) {
+                            if (!preserve && scratch != null) {
                                 FreeRegister(scratch);
                             }
                             return "0";
@@ -202,9 +196,6 @@ public partial class CodeGenerator {
                         case BinaryOperationType.UnsignedDivide:
                             if (constRight == 1) {
                                 // do nothing to the left
-                                if (!preserve) {
-                                    FreeRegister(scratch);
-                                }
                                 file.Append(leftSetData);
                                 return constLeftStr;
                             }
@@ -218,8 +209,8 @@ public partial class CodeGenerator {
                         case BinaryOperationType.SignedMultiply:
                         case BinaryOperationType.UnsignedMultiply:
                             if (constLeft == 1) {
-                                // do nothing to the left
-                                if (!preserve) {
+                                // do nothing to the right
+                                if (!preserve && scratch != null) {
                                     FreeRegister(scratch);
                                 }
                                 return ResolveExpr(bo.Right, reg, file, indent);
@@ -234,12 +225,6 @@ public partial class CodeGenerator {
                     }
                     
                     // both sides are constants, we can just compute it now
-                    
-                    // so we don't need this register after all
-                    if (!preserve) {
-                        FreeRegister(scratch);
-                    }
-                    
                     uint result = bo.Operator switch {
                         BinaryOperationType.Add => constLeft.Value + rightCons.Value,
                         BinaryOperationType.Subtract => constLeft.Value - rightCons.Value,
@@ -281,7 +266,8 @@ public partial class CodeGenerator {
                 file.Append(leftSetData);
                 file.Append(rightSetData);  // scratch reg now has the right value
                 
-                string arg2 = value ?? scratch;
+                string arg2 = value ?? scratch 
+                    ?? throw new InvalidOperationException("Both value and scratch register were null while trying to resolve binop.");
                 if (value != null && bo.Operator 
                         is BinaryOperationType.UnsignedDivide 
                         or BinaryOperationType.SignedDivide 
@@ -346,6 +332,7 @@ public partial class CodeGenerator {
                     file.Label(doneOpLabel);
                 }
 
+                if (scratch == null) break;
                 if (preserve) {
                     file.Pop(indent, scratch);
                 }
@@ -486,7 +473,7 @@ public partial class CodeGenerator {
         int stackArgsCount = Math.Max(0, fc.Arguments.Length - CallingConventionArgRegisters.Length);
         if (stackArgsCount > 0) {
             int stackCleanupSize = 4 * stackArgsCount;  // assuming 4 bytes per argument (we have no way of knowing size)
-            file.Append(indent, $"add {BasePointerRegister}, {stackCleanupSize}  ; Clean up stack arguments");
+            file.Append(indent, $"add {StackPointerRegister}, {stackCleanupSize}  ; Clean up stack arguments");
         }
         
         // Free borrowed registers

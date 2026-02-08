@@ -1,0 +1,161 @@
+#include "std"
+#include "physics.nip"
+
+#define BACKGROUND_COLOUR, 0x365235
+
+#define TILE_SIZE, 16
+
+#define PLATFORM_IMG_INDEX, 1  
+#define PLAYER_IMG_INDEX, 2
+
+#define LEVEL_SIZE_BYTES, 768
+
+// 16 fractional bits
+#define PLAYER_SPEED, (1<<8)
+
+#binary IMAGE_PLATFORM, "data/platform.bin"
+#binary IMAGE_PLATFORM_PALETTE, "data/platform.palette.bin"
+#binary IMAGE_PLAYER, "data/player.bin"
+#binary IMAGE_PLAYER_PALETTE, "data/player.palette.bin"
+
+// levels
+#binary LEVEL1, "data/levels/level1.bin"
+
+global disp_buff:$TileMode;
+global player_sprite_addr:4;
+
+global current_level:1;
+
+// fixed point numbers
+// 8 fractional bits
+global player_x:4;
+global player_y:4;
+
+// Q8.8
+global player_vel_y:4;
+
+// inputs
+global held_left:1 = 0;
+global held_right:1 = 0;
+
+main();
+
+fun main() {
+    let changemode_status:4 = set_display_mode(0x11, disp_buff);
+    if (changemode_status:4 != 0) {
+        // error, i be sad
+        print("Failed to initialise display buffer!");
+        halt();
+    }
+
+    // okay we have a display buffer
+    disp_buff:4 = ${BACKGROUND_COLOUR};
+    //update_display();
+
+    memcpy(disp_buff[TileMode#images][${PLATFORM_IMG_INDEX}, 128], IMAGE_PLATFORM, 128);  // place platform image into mem
+    memcpy(disp_buff[TileMode#palettes][${PLATFORM_IMG_INDEX}, 64], IMAGE_PLATFORM_PALETTE, 64);  // and its palette
+
+    // now player 
+    memcpy(disp_buff[TileMode#images][${PLAYER_IMG_INDEX}, 128], IMAGE_PLAYER, 128);  // place platform image into mem
+    memcpy(disp_buff[TileMode#palettes][${PLAYER_IMG_INDEX}, 64], IMAGE_PLAYER_PALETTE, 64);  // and its palette
+
+    let player_sprite:$Sprite;
+    player_sprite[Sprite#image_index]:1 = ${PLAYER_IMG_INDEX};
+    player_sprite[Sprite#attributes]:1 = ${SPRITE_VISIBLE} | ${PLAYER_IMG_INDEX};
+    player_sprite[Sprite#x_pos]:2 = 100;
+    player_sprite[Sprite#y_pos]:2 = 100;
+    memcpy(disp_buff[TileMode#sprites][0, $Sprite], player_sprite, $Sprite);
+    player_sprite_addr:4 = disp_buff[TileMode#sprites][0, $Sprite];
+
+    load_level(1);
+    update_display();
+
+    // game loop
+    let target_time:4 = 0;
+    while (1) {
+        target_time:4 = get_uptime() + 16;  // wait 16ms
+        
+        // do work here
+        handle_inputs();
+        handle_movement();
+        tick_physics();
+        update_player_pos();
+        update_display();
+
+        while (get_uptime() < target_time:4) { }
+    }
+
+    update_display();
+    halt();
+}
+
+
+fun update_player_pos() {
+    (player_sprite_addr:4)[Sprite#x_pos]:2 = player_x:4 >> 8;
+    (player_sprite_addr:4)[Sprite#y_pos]:2 = player_y:4 >> 8;
+}
+
+
+fun handle_inputs() {
+    let type:4;  // will be set to 0 for down, 1 for up (so invert before setting)
+    while (1) {
+        let inp:4 = poll_input(type);
+        if (inp:4 == -1) {
+            return;
+        }
+
+        if (inp:4 == 'A') {
+            held_left:1 = !type:4;
+            return;
+        }
+        if (inp:4 == 'D') {
+            held_right:1 = !type:4;
+            return;
+        }
+    }
+}
+
+fun handle_movement() {
+    let x_dir:4 = held_right:1 - held_left:1;  // 32bit so negatives work
+    let x_offset:4 = x_dir:4 ~* ${PLAYER_SPEED};  // no shifting because x_dir isn't fixed point
+    player_x:4 = player_x:4 + x_offset:4;  // move them
+}
+
+
+fun load_level(id:1) {
+    let level_ptr:4 = LEVEL1[id:1-1, ${LEVEL_SIZE_BYTES}];
+
+    let i:2 = 0;
+    let j:2;
+    while (i:2 < 24) {
+        j:2 = 0;
+        while (j:2 < 32) {
+            // set tile (j, i) to be set if it's set in leveldata
+            let type:1 = level_ptr:4:1;
+            level_ptr:4 = level_ptr:4 + 1;
+
+            let tile_index:4 = (i:2*34)+j:2;
+            
+            disp_buff[TileMode#tile_indexes][tile_index:4]:1 = ${PLATFORM_IMG_INDEX};
+            let palette_offset:4 = disp_buff[TileMode#tile_palettes][tile_index:4/2];
+
+            if (type:1) {
+                palette_offset:4:1 = palette_offset:4:1 | ${PLATFORM_IMG_INDEX} << ((1 - (tile_index:4 % 2))*4);
+            } else {
+                let mask:1 = 0x0F;
+                if (tile_index:4 % 2 == 1) {
+                    mask:1 = 0xF0;
+                }
+                palette_offset:4:1 = palette_offset:4:1 & mask:1;
+            }
+            
+            j:2 = j:2 + 1;
+        }
+
+        i:2 = i:2 + 1;
+    }
+
+    current_level:1 = id:1;
+}
+
+

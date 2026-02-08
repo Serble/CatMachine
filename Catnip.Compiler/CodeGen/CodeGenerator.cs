@@ -34,7 +34,7 @@ public partial class CodeGenerator(CatProgram program) {
     /// <summary>
     /// Used to generate unique labels for logic jumps (if/else/while).
     /// </summary>
-    private int _logicJumpCounter = 0;
+    private int _logicJumpCounter;
 
     /// <summary>
     /// List of application strings that have been needed and
@@ -63,6 +63,7 @@ public partial class CodeGenerator(CatProgram program) {
     
     private const string BasePointerRegister = "r7";
     private const string DefaultReturnRegister = "r0";
+    private const string StackPointerRegister = "sp";
     
     /// <summary>
     /// Registers that must be preserved across function calls.
@@ -85,18 +86,19 @@ public partial class CodeGenerator(CatProgram program) {
     /// <returns>The register that has been allocated and whether it must be preserved.</returns>
     private (string reg, bool preserve) AllocateRegister(params string[] except) {
         Stack<string> tempStack = new();
-        bool found = false;
         string? allocatedRegister = null;
         
         // Try to find a free register that is not in the except list
         while (_freeRegisters.Count > 0) {
             string reg = _freeRegisters.Pop();
+            if (reg == null) {
+                throw new Exception("Unexpected null register in free registers stack.");
+            }
             if (except.Contains(reg)) {
                 tempStack.Push(reg);  // keep it aside
                 continue;
             }
             allocatedRegister = reg;
-            found = true;
             break;
         }
         
@@ -105,7 +107,7 @@ public partial class CodeGenerator(CatProgram program) {
             _freeRegisters.Push(tempStack.Pop());
         }
         
-        if (found && allocatedRegister != null) {
+        if (allocatedRegister != null) {
             if (!_usedRegisters.Contains(allocatedRegister)) {
                 _usedRegisters.Add(allocatedRegister);  // mark as used by this function
             }
@@ -138,6 +140,9 @@ public partial class CodeGenerator(CatProgram program) {
             Stack<string> tempStack = new();
             while (_freeRegisters.Count > 0) {
                 string reg = _freeRegisters.Pop();
+                if (reg == null) {
+                    throw new Exception("Unexpected null register in free registers stack.");
+                }
                 if (reg == register) {
                     break;  // found the register to allocate
                 }
@@ -163,6 +168,9 @@ public partial class CodeGenerator(CatProgram program) {
     /// </summary>
     /// <param name="register">The register to return.</param>
     private void FreeRegister(string register) {
+        if (!GeneralPurposeRegisters.Contains(register)) {
+            throw new Exception($"Attempting to free invalid register '{register}'.");
+        }
         if (_freeRegisters.Contains(register)) {
             return;
         }
@@ -292,6 +300,12 @@ public partial class CodeGenerator(CatProgram program) {
             GenerateStatement(statement, tempBody);
         }
         
+        // if not all the registers are free then a bug has occurred in the register allocator,
+        // so we can just throw an exception here.
+        if (_freeRegisters.Count != GeneralPurposeRegisters.Length) {
+            throw new Exception("Register allocation bug detected: free registers and used registers do not add up to total registers.");
+        }
+        
         // let's record all the information we have so far
         int preservedRegisterCount = _usedRegisters.Count(usedReg => CalleeSavedRegisters.Contains(usedReg));
         if (_currentStackOffset > 0) {
@@ -320,7 +334,7 @@ public partial class CodeGenerator(CatProgram program) {
             if (i >= CallingConventionArgRegisters.Length) {
                 // Stack argument
                 // get the negative offset from base pointer
-                int offsetFromBp = stackSpaceBeforeStackArgs + 4 * (i - CallingConventionArgRegisters.Length + 1);
+                int offsetFromBp = stackSpaceBeforeStackArgs + 4 * (i - CallingConventionArgRegisters.Length);
                 _localVarOffsets[param.Name] = -offsetFromBp;
                 continue;
             }
@@ -332,10 +346,11 @@ public partial class CodeGenerator(CatProgram program) {
 
         // Get the body first to know which registers are used
         AssemblyFileBuilder body = new();
-        foreach (Statement statement in function.Statements) {
-            GenerateStatement(statement, body);
+        for (int i = 0; i < function.Statements.Length; i++) {
+            Statement statement = function.Statements[i];
+            GenerateStatement(statement, body, isLastInFunc:i == function.Statements.Length - 1);
         }
-        
+
         // now we have the body, and also know which registers were used
         // we can generate the prologue and epilogue
         // we also don't need to bother with the base pointer if there are no locals

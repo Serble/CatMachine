@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Catnip.Compiler.Analysis;
 using Catnip.Compiler.Ast;
 
@@ -5,7 +6,7 @@ namespace Catnip.Compiler.CodeGen;
 
 public partial class CodeGenerator {
     
-    private void GenerateStatement(Statement statement, AssemblyFileBuilder file, bool indent = true) {
+    private void GenerateStatement(Statement statement, AssemblyFileBuilder file, bool indent = true, bool isLastInFunc = false) {
         switch (statement) {
             case LocalDeclaration localDeclaration: {
                 _currentStackOffset += (int)ResolveCompileConstant(localDeclaration.Size);
@@ -41,7 +42,7 @@ public partial class CodeGenerator {
 
             case IfStatement ifStatement: {
                 file.Comment("If Statement", indent);
-                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(ifStatement.Condition, file, indent);
+                (string? value, string? scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(ifStatement.Condition, file, indent);
 
                 if (value != null) {
                     file.Comment("Constant condition has been folded", indent);
@@ -63,6 +64,7 @@ public partial class CodeGenerator {
                     file.Comment("End If Statement", indent);
                     break;
                 }
+                Debug.Assert(scratch != null);
                 
                 string logicLabel = GetUniqueLogicLabel();
                 
@@ -101,7 +103,7 @@ public partial class CodeGenerator {
                 file.Comment("While Loop", indent);
                 file.Label(loopLabel + "_start");
                 
-                (string? value, string scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(whileStatement.Condition, file, indent);
+                (string? value, string? scratch, bool preserve) = GenerateExprInScratchRegOrGetConst(whileStatement.Condition, file, indent);
 
                 if (value != null) {
                     // constant condition
@@ -118,6 +120,7 @@ public partial class CodeGenerator {
                     file.Append(indent, $"jmp {loopLabel}_start  ; jump back to start of loop");
                     break;
                 }
+                Debug.Assert(scratch != null);
                 
                 file.Append(indent, 
                     $"cmp {scratch}, 0",
@@ -196,10 +199,18 @@ public partial class CodeGenerator {
 
             case ReturnStatement returnStatement: {
                 if (returnStatement.Value != null) {
+                    bool preserve = AllocateSpecificRegister(DefaultReturnRegister);
+                    
+                    // doesn't matter if it's already in use since we're about
+                    // to return. But it can be in use by things like if/while etc.
+                    // But we need to ensure it's reserved so it doesn't get allocated
+                    // while evaluating the return value.
+                    
                     PlaceExprInReg(returnStatement.Value, DefaultReturnRegister, file, indent);
+                    if (!preserve) FreeRegister(DefaultReturnRegister);
                 }
 
-                file.Append(indent, "jmp .end");
+                if (!isLastInFunc) file.Append(indent, "jmp .end");
                 break;
             }
 
@@ -213,11 +224,12 @@ public partial class CodeGenerator {
     private void GenerateVariableAssignment(VariableAssignment assignment, AssemblyFileBuilder file, bool indent) {
         file.Comment("Variable Assignment", indent);
         
-        (string? value, string reg, bool preserve) = GenerateExprInScratchRegOrGetConst(assignment.Value, file, indent);
+        (string? value, string? reg, bool preserve) = GenerateExprInScratchRegOrGetConst(assignment.Value, file, indent);
         if (value != null) {
             GenerateVariableAssignment(assignment.Target, value, file, indent);
             return;
         }
+        Debug.Assert(reg != null);
         
         GenerateVariableAssignment(assignment.Target, reg, file, indent);
         if (value == null) {
@@ -238,14 +250,15 @@ public partial class CodeGenerator {
 
         // if the source value is a register, we can't use it to get the addr
         string[] dontGiveRegisters = Analyser.ValidRegisters.Contains(sourceValue) ? [sourceValue] : [];
-        (string? value, string reg, bool preserve) = GenerateExprInScratchRegOrGetConst(deref.Left, file, 
+        (string? value, string? reg, bool preserve) = GenerateExprInScratchRegOrGetConst(deref.Left, file, 
             indent, dontGiveRegisters);
-        string src = value ?? reg;
+        string src = value ?? reg ?? throw new Exception("Failed to generate variable assignment: could not get source value.");
         
         int size = (int)ResolveCompileConstant(CompileTimeValue.From(deref.Right));
         file.Append(indent, $"{GetSizedMoveInstruction(size)} [{src}], {sourceValue}  ; store to variable");
 
         if (value == null) {
+            Debug.Assert(reg != null);
             if (preserve) {
                 file.Pop(indent, reg);
             }

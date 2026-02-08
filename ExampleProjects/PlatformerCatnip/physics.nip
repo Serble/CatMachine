@@ -1,0 +1,50 @@
+
+
+fun tick_physics() {
+    player_vel_y:4 = !is_on_ground() << 8;
+
+    player_y:4 = player_y:4 + player_vel_y:4;
+}
+
+
+// returns whether or not a point is within
+// a tile in the current level.
+fun point_collides(x:4, y:4) {
+    let tilemap_x:2 = x:2 / ${TILE_SIZE};
+    let tilemap_y:2 = y:2 / ${TILE_SIZE};
+
+    debug_num(x:2);
+    debug_num(y:2);
+
+    return LEVEL1[current_level:1-1, ${LEVEL_SIZE_BYTES}][tilemap_y:2*32+tilemap_x:2]:1;
+}
+
+
+// returns whether the specified square is within
+// a tile in the current level.
+fun square_collides(x:4, y:4, width:4, height:4) {
+    if (point_collides(x:2, y:2)) {
+        return 1;
+    }
+
+    if (point_collides(x:2 + width:2, y:2)) {
+        return 1;
+    }
+
+    if (point_collides(x:2, y:2 + height:2)) {
+        return 1;
+    }
+
+    if (point_collides(x:2 + width:2, y:2 + height:2)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+// returns whether the player is current on the ground.
+fun is_on_ground() {
+    return square_collides(player_x:4 >> 8, (player_y:4 >> 8) + 1, 16, 16);
+}
+
