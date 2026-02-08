@@ -21,7 +21,7 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
     public void Update(CatVM vm) { }
     
     public void ReadScreenData(CatVM vm) {
-        Raylib.UpdateTexture(_texture, vm.Memory.AsSpan((int)vm.DisplayBufferOffset..));
+        Raylib.UpdateTexture(_texture, vm.Memory.AsSpan((int)vm.DisplayBufferAddress..));
     }
 
     public void Draw(CatVM vm) {

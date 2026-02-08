@@ -41,14 +41,14 @@ public static class InterruptHandlers {
         }
 
         DisplayMode oldMode = vm.DisplayMode;
-        uint oldOffset = vm.DisplayBufferOffset;
+        uint oldOffset = vm.DisplayBufferAddress;
         vm.DisplayMode = (DisplayMode)displayMode;
-        vm.DisplayBufferOffset = vm.Cpu.R2;
+        vm.DisplayBufferAddress = vm.Cpu.R2;
 
-        if (vm.DisplayBufferOffset + vm.DisplayBufferSize > vm.Memory.Length) {
+        if (vm.DisplayBufferAddress + vm.DisplayBufferSize > vm.Memory.Length) {
             vm.Cpu.R0 = 2;
             vm.DisplayMode = oldMode;
-            vm.DisplayBufferOffset = oldOffset;
+            vm.DisplayBufferAddress = oldOffset;
             return;
         }
         

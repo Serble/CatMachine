@@ -70,7 +70,7 @@ public class DisplayModeTiled : IDisplayModeRenderer {
     public void ReadScreenData(CatVM vm) {
         // read all the data from the display buffer and store it so we can draw it later
         _uninitialised = false;
-        uint pointer = vm.DisplayBufferOffset;
+        uint pointer = vm.DisplayBufferAddress;
         
         _clearColor = RaylibRendering.BgrxToColor(vm.ReadWord(pointer));
         

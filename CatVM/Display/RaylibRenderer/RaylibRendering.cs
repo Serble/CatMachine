@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using CatVM.Serial;
 using Raylib_cs;
 
 namespace CatVM.Display.RaylibRenderer;
@@ -40,10 +41,10 @@ void main() {
     }
 
     public Task Start(CatVM vm) {
-        vm.SerialDevices.Add(0, (
+        vm.RegisterSerialDevice(ISerialDevice.Create(
             _ => _serialQueue.TryDequeue(out uint result) ? result : uint.MaxValue,
-            (_, _) => {}
-        ));
+            (_, _) => {})
+        );
         
         ManualResetEventSlim updateDisplay = new(true);
         
