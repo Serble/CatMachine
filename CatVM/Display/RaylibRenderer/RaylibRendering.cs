@@ -78,6 +78,7 @@ void main() {
             Raylib.InitWindow(vm.DisplayWidth, vm.DisplayHeight, "CatVM Display");
             Raylib.SetWindowState(ConfigFlags.ResizableWindow);
             Raylib.SetTargetFPS(1024);
+            Raylib.SetExitKey(0);
 
             if (!vm.MemoryHandle.HasValue) {
                 throw new Exception("Memory not initialized.");
