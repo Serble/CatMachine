@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -165,5 +166,20 @@ public struct CatCpuState {
         state.Fl = reader.ReadUInt32();
         state.It = reader.ReadUInt32();
         return state;
+    }
+
+    public override bool Equals([NotNullWhen(true)] object? obj) {
+        if (obj is not CatCpuState other) return false;
+        return R0 == other.R0 && R1 == other.R1 && R2 == other.R2 && R3 == other.R3 &&
+               R4 == other.R4 && R5 == other.R5 && R6 == other.R6 && R7 == other.R7 &&
+               Sp == other.Sp && Ip == other.Ip && Fl == other.Fl && It == other.It;
+    }
+
+    public override int GetHashCode() {
+        return HashCode.Combine(HashCode.Combine(R0, R1, R2, R3, R4, R5, R6, R7), Sp, Ip, Fl, It);
+    }
+
+    public override string ToString() {
+        return Dump();
     }
 }
