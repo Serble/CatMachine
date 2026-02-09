@@ -9,11 +9,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Raylib-cs" Version="7.0.2" />
-    </ItemGroup>
-
-    <ItemGroup>
       <ProjectReference Include="..\CatData\CatData.csproj" />
+<!--      <ProjectReference Include="..\Raylib-cs\Raylib-cs.csproj" />-->
     </ItemGroup>
 
     <ItemGroup>
@@ -21,10 +18,25 @@
       <EmbeddedResource Include="Display\RaylibRenderer\Shaders\TileVertex.vert" />
       <None Remove="Display\RaylibRenderer\Shaders\SpriteFragment.frag" />
       <EmbeddedResource Include="Display\RaylibRenderer\Shaders\SpriteFragment.frag" />
+      <None Update="Display\RaylibRenderer\Libs\libraylib.so">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Remove="Display\SdlRenderer\Shaders\TileVertex.vert.spv" />
+      <None Include="Display\SdlRenderer\Shaders\TileFragment.frag" />
+      <None Include="Display\SdlRenderer\Shaders\TileVertex.vert" />
+      <EmbeddedResource Include="Display\SdlRenderer\Shaders\TileVertex.vert.spv" />
+      <None Remove="Display\SdlRenderer\Shaders\TileFragment.frag.spv" />
+      <EmbeddedResource Include="Display\SdlRenderer\Shaders\TileFragment.frag.spv" />
     </ItemGroup>
 
     <ItemGroup>
       <EmbeddedResource Include="Display\RaylibRenderer\Shaders\TileFragment.frag" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Raylib-cs" Version="7.0.2" />
+      <PackageReference Include="SDL3-CS" Version="3.5.0-preview.20260205-181613" />
+      <PackageReference Include="SDL3-CS.Native.Shadercross" Version="3.0.0-preview.20260205-174356" />
     </ItemGroup>
 
 </Project>

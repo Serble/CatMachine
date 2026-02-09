@@ -1,0 +1,54 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>Raylib-cs</AssemblyName>
+    <RootNamespace>Raylib_cs</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Title>Raylib-cs</Title>
+    <Description>C# bindings for raylib - A simple and easy-to-use library to learn videogames programming</Description>
+    <RepositoryUrl>https://github.com/raylib-cs/raylib-cs/</RepositoryUrl>
+    <Authors>raylib-cs</Authors>
+    <PackageLicenseExpression>Zlib</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>raylib-cs_64x64.png</PackageIcon>
+    <PackageTags>raylib csharp gamedev</PackageTags>
+    <PackageProjectUrl>https://www.raylib.com/</PackageProjectUrl>
+    <PackProject>true</PackProject>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <RepositoryType>git</RepositoryType>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="logo/raylib-cs_64x64.png" Pack="true" PackagePath="" />
+    <None Include="../README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <Import Project="./Build.props" />
+
+  <ItemGroup>
+    <Content Include="runtimes/**" Link="runtimes/%(RecursiveDir)/%(Filename)%(Extension)">
+      <PackagePath>runtimes/</PackagePath>
+      <Pack>true</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="interop\*.cs" />
+    <Compile Include="types\*.cs" />
+    <Compile Include="types\native\*.cs" />
+  </ItemGroup>
+</Project>

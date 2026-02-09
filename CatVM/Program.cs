@@ -1,6 +1,7 @@
 ﻿using CatVM.Debugging;
 using CatVM.Display;
 using CatVM.Display.RaylibRenderer;
+using CatVM.Display.SdlRenderer;
 
 string romPath = args.Length > 0 ? args[0] : throw new ArgumentException("Please provide a path to a CatVM ROM file.");
 
@@ -52,6 +53,7 @@ for (int i = 1; i < args.Length; i++) {
             }
 
             renderer = rendererType switch {
+                "sdl" => new SdlRendering(),
                 "raylib" => new RaylibRendering(),
                 "dummy" => new DummyRendering(),
                 _ => throw new ArgumentException($"Unknown rendering type: {rendererType}")

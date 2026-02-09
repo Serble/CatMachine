@@ -1,6 +1,7 @@
 #!/bin/sh
 
 cd "$(dirname "$0")"
+mkdir -p bin
 
 # Constants
 MAIN_FILE=main.nip

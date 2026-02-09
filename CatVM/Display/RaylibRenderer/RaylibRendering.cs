@@ -21,6 +21,7 @@ void main() {
 """;
 
     public bool DrawFps { get; set; } = false;
+    private const int MaxControllers = 8;
     
     private readonly Queue<uint> _serialQueue = [];
     private IDisplayModeRenderer? _renderer;
@@ -41,7 +42,7 @@ void main() {
     }
 
     public Task Start(CatVM vm) {
-        vm.RegisterSerialDevice(ISerialDevice.Create(
+        vm.RegisterSerialDevice(0, ISerialDevice.Create(
             _ => _serialQueue.TryDequeue(out uint result) ? result : uint.MaxValue,
             (_, _) => {})
         );
@@ -72,7 +73,7 @@ void main() {
             
             unsafe {
                 delegate* unmanaged[Cdecl]<int, sbyte*, sbyte*, void> ptr = &NopLogging;
-                Raylib.SetTraceLogCallback(ptr);
+                // Raylib.SetTraceLogCallback(ptr);
             }
             
             Raylib.InitWindow(vm.DisplayWidth, vm.DisplayHeight, "CatVM Display");
@@ -86,6 +87,7 @@ void main() {
             SetRenderer(vm);
             
             HashSet<KeyboardKey> pressedKeys = [];
+            Dictionary<(int, GamepadAxis), short> gamepadValues = new();
             
             while (!Raylib.WindowShouldClose()) {
                 pressedKeys.RemoveWhere(key => {
@@ -105,6 +107,36 @@ void main() {
                     
                     pressedKeys.Add((KeyboardKey) key);
                     SendInput(vm, 0, 0, (uint)key);
+                }
+                
+                for (int i = 0; i < MaxControllers; i++) {
+                    if (!Raylib.IsGamepadAvailable(i)) {
+                        continue;
+                    }
+                    
+                    foreach (GamepadButton button in Enum.GetValues<GamepadButton>()) {
+                        if (Raylib.IsGamepadButtonPressed(i, button)) {
+                            SendInput(vm, (uint)(i + 1), 0, (uint)button);
+                        }
+                        else if (Raylib.IsGamepadButtonReleased(i, button)) {
+                            SendInput(vm, (uint)(i + 1), 1, (uint)button);
+                        }
+                    }
+
+                    foreach (GamepadAxis axis in Enum.GetValues<GamepadAxis>()) {
+                        short value = (short)(Raylib.GetGamepadAxisMovement(i, axis) * short.MaxValue);
+                        if (value == -short.MaxValue) {
+                            value = short.MinValue;
+                        }
+
+                        if (gamepadValues.TryGetValue((i, axis), out short oldValue) && oldValue == value) {
+                            continue;
+                        }
+
+                        gamepadValues[(i, axis)] = value;
+                        Console.WriteLine($"{i} {value} {((uint)i << 16) | (ushort)value}");
+                        SendInput(vm, (uint)(i + 1), 2, ((uint)i << 16) | (ushort)value);
+                    }
                 }
                 
                 if (changeDisplayMode) {
@@ -144,6 +176,7 @@ void main() {
     }
 
     private void SendInput(CatVM vm, uint device, uint inputType, uint value) {
+        Console.WriteLine($"{device} {inputType} {value}");
         _serialQueue.Enqueue(device);
         _serialQueue.Enqueue(inputType);
         _serialQueue.Enqueue(value);
