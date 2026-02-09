@@ -41,7 +41,7 @@ void main() {
     }
 
     public Task Start(CatVM vm) {
-        vm.RegisterSerialDevice(ISerialDevice.Create(
+        vm.RegisterSerialDevice(0, ISerialDevice.Create(
             _ => _serialQueue.TryDequeue(out uint result) ? result : uint.MaxValue,
             (_, _) => {})
         );
