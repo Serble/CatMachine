@@ -127,7 +127,7 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         
         Raylib.ClearBackground(_clearColor);
         
-        (Rectangle _, Rectangle dest) = RaylibRendering.GetCenteredBounds(vm);
+        Rectangle dest = RaylibRendering.GetCenteredBounds(vm);
         
         Raylib.BeginShaderMode(_spriteShader);
         foreach (Sprite sprite in _sprites) {

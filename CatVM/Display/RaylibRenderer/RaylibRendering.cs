@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -87,6 +88,8 @@ void main() {
             SetRenderer(vm);
             
             HashSet<KeyboardKey> pressedKeys = [];
+            int lastMouseX = -1;
+            int lastMouseY = -1;
             
             while (!Raylib.WindowShouldClose()) {
                 pressedKeys.RemoveWhere(key => {
@@ -106,6 +109,26 @@ void main() {
                     
                     pressedKeys.Add((KeyboardKey) key);
                     SendInput(vm, 0, 0, (uint)key);
+                }
+
+                foreach (MouseButton button in Enum.GetValues<MouseButton>()) {
+                    if (Raylib.IsMouseButtonPressed(button)) {
+                        SendInput(vm, 0, 0, (uint)button);
+                    }
+                    else if (Raylib.IsMouseButtonReleased(button)) {
+                        SendInput(vm, 0, 1, (uint)button);
+                    }
+                }
+
+                Rectangle bounds = GetCenteredBounds(vm);
+                Vector2 mousePos = (Raylib.GetMousePosition() - bounds.Position) / bounds.Size * new Vector2(vm.DisplayWidth, vm.DisplayHeight);
+                int mousePosX = Math.Clamp((int)mousePos.X, 0, vm.DisplayWidth);
+                int mousePosY = Math.Clamp((int)mousePos.Y, 0, vm.DisplayHeight);
+
+                if (mousePosX != lastMouseX || mousePosY != lastMouseY) {
+                    lastMouseX = mousePosX;
+                    lastMouseY = mousePosY;
+                    SendInput(vm, 0, 2, (uint)((ushort)mousePosX | ((ushort)mousePosY << 16)));
                 }
                 
                 if (changeDisplayMode) {
@@ -194,7 +217,7 @@ void main() {
         }
     }
 
-    public static (Rectangle source, Rectangle dest) GetCenteredBounds(CatVM vm) {
+    public static Rectangle GetCenteredBounds(CatVM vm) {
         int width = Raylib.GetRenderWidth();
         int height = Raylib.GetRenderHeight();
         int innerWidth = width;
@@ -210,11 +233,8 @@ void main() {
             innerHeight = (int)(width / aspect);
         }
 
-        return (
-            new Rectangle(0, 0, vm.DisplayWidth, vm.DisplayHeight),
-            new Rectangle(MathF.Round((width - innerWidth) / 2.0f), 
-                MathF.Round((height - innerHeight) / 2.0f), 
-                innerWidth, innerHeight)
-        );
+        return new Rectangle(MathF.Round((width - innerWidth) / 2.0f), 
+            MathF.Round((height - innerHeight) / 2.0f), 
+            innerWidth, innerHeight);
     }
 }
