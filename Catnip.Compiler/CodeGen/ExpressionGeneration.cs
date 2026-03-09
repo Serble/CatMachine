@@ -146,23 +146,28 @@ public partial class CodeGenerator {
 
                 // IS A VALUE 0?
                 
+                // This means that right is 0
                 if (value != null && ConstantIsZero(value)) {
                     switch (bo.Operator) {
                         case BinaryOperationType.Add:
                         case BinaryOperationType.Subtract:
                         case BinaryOperationType.BitwiseOr:
                         case BinaryOperationType.BitwiseXor:
+                        case BinaryOperationType.LogicalOr:
                             // do nothing to the left
                             file.Append(leftSetData);
                             return constLeftStr;
                         
                         case BinaryOperationType.UnsignedMultiply:
                         case BinaryOperationType.SignedMultiply:
+                        case BinaryOperationType.LogicalAnd:
                             // multiplying by 0 results in 0
+                            // && false also results in 0
                             return "0";
                     }
                 }
                 
+                // This means that left is 0
                 if (constLeftStr != null && ConstantIsZero(constLeftStr)) {
                     // NOTHING HAS BEEN WRITTEN TO FILE YET
                     switch (bo.Operator) {
@@ -170,7 +175,8 @@ public partial class CodeGenerator {
                         case BinaryOperationType.Subtract:
                         case BinaryOperationType.BitwiseOr:
                         case BinaryOperationType.BitwiseXor:
-                            // do nothing to the left
+                        case BinaryOperationType.LogicalOr:
+                            // do nothing to the right
                             if (!preserve && scratch != null) {
                                 FreeRegister(scratch);
                             }
@@ -178,7 +184,9 @@ public partial class CodeGenerator {
                         
                         case BinaryOperationType.UnsignedMultiply:
                         case BinaryOperationType.SignedMultiply:
+                        case BinaryOperationType.LogicalAnd:
                             // multiplying by 0 results in 0
+                            // false && anything also results in 0
                             if (!preserve && scratch != null) {
                                 FreeRegister(scratch);
                             }
@@ -188,32 +196,56 @@ public partial class CodeGenerator {
                 
                 // IS A VALUE 1?
 
+                // Right is numerical
                 if (value != null && ConstantIsNumerical(value, out uint? constRight)) {
                     switch (bo.Operator) {
                         case BinaryOperationType.SignedMultiply:
                         case BinaryOperationType.UnsignedMultiply:
                         case BinaryOperationType.SignedDivide:
                         case BinaryOperationType.UnsignedDivide:
+                        case BinaryOperationType.LogicalAnd:
                             if (constRight == 1) {
                                 // do nothing to the left
                                 file.Append(leftSetData);
                                 return constLeftStr;
                             }
                             break;
+                        
+                        case BinaryOperationType.LogicalOr:
+                            if (constRight == 1) {
+                                // anything || true is true
+                                if (!preserve && scratch != null) {
+                                    FreeRegister(scratch);
+                                }
+                                return "1";
+                            }
+                            break;
                     }
                 }
                 
+                // Left is numerical
                 if (constLeft != null) {
                     // divide depends on the order (so doesn't apply here)
                     switch (bo.Operator) {
                         case BinaryOperationType.SignedMultiply:
                         case BinaryOperationType.UnsignedMultiply:
+                        case BinaryOperationType.LogicalAnd:
                             if (constLeft == 1) {
                                 // do nothing to the right
                                 if (!preserve && scratch != null) {
                                     FreeRegister(scratch);
                                 }
                                 return ResolveExpr(bo.Right, reg, file, indent);
+                            }
+                            break;
+                        
+                        case BinaryOperationType.LogicalOr:
+                            if (constLeft == 1) {
+                                // true || anything is true
+                                if (!preserve && scratch != null) {
+                                    FreeRegister(scratch);
+                                }
+                                return "1";
                             }
                             break;
                     }
@@ -238,6 +270,9 @@ public partial class CodeGenerator {
                         BinaryOperationType.BitwiseAnd => constLeft.Value & rightCons.Value,
                         BinaryOperationType.BitwiseOr => constLeft.Value | rightCons.Value,
                         BinaryOperationType.BitwiseXor => constLeft.Value ^ rightCons.Value,
+                        
+                        BinaryOperationType.LogicalAnd => constLeft.Value != 0 && rightCons.Value != 0 ? 1u : 0u,
+                        BinaryOperationType.LogicalOr => constLeft.Value != 0 || rightCons.Value != 0 ? 1u : 0u,
                         
                         BinaryOperationType.Equals => constLeft.Value == rightCons.Value ? 1u : 0u,
                         BinaryOperationType.NotEquals => constLeft.Value != rightCons.Value ? 1u : 0u,
@@ -268,6 +303,10 @@ public partial class CodeGenerator {
                 
                 string arg2 = value ?? scratch 
                     ?? throw new InvalidOperationException("Both value and scratch register were null while trying to resolve binop.");
+                
+                // so LEFT = reg
+                // and RIGHT = arg2 (may be literal)
+                
                 if (value != null && bo.Operator 
                         is BinaryOperationType.UnsignedDivide 
                         or BinaryOperationType.SignedDivide 
@@ -305,6 +344,42 @@ public partial class CodeGenerator {
                     if (bo.Operator is BinaryOperationType.UnsignedModulus or BinaryOperationType.SignedModulus) {
                         // for modulus, the result is in scratch (remainder)
                         file.Append(indent, $"mov {reg}, {arg2}  ; Move modulus result to destination register");
+                    }
+                }
+                else if (bo.IsLogical()) {
+                    switch (bo.Operator) {
+                        case BinaryOperationType.LogicalAnd: {
+                            string labelName = GetUniqueLogicLabel();
+                            
+                            file.Comment("Perform logical AND operation", indent);
+                            file.Append(indent, 
+                                $"cmp {reg}, 0",
+                                $"mov {reg}, 0  ; assume false for now (we don't need this reg anymore)",
+                                $"je {labelName}",
+                                $"cmp {arg2}, 0",
+                                $"je {labelName}",
+                                $"mov {reg}, 1  ; both args are true");
+                            file.Label(labelName);  // short circuit label
+                            break;
+                        }
+
+                        case BinaryOperationType.LogicalOr: {
+                            string labelName = GetUniqueLogicLabel();
+                            
+                            file.Comment("Perform logical OR operation", indent);
+                            file.Append(indent, 
+                                $"cmp {reg}, 0",
+                                $"mov {reg}, 1  ; assume true for now (we don't need this reg anymore)",
+                                $"jne {labelName}",
+                                $"cmp {arg2}, 0",
+                                $"jne {labelName}",
+                                $"mov {reg}, 0  ; neither args are true");
+                            file.Label(labelName);  // short circuit label
+                            break;
+                        }
+                        
+                        default:
+                            throw new InvalidOperationException($"Logical operation not implemented for '{bo.Operator}'.");
                     }
                 }
                 else {  // comparisons
@@ -419,6 +494,17 @@ public partial class CodeGenerator {
         // so we need to make sure we borrow r0-r3 if needed
         Stack<(string Reg, bool Preserve)> borrowedRegisters = [];
         (string Reg, bool Preserve)? stackTempReg = null;
+        
+        // first let's try and borrow all the calling convention registers
+        // we need to do this regardless of whether they are used as args
+        // because they are caller preserved and may be clobbered anyway.
+        file.Comment("Borrowing calling convention registers", indent);
+        foreach (string reg in CallingConventionArgRegisters) {
+            bool preserve = AllocateSpecificRegister(reg);
+            borrowedRegisters.Push((reg, preserve));
+            if (preserve) file.Push(indent, reg);
+        }
+        
         for (int i = 0; i < fc.Arguments.Length; i++) {
             // stack arg
             if (i >= CallingConventionArgRegisters.Length) {
@@ -457,11 +543,7 @@ public partial class CodeGenerator {
             // register arg
             string argReg = CallingConventionArgRegisters[i];
             
-            bool preserve = AllocateSpecificRegister(argReg);
-            borrowedRegisters.Push((argReg, preserve));
-
             file.Comment("Prepare argument " + (i + 1), indent);
-            if (preserve) file.Push(indent, argReg);
             PlaceExprInReg(fc.Arguments[i], argReg, file, indent);
             file.BlankLine();
         }

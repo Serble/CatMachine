@@ -75,6 +75,9 @@ public enum BinaryOperationType {
     LeftShift,
     RightShift,
     
+    LogicalAnd,
+    LogicalOr,
+    
     Equals,
     NotEquals,
     UnsignedLessThan,
@@ -111,6 +114,10 @@ public static class ValueExpressionExtensions {
             return expr.Operator is BinaryOperationType.Equals or BinaryOperationType.NotEquals or
                 BinaryOperationType.UnsignedLessThan or BinaryOperationType.UnsignedLessThanOrEqual or
                 BinaryOperationType.UnsignedGreaterThan or BinaryOperationType.UnsignedGreaterThanOrEqual;
+        }
+        
+        public bool IsLogical() {
+            return expr.Operator is BinaryOperationType.LogicalAnd or BinaryOperationType.LogicalOr;
         }
     }
 }

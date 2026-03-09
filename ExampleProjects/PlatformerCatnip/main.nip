@@ -1,5 +1,6 @@
 #include "std"
 #include "physics.nip"
+#include "drawing.nip"
 
 #define BACKGROUND_COLOUR, 0x365235
 
@@ -37,6 +38,9 @@ global player_vel_y:4;
 // inputs
 global held_left:1 = 0;
 global held_right:1 = 0;
+global held_up:1 = 0;
+
+global last_jump:4 = 0;
 
 main();
 
@@ -112,6 +116,10 @@ fun handle_inputs() {
             held_right:1 = !type:4;
             return;
         }
+        if (inp:4 == 'W') {
+            held_up:1 = !type:4;
+            return;
+        }
     }
 }
 
@@ -119,6 +127,23 @@ fun handle_movement() {
     let x_dir:4 = held_right:1 - held_left:1;  // 32bit so negatives work
     let x_offset:4 = x_dir:4 ~* ${PLAYER_SPEED};  // no shifting because x_dir isn't fixed point
     player_x:4 = player_x:4 + x_offset:4;  // move them
+
+    // now we check if that caused a collision, if so then roll back
+    if (player_collides()) {
+        player_x:4 = player_x:4 - x_offset:4;
+    }
+
+    // now for vertical movement, if they are on ground and clicking jump then jump
+    if (held_up:1 && is_on_ground() && last_jump:4 < (get_uptime() - 1000)) {
+        player_vel_y:4 = player_vel_y:4 - (2 << 8);
+        last_jump:4 = get_uptime();
+    }
+}
+
+
+fun die() {
+    fill_screen(0xFF0000);
+    halt();
 }
 
 

@@ -1,9 +1,19 @@
 
 
 fun tick_physics() {
-    player_vel_y:4 = !is_on_ground() << 8;
+    if (!is_on_ground()) {
+        player_vel_y:4 = player_vel_y:4 + (1 << 4);
+    }
 
     player_y:4 = player_y:4 + player_vel_y:4;
+    if (player_collides()) {
+        player_y:4 = player_y:4 - player_vel_y:4;
+        player_vel_y:4 = 0;
+    }
+
+    if (player_y:4 >> 8 >= 384-16) {
+        die();
+    }
 }
 
 
@@ -12,9 +22,6 @@ fun tick_physics() {
 fun point_collides(x:4, y:4) {
     let tilemap_x:2 = x:2 / ${TILE_SIZE};
     let tilemap_y:2 = y:2 / ${TILE_SIZE};
-
-    debug_num(x:2);
-    debug_num(y:2);
 
     return LEVEL1[current_level:1-1, ${LEVEL_SIZE_BYTES}][tilemap_y:2*32+tilemap_x:2]:1;
 }
@@ -40,6 +47,11 @@ fun square_collides(x:4, y:4, width:4, height:4) {
     }
 
     return 0;
+}
+
+
+fun player_collides() {
+    return square_collides(player_x:4 >> 8, player_y:4 >> 8, 16, 16);
 }
 
 

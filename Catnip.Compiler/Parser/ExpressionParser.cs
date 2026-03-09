@@ -137,6 +137,7 @@ public static class ExpressionParser {
             .Aggregate(expr, (acc, makeOp) => makeOp(acc));
 
     // Operator precedence (highest first!):
+    // these are binops
     
     // 0. A dereference, eg. myVar:4 (gets first 4 bytes at myVar)
     // supports any CompileTimeValue as size
@@ -202,9 +203,12 @@ public static class ExpressionParser {
             (_, left, right) => new BinaryOperation(left, BinaryOperationType.BitwiseOr, right));
 
     // 7. ==, !=, <, <=, >, >=
+    // the op order in Op(...) is important because for example
+    // with '>=' if '>' is before it, then it will match '>' not '>='
+    // and then parsing will break and cause an error.
     private static readonly Parser<IValueExpression> Comparison =
         Parse.ChainOperator(
-            Op("==", "!=", "<", "<=", ">", ">=", "~<", "~>", "~<=","~>="),
+            Op("==", "!=", "<=", "<", ">=", ">", "~<=","~>=", "~<", "~>"),
             BitOr,
             (op, left, right) => new BinaryOperation(left, op switch {
                 "==" => BinaryOperationType.Equals,
@@ -220,6 +224,20 @@ public static class ExpressionParser {
                 _ => throw new InvalidOperationException()
             }, right));
     
+    private static readonly Parser<IValueExpression> LogicalAnd =
+        Parse.ChainOperator(
+            Op("&&"),
+            Comparison,
+            (_, left, right) => new BinaryOperation(left, 
+                BinaryOperationType.LogicalAnd, right));
+    
+    private static readonly Parser<IValueExpression> LogicalOr =
+        Parse.ChainOperator(
+            Op("||"),
+            LogicalAnd,
+            (_, left, right) => new BinaryOperation(left, 
+                BinaryOperationType.LogicalOr, right));
+    
     // Top-level parser entry
-    public static readonly Parser<IValueExpression> Expression = StringLiteral.Or(Comparison);
+    public static readonly Parser<IValueExpression> Expression = StringLiteral.Or(LogicalOr);
 }
