@@ -388,7 +388,7 @@ public partial class CodeGenerator(CatProgram program) {
             int offset = _localVarOffsets[param.Name];
             paramSetup.AppendIndented($"mov {paramSettingScratch.Value.Reg}, {BasePointerRegister}");
             paramSetup.AppendIndented($"sub {paramSettingScratch.Value.Reg}, {offset}  ; address of parameter '{param.Name}'");
-            paramSetup.AppendIndented($"mov [{paramSettingScratch.Value.Reg}], {argReg}  ; store parameter '{param.Name}'");
+            paramSetup.AppendIndented($"{GetSizedMoveInstruction(param.Size)} [{paramSettingScratch.Value.Reg}], {argReg}  ; store parameter '{param.Name}'");
         }
 
         if (paramSettingScratch != null) {

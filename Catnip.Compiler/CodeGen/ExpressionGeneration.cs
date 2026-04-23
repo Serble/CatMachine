@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Catnip.Compiler.Ast;
 
 namespace Catnip.Compiler.CodeGen;
@@ -505,46 +506,48 @@ public partial class CodeGenerator {
             if (preserve) file.Push(indent, reg);
         }
         
-        for (int i = 0; i < fc.Arguments.Length; i++) {
-            // stack arg
-            if (i >= CallingConventionArgRegisters.Length) {
-                (string reg, bool preserve) maybeReg = stackTempReg ?? AllocateRegister(returnReg);
-                
-                AssemblyFileBuilder tempFile = new();
-                string? constArg = ResolveExpr(fc.Arguments[i], maybeReg.reg, tempFile, indent);
-
-                if (constArg != null) {  // don't bother with temps or anything
-                    if (!maybeReg.preserve) {
-                        FreeRegister(maybeReg.reg);
-                    }
-                    
-                    file.Append(indent, $"" +
-                                        $"{GetSizedPushInstruction(4)} " +
-                                        $"{constArg}  ; Push argument {i + 1} onto stack");
-                    file.BlankLine();
-                    continue;
-                }
-                
-                // okay it used the register
-                if (stackTempReg == null) {
-                    stackTempReg = maybeReg;
-                    borrowedRegisters.Push(stackTempReg.Value);
-                    file.Push(indent, stackTempReg.Value.Reg);
-                }
-                
-                file.Append(tempFile);  // it's in the temp reg now
-                file.Append(indent, $"" +
-                                    $"{GetSizedPushInstruction(4)} " +
-                                    $"{stackTempReg.Value.Reg}  ; Push argument {i + 1} onto stack");
-                file.BlankLine();
-                continue;
-            }
-
+        // do the register args
+        for (int i = 0; i < Math.Min(fc.Arguments.Length, CallingConventionArgRegisters.Length); i++) {
             // register arg
             string argReg = CallingConventionArgRegisters[i];
             
             file.Comment("Prepare argument " + (i + 1), indent);
             PlaceExprInReg(fc.Arguments[i], argReg, file, indent);
+            file.BlankLine();
+        }
+        
+        // Now do the stack args (in reverse order by convention)
+        for (int i = fc.Arguments.Length - 1; i >= CallingConventionArgRegisters.Length; i--) {
+            Debug.Assert(i >= CallingConventionArgRegisters.Length);
+            
+            (string reg, bool preserve) maybeReg = stackTempReg ?? AllocateRegister(returnReg);
+                
+            AssemblyFileBuilder tempFile = new();
+            string? constArg = ResolveExpr(fc.Arguments[i], maybeReg.reg, tempFile, indent);
+
+            if (constArg != null) {  // don't bother with temps or anything
+                if (!maybeReg.preserve) {
+                    FreeRegister(maybeReg.reg);
+                }
+                
+                file.Append(indent, $"" +
+                                    $"{GetSizedPushInstruction(4)} " +
+                                    $"{constArg}  ; Push argument {i + 1} onto stack");
+                file.BlankLine();
+                continue;
+            }
+                
+            // okay it used the register
+            if (stackTempReg == null) {
+                stackTempReg = maybeReg;
+                borrowedRegisters.Push(stackTempReg.Value);
+                file.Push(indent, stackTempReg.Value.Reg);
+            }
+                
+            file.Append(tempFile);  // it's in the temp reg now
+            file.Append(indent, $"" +
+                                $"{GetSizedPushInstruction(4)} " +
+                                $"{stackTempReg.Value.Reg}  ; Push argument {i + 1} onto stack");
             file.BlankLine();
         }
         
