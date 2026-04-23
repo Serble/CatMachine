@@ -154,7 +154,6 @@ public partial class CodeGenerator {
                         case BinaryOperationType.Subtract:
                         case BinaryOperationType.BitwiseOr:
                         case BinaryOperationType.BitwiseXor:
-                        case BinaryOperationType.LogicalOr:
                             // do nothing to the left
                             file.Append(leftSetData);
                             return constLeftStr;
@@ -165,6 +164,9 @@ public partial class CodeGenerator {
                             // multiplying by 0 results in 0
                             // && false also results in 0
                             return "0";
+                        
+                        // let LogicalOr fall through for simplicity
+                        // it needs to return val != 0
                     }
                 }
                 
@@ -175,7 +177,6 @@ public partial class CodeGenerator {
                         case BinaryOperationType.Add:
                         case BinaryOperationType.BitwiseOr:
                         case BinaryOperationType.BitwiseXor:
-                        case BinaryOperationType.LogicalOr:
                             // do nothing to the right
                             if (!preserve && scratch != null) {
                                 FreeRegister(scratch);
@@ -191,6 +192,9 @@ public partial class CodeGenerator {
                                 FreeRegister(scratch);
                             }
                             return "0";
+                        
+                        // let LogicalOr fall through for simplicity
+                        // it needs to return val != 0
                     }
                 }
                 
@@ -203,7 +207,6 @@ public partial class CodeGenerator {
                         case BinaryOperationType.UnsignedMultiply:
                         case BinaryOperationType.SignedDivide:
                         case BinaryOperationType.UnsignedDivide:
-                        case BinaryOperationType.LogicalAnd:
                             if (constRight == 1) {
                                 // do nothing to the left
                                 file.Append(leftSetData);
@@ -220,6 +223,9 @@ public partial class CodeGenerator {
                                 return "1";
                             }
                             break;
+                        
+                        // Let LogicalAnd fall through
+                        // it needs to do val != 0
                     }
                 }
                 
@@ -229,7 +235,6 @@ public partial class CodeGenerator {
                     switch (bo.Operator) {
                         case BinaryOperationType.SignedMultiply:
                         case BinaryOperationType.UnsignedMultiply:
-                        case BinaryOperationType.LogicalAnd:
                             if (constLeft == 1) {
                                 // do nothing to the right
                                 if (!preserve && scratch != null) {
@@ -248,6 +253,9 @@ public partial class CodeGenerator {
                                 return "1";
                             }
                             break;
+                        
+                        // Let LogicalAnd fall through
+                        // it needs to do val != 0
                     }
                 }
 
