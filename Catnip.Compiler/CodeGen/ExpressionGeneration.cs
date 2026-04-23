@@ -499,7 +499,7 @@ public partial class CodeGenerator {
         // we need to do this regardless of whether they are used as args
         // because they are caller preserved and may be clobbered anyway.
         file.Comment("Borrowing calling convention registers", indent);
-        foreach (string reg in CallingConventionArgRegisters.Append(DefaultReturnRegister)) {
+        foreach (string reg in CallingConventionArgRegisters.Append(DefaultReturnRegister).Where(r => r != returnReg)) {
             bool preserve = AllocateSpecificRegister(reg);
             borrowedRegisters.Push((reg, preserve));
             if (preserve) file.Push(indent, reg);
@@ -562,6 +562,13 @@ public partial class CodeGenerator {
             file.Append(indent, $"add {StackPointerRegister}, {stackCleanupSize}  ; Clean up stack arguments");
         }
         
+        // Move return value to the desired register if needed
+        // and before returning registers because the default return
+        // register will be returned.
+        if (returnReg != DefaultReturnRegister) {
+            file.Append(indent, $"mov {returnReg}, {DefaultReturnRegister}  ; Move return value to desired register");
+        }
+        
         // Free borrowed registers
         while (borrowedRegisters.Count > 0) {
             (string reg, bool preserve) = borrowedRegisters.Pop();
@@ -571,11 +578,6 @@ public partial class CodeGenerator {
             else {
                 FreeRegister(reg);
             }
-        }
-        
-        // Move return value to the desired register if needed
-        if (returnReg != DefaultReturnRegister) {
-            file.Append(indent, $"mov {returnReg}, {DefaultReturnRegister}  ; Move return value to desired register");
         }
     }
 
