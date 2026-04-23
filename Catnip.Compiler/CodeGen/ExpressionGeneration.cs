@@ -173,7 +173,6 @@ public partial class CodeGenerator {
                     // NOTHING HAS BEEN WRITTEN TO FILE YET
                     switch (bo.Operator) {
                         case BinaryOperationType.Add:
-                        case BinaryOperationType.Subtract:
                         case BinaryOperationType.BitwiseOr:
                         case BinaryOperationType.BitwiseXor:
                         case BinaryOperationType.LogicalOr:
@@ -500,7 +499,7 @@ public partial class CodeGenerator {
         // we need to do this regardless of whether they are used as args
         // because they are caller preserved and may be clobbered anyway.
         file.Comment("Borrowing calling convention registers", indent);
-        foreach (string reg in CallingConventionArgRegisters) {
+        foreach (string reg in CallingConventionArgRegisters.Append(DefaultReturnRegister)) {
             bool preserve = AllocateSpecificRegister(reg);
             borrowedRegisters.Push((reg, preserve));
             if (preserve) file.Push(indent, reg);
@@ -540,8 +539,10 @@ public partial class CodeGenerator {
             // okay it used the register
             if (stackTempReg == null) {
                 stackTempReg = maybeReg;
+                if (maybeReg.preserve) {
+                    file.Push(indent, stackTempReg.Value.Reg);
+                }
                 borrowedRegisters.Push(stackTempReg.Value);
-                file.Push(indent, stackTempReg.Value.Reg);
             }
                 
             file.Append(tempFile);  // it's in the temp reg now
