@@ -77,6 +77,12 @@ public partial class CodeGenerator(CatProgram program) {
     /// r7 is not here because we're going to use it as our base pointer.
     /// </summary>
     private readonly Stack<string> _freeRegisters = new(GeneralPurposeRegisters);
+
+    /// <summary>
+    /// Whether to save strings when asked. This is so that dry runs
+    /// don't cause dead strings to be created.
+    /// </summary>
+    private bool _saveStrings = true;
     
     /// <summary>
     /// Allocates a register for use.
@@ -184,6 +190,9 @@ public partial class CodeGenerator(CatProgram program) {
     /// <param name="str">The string to add.</param>
     /// <returns>The label.</returns>
     private string GetStringLabel(string str) {
+        if (!_saveStrings) {
+            return "dryrun_string";
+        }
         _applicationStrings.Add(str);
         return string.Format(StringLabelFormat, _applicationStrings.Count - 1);
     }
@@ -275,6 +284,7 @@ public partial class CodeGenerator(CatProgram program) {
 
     private void GenerateFunction(Function function, AssemblyFileBuilder file) {
         // Reset state for new function
+        _saveStrings = false;  // don't save strings during the first pass to avoid dead strings
         _usedRegisters.Clear();
         _localVarOffsets.Clear();
         _currentStackOffset = 0;
@@ -322,6 +332,7 @@ public partial class CodeGenerator(CatProgram program) {
         //           SECOND PASS
         // =====================================
         // Reset state for second pass
+        _saveStrings = true;
         _usedRegisters.Clear();
         _localVarOffsets.Clear();
         _currentStackOffset = 0;

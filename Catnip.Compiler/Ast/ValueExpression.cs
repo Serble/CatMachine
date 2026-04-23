@@ -109,12 +109,6 @@ public static class ValueExpressionExtensions {
                 BinaryOperationType.BitwiseXor or BinaryOperationType.LeftShift or
                 BinaryOperationType.RightShift;
         }
-
-        public bool IsComparison() {
-            return expr.Operator is BinaryOperationType.Equals or BinaryOperationType.NotEquals or
-                BinaryOperationType.UnsignedLessThan or BinaryOperationType.UnsignedLessThanOrEqual or
-                BinaryOperationType.UnsignedGreaterThan or BinaryOperationType.UnsignedGreaterThanOrEqual;
-        }
         
         public bool IsLogical() {
             return expr.Operator is BinaryOperationType.LogicalAnd or BinaryOperationType.LogicalOr;
