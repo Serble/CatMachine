@@ -8,6 +8,16 @@ public partial class CodeGenerator {
     
     private void GenerateStatement(Statement statement, AssemblyFileBuilder file, bool indent = true, bool isLastInFunc = false) {
         switch (statement) {
+            case StatementBlock block: {
+                file.Comment("Begin Statement Block", indent);
+                for (int i = 0; i < block.Statements.Length; i++) {
+                    Statement stmt = block.Statements[i];
+                    GenerateStatement(stmt, file, indent, isLastInFunc && i == block.Statements.Length - 1);
+                }
+                file.Comment("End Statement Block", indent);
+                break;
+            }
+            
             case LocalDeclaration localDeclaration: {
                 _currentStackOffset += (int)ResolveCompileConstant(localDeclaration.Size);
                 _localVarOffsets[localDeclaration.Name] = _currentStackOffset;
@@ -50,15 +60,11 @@ public partial class CodeGenerator {
                     // time to do some constant folding
                     if (ConstantIsZero(value)) {  // condition is false
                         // generate else statements
-                        foreach (Statement elseStmnt in ifStatement.ElseStatements) {
-                            GenerateStatement(elseStmnt, file, indent);
-                        }
+                        GenerateStatement(ifStatement.ElseStatements, file, indent);
                     }
                     else {
                         // generate then statements
-                        foreach (Statement thenStmnt in ifStatement.ThenStatements) {
-                            GenerateStatement(thenStmnt, file, indent);
-                        }
+                        GenerateStatement(ifStatement.ThenStatements, file, indent);
                     }
                     
                     file.Comment("End If Statement", indent);
@@ -73,16 +79,12 @@ public partial class CodeGenerator {
                     $"je {logicLabel}_else  ; if condition is false, jump to else");
                 
                 // then
-                foreach (Statement thenStmnt in ifStatement.ThenStatements) {
-                    GenerateStatement(thenStmnt, file, indent);
-                }
+                GenerateStatement(ifStatement.ThenStatements, file, indent);
                 file.Append(indent, $"jmp {logicLabel}_end  ; jump to end after then");
                 
                 // else
                 file.Label($"{logicLabel}_else");
-                foreach (Statement elseStmnt in ifStatement.ElseStatements) {
-                    GenerateStatement(elseStmnt, file, indent);
-                }
+                GenerateStatement(ifStatement.ElseStatements, file, indent);
                 
                 // end
                 file.Label($"{logicLabel}_end");
@@ -114,9 +116,7 @@ public partial class CodeGenerator {
                     }
 
                     // generate body statements
-                    foreach (Statement thenStmnt in whileStatement.BodyStatements) {
-                        GenerateStatement(thenStmnt, file, indent);
-                    }
+                    GenerateStatement(whileStatement.BodyStatements, file, indent);
                     file.Append(indent, $"jmp {loopLabel}_start  ; jump back to start of loop");
                     break;
                 }
@@ -126,9 +126,7 @@ public partial class CodeGenerator {
                     $"cmp {scratch}, 0",
                     $"je {loopLabel}_end  ; if condition is false, exit loop");
                 
-                foreach (Statement bodyStatement in whileStatement.BodyStatements) {
-                    GenerateStatement(bodyStatement, file);
-                }
+                GenerateStatement(whileStatement.BodyStatements, file);
                 
                 file.Append(indent, $"jmp {loopLabel}_start  ; jump back to start of loop");
                 file.Label(loopLabel + "_end");
@@ -218,7 +216,160 @@ public partial class CodeGenerator {
                 GenerateFunctionCall(functionCall, DefaultReturnRegister, file, indent);
                 break;
             }
+
+            case SwitchStatement switchStatement: {
+                const int ifElseChainThreshold = 2;
+                
+                // if else
+                // direct array
+                // mod + array
+                // salt hash + mod + array (rotate salt to get good hashes)
+                
+                // once find value to avoid hash collision, also do if check
+                
+                // collate all constant case values
+                List<uint> vals = [];
+                foreach ((IValueExpression[] valueExprs, _) in switchStatement.Cases) {
+                    vals.AddRange(valueExprs.Select(expr => ResolveCompileConstant(CompileTimeValue.From(expr))));
+                }
+                
+
+                if (vals.Count <= ifElseChainThreshold) {
+                    List<(IValueExpression cond, Statement statement)> conditions = [];
+                    foreach ((IValueExpression[] values, Statement statements) in switchStatement.Cases) {
+                        List<BinaryOperation> conds = values
+                            .Select(value => new BinaryOperation(switchStatement.Expression, BinaryOperationType.Equals, value))
+                            .ToList();
+                        
+                        IValueExpression? combined = conds
+                            .Aggregate((IValueExpression?)null, (acc, cond) => 
+                                acc == null
+                                    ? cond 
+                                    : new BinaryOperation(acc, BinaryOperationType.LogicalOr, cond));
+                        
+                        Debug.Assert(combined != null);
+                        
+                        conditions.Add((combined, statements));
+                    }
+                    
+                    Statement ifElseChain = conditions
+                        .Reverse<(IValueExpression cond, Statement statement)>()
+                        .Aggregate(switchStatement.DefaultStatements, (elseAcc, current) => 
+                            new IfStatement(current.cond, current.statement, elseAcc));
+                    
+                    GenerateStatement(ifElseChain, file, indent);
+                    break;
+                }
+                
+                // find a valid and operand to give unique values for each val
+                int andOperand = 1;
+                while (true) {
+                    int operand = andOperand;
+                    if (AreValuesUnique(vals.Select(v => v & (uint)operand))) {
+                        break;
+                    }
+
+                    andOperand = andOperand * 2 + 1;
+                }
+                
+                // okay we have a very fast hash function
+                int uniqueValues = CountUniqueValuesForAnd(andOperand);
+                
+                // let's generate the table lookup
+                AssemblyFileBuilder table = new();
+                string tableLabel = GetSwitchTableLabel(table);
+
+                file.Comment("Switch jump table lookup (AND hashing)");
+                (string scratch, bool preserve) = AllocateRegister();
+                (string exprReg, bool preserveExprReg) = AllocateRegister();
+                if (preserve) file.Push(indent, scratch);
+                if (preserveExprReg) file.Push(indent, exprReg);
+                
+                PlaceExprInReg(switchStatement.Expression, scratch, file, indent);
+                // 18 cycles
+                file.Append(indent, $"mov {exprReg}, {scratch}  ; save so we can compare later");
+                file.Append(indent, $"and {scratch}, {andOperand}  ; hash the switch expression");
+                file.Append(indent, $"shl {scratch}, 2   ; multiply by 4 to get byte offset for 32bit addr");
+                file.Append(indent, $"add {scratch}, {tableLabel}  ; add base address of jump table");
+                file.Append(indent, $"mov {scratch}, [{scratch}]  ; get jump address from table");
+                file.Append(indent, $"jmp {scratch}  ; jump to case");
+                file.BlankLine();
+                
+                // uniqueValues is how many entries will be in our table
+                string[] jumpLabels = new string[uniqueValues];
+                
+                // by default anything that isn't set will jump to default
+                string defaultBranch = GetGlobalUniqueLogicLabel();
+                string endLabel = tableLabel + "_end";
+                for (int i = 0; i < uniqueValues; i++) {
+                    jumpLabels[i] = defaultBranch;
+                }
+                
+                Dictionary<string, (Statement, IValueExpression[])> caseStatements = [];
+                foreach ((IValueExpression[] valueExprs, Statement code) in switchStatement.Cases) {
+                    string label = GetGlobalUniqueLogicLabel();
+                    caseStatements.Add(label, (code, valueExprs));
+                    
+                    foreach (IValueExpression valExpr in valueExprs) {
+                        uint val = ResolveCompileConstant(CompileTimeValue.From(valExpr));
+                        int index = (int)(val & (uint)andOperand);
+                        Debug.Assert(jumpLabels[index] == defaultBranch);
+                        jumpLabels[index] = label;
+                    }
+                }
+
+                // generate the branch code segments
+                foreach ((string label, (Statement code, IValueExpression[] exprs)) in caseStatements) {
+                    string matchesCondLabel = GetUniqueLogicLabel();
+                    file.Label(label);
+                    foreach (IValueExpression expr in exprs) {
+                        uint realVal = ResolveCompileConstant(CompileTimeValue.From(expr));
+                        file.Append($"cmp {exprReg}, {realVal}   ; make sure it wasn't just a hash collision");
+                        file.Append($"je {matchesCondLabel}");
+                    }
+                    file.Append($"jmp {defaultBranch}   ; it was a hash collision, go to default");
+                    
+                    file.Label(matchesCondLabel);
+                    GenerateStatement(code, file, indent);
+
+                    file.Append($"jmp {endLabel}");
+                    file.BlankLine();
+                }
+                
+                // write the default case
+                file.Label(defaultBranch);
+                GenerateStatement(switchStatement.DefaultStatements, file, indent);
+                file.Append($"jmp {endLabel}");
+                file.BlankLine();
+                
+                // now for the table
+                for (int i = 0; i < uniqueValues; i++) {
+                    table.Append($"d32 {jumpLabels[i]}");
+                }
+                
+                // free registers
+                file.Label(endLabel);
+                if (preserve) file.Pop(indent, scratch); else FreeRegister(scratch);
+                if (preserveExprReg) file.Pop(indent, exprReg); else FreeRegister(exprReg);
+                file.Comment("End switch statement", indent);
+                
+                break;
+            }
         }
+    }
+    
+    private static int CountUniqueValuesForAnd(int operand) {
+        int res = 1;
+        while (operand != 0) {
+            res *= 1 + (operand & 0b1);
+            operand >>= 1;
+        }
+        return res;
+    }
+
+    private static bool AreValuesUnique(IEnumerable<uint> values) {
+        HashSet<uint> seen = [];
+        return values.All(seen.Add);
     }
     
     private void GenerateVariableAssignment(VariableAssignment assignment, AssemblyFileBuilder file, bool indent) {

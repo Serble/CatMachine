@@ -22,15 +22,23 @@ public record GlobalDeclaration(
 
 public record IfStatement(
     IValueExpression Condition,
-    Statement[] ThenStatements,
-    Statement[] ElseStatements,
+    Statement ThenStatements,
+    Statement ElseStatements,
     FileInformation? FileInformation = null) : Statement(FileInformation);
 
 public record WhileStatement(
     IValueExpression Condition,
-    Statement[] BodyStatements,
-    FileInformation? FileInformation = null)
-    : Statement(FileInformation);
+    Statement BodyStatements,
+    FileInformation? FileInformation = null) : Statement(FileInformation);
+
+public record SwitchStatement(
+    IValueExpression Expression,
+    (IValueExpression[] Value, Statement Statements)[] Cases,
+    Statement DefaultStatements,
+    FileInformation? FileInformation = null) : Statement(FileInformation);
+
+public record StatementBlock(Statement[] Statements, 
+    FileInformation? FileInformation = null) : Statement(FileInformation);
 
 public record InlineAsm(
     string Asm,

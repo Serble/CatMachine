@@ -43,6 +43,14 @@ public partial class CodeGenerator(CatProgram program) {
     private readonly List<string> _applicationStrings = [];
     
     private const string StringLabelFormat = "_str_{0}";
+
+    /// <summary>
+    /// List of switch lookup table definitions. Used to perform O(1)
+    /// lookups.
+    /// </summary>
+    private readonly List<AssemblyFileBuilder> _switchTables = [];
+    
+    private const string SwitchTableLabelFormat = "_switch_table_{0}";
     
     /// <summary>
     /// Registers that have been used in the current context and must be preserved.
@@ -79,10 +87,10 @@ public partial class CodeGenerator(CatProgram program) {
     private readonly Stack<string> _freeRegisters = new(GeneralPurposeRegisters);
 
     /// <summary>
-    /// Whether to save strings when asked. This is so that dry runs
+    /// Whether to save strings and other data when asked. This is so that dry runs
     /// don't cause dead strings to be created.
     /// </summary>
-    private bool _saveStrings = true;
+    private bool _saveData = true;
     
     /// <summary>
     /// Allocates a register for use.
@@ -190,15 +198,27 @@ public partial class CodeGenerator(CatProgram program) {
     /// <param name="str">The string to add.</param>
     /// <returns>The label.</returns>
     private string GetStringLabel(string str) {
-        if (!_saveStrings) {
+        if (!_saveData) {
             return "dryrun_string";
         }
         _applicationStrings.Add(str);
         return string.Format(StringLabelFormat, _applicationStrings.Count - 1);
     }
     
+    private string GetSwitchTableLabel(AssemblyFileBuilder table) {
+        if (!_saveData) {
+            return "dryrun_switch_table";
+        }
+        _switchTables.Add(table);
+        return string.Format(SwitchTableLabelFormat, _switchTables.Count - 1);
+    }
+    
     private string GetUniqueLogicLabel() {
         return $".logic_{_logicJumpCounter++}";
+    }
+    
+    private string GetGlobalUniqueLogicLabel() {
+        return $"logic_{_logicJumpCounter++}";
     }
 
     private uint ResolveCompileConstant(CompileTimeValue value) {
@@ -279,12 +299,24 @@ public partial class CodeGenerator(CatProgram program) {
             }
         }
         
+        // Define switch tables
+        if (_switchTables.Count > 0) {
+            file.BlankLine();
+            file.Comment("Switch lookup tables");
+            for (int i = 0; i < _switchTables.Count; i++) {
+                AssemblyFileBuilder table = _switchTables[i];
+                string label = string.Format(SwitchTableLabelFormat, i);
+                file.Label(label);
+                file.Append(table);
+            }
+        }
+        
         return file.ToString();
     }
 
     private void GenerateFunction(Function function, AssemblyFileBuilder file) {
         // Reset state for new function
-        _saveStrings = false;  // don't save strings during the first pass to avoid dead strings
+        _saveData = false;  // don't save strings during the first pass to avoid dead strings
         _usedRegisters.Clear();
         _localVarOffsets.Clear();
         _currentStackOffset = 0;
@@ -332,7 +364,7 @@ public partial class CodeGenerator(CatProgram program) {
         //           SECOND PASS
         // =====================================
         // Reset state for second pass
-        _saveStrings = true;
+        _saveData = true;
         _usedRegisters.Clear();
         _localVarOffsets.Clear();
         _currentStackOffset = 0;

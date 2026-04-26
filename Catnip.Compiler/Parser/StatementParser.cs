@@ -84,24 +84,18 @@ public static class StatementParser {
         from lparen in Parse.Char('(').Token()
         from condition in ExpressionParser.Expression
         from rparen in Parse.Char(')').Token()
-        from thenLBrace in Parse.Char('{').Token()
-        from thenStatements in StatementElement.Many()
-        from thenOptionalSemicolon in Parse.Char(';').Token().Optional()
-        from thenRBrace in Parse.Char('}').Token().Named(CodeParser.FunctionBodyEndExpectation)
+        from then in StatementElement!.Token()
         from elsePart in
             (from elseKeyword in Parse.String("else").Token()
-             from elseLBrace in Parse.Char('{').Token()
-             from elseStatements in StatementElement.Many()
-             from elseOptionalSemicolon in Parse.Char(';').Token().Optional()
-             from elseRBrace in Parse.Char('}').Token().Named(CodeParser.FunctionBodyEndExpectation)
-             select elseStatements).Optional()
+             from elseStatement in StatementElement!.Token()
+             select elseStatement).Optional()
         from trailing in CodeParser.Ignored
         select new IfStatement(
             condition,
-            thenStatements.ToArray(),
+            then,
             elsePart.IsDefined 
-                ? elsePart.Get().ToArray()
-                : []);
+                ? elsePart.Get()
+                : new StatementBlock([]));
     
     // While statement:
     // while (CONDITION) { STATEMENTS }
@@ -111,12 +105,56 @@ public static class StatementParser {
         from lparen in Parse.Char('(').Token()
         from condition in ExpressionParser.Expression
         from rparen in Parse.Char(')').Token()
+        from body in StatementElement!.Token()
+        select new WhileStatement(condition, body);
+    
+    // Switch statement:
+    // switch (EXPRESSION) { case EXPR: STATEMENTS }
+    private static readonly Parser<Statement> SwitchStatementElement =
+        from leading in CodeParser.Ignored
+        from keyword in Parse.String("switch").Token()
+        from lparen in Parse.Char('(').Token()
+        from expression in ExpressionParser.Expression
+        from rparen in Parse.Char(')').Token()
         from lbrace in Parse.Char('{').Token()
-        from bodyStatements in StatementElement.Many()
-        from optionalSemicolon in Parse.Char(';').Token().Optional()
+        from cases in SwitchCase.Or(DefaultSwitchCase).Many()
         from rbrace in Parse.Char('}').Token().Named(CodeParser.FunctionBodyEndExpectation)
         from trailing in CodeParser.Ignored
-        select new WhileStatement(condition, bodyStatements.ToArray());
+        select new SwitchStatement(expression,  // thing we're switching on
+            cases.Where(v => v.Item1.Length > 0).ToArray(),  // cases
+            cases.SingleOrDefault(v => v.Item1.Length == 0).Item2  // default
+            ?? new StatementBlock([]));
+    
+    private static readonly Parser<(IValueExpression[], Statement)> SwitchCase =
+        from leading in CodeParser.Ignored
+        from keyword in Parse.String("case").Token()
+        from values in SwitchValues
+        from statement in StatementElement!.Token()
+        select (values, statement);
+    
+    private static readonly Parser<(IValueExpression[], Statement)> DefaultSwitchCase =
+        from leading in CodeParser.Ignored
+        from keyword in Parse.String("default").Token()
+        from statement in StatementElement!.Token()
+        select (Array.Empty<IValueExpression>(), statement);
+    
+    // at least one value in brackets separated by comma, examples:
+    // (5)
+    // (4), (7)
+    // (1), (2), (3)
+    private static readonly Parser<IValueExpression[]> SwitchValues =
+        from first in
+            from lparen in Parse.Char('(').Token()
+            from value in ExpressionParser.Expression
+            from rparen in Parse.Char(')').Token()
+            select value
+        from rest in
+            (from comma in Parse.Char(',').Token()
+             from lparen in Parse.Char('(').Token()
+             from value in ExpressionParser.Expression
+             from rparen in Parse.Char(')').Token()
+             select value).Many()
+        select new[] { first }.Concat(rest).ToArray();
     
     // Return statement:
     // return EXPR;
@@ -182,6 +220,15 @@ public static class StatementParser {
             inputs.IsDefined ? inputs.Get().ToArray() : [],
             outputs.IsDefined ? outputs.Get().ToArray() : [],
             clobbers.IsDefined ? clobbers.Get().ToArray() : []);
+
+    private static readonly Parser<Statement> StatementBlockElement =
+        from leading in CodeParser.Ignored
+        from lbrace in Parse.Char('{').Token()
+        from statements in StatementElement.Many()
+        from optionalSemicolon in Parse.Char(';').Token().Optional()
+        from rbrace in Parse.Char('}').Token().Named(CodeParser.FunctionBodyEndExpectation)
+        from trailing in CodeParser.Ignored
+        select new StatementBlock(statements.ToArray());
     
     // PARSERS FOR STATEMENT TERMINATION
     
@@ -198,7 +245,9 @@ public static class StatementParser {
     private static readonly Parser<Statement> NonTerminatedStatement =
         InlineAsmStatementElement
             .Or(IfStatementElement)
-            .Or(WhileStatementElement);
+            .Or(WhileStatementElement)
+            .Or(SwitchStatementElement)
+            .Or(StatementBlockElement);
 
     // One “statement” is either an asm block (no ';') or a terminated statement (with ';')
     public static readonly Parser<Statement> StatementElement =

@@ -106,7 +106,7 @@ public record DefineInstruction(int BytesPerEntry) : ArgumentOutputSegment {
     public override bool ValidateArgs(InstructionToken token, IExpression[] args, 
         Dictionary<string, string> _, out string? error) {
         _entryCount = args.Length;
-        if (args.Any(arg => arg is not NumberExpression or NameExpression)) {
+        if (args.Any(arg => arg is not (NumberExpression or NameExpression))) {
             error = "Define instruction arguments must be numbers.";
             return false;
         }

@@ -61,9 +61,26 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                     if (ps is LocalDeclaration) {
                         _errors.Add(new CompilationFailureException(element, "Local declarations are not allowed at the top level."));
                     }
+
+                    if (ps is StatementBlock block) {
+                        BlockValidator(block);
+                    }
                     
                     topLevelStatements.Add(ps);
                     break;
+
+                    void BlockValidator(StatementBlock b) {
+                        foreach (Statement s in b.Statements) {
+                            switch (s) {
+                                case LocalDeclaration:
+                                    _errors.Add(new CompilationFailureException(element, "Local declarations are not allowed at the top level."));
+                                    break;
+                                case StatementBlock anotherBlock:
+                                    BlockValidator(anotherBlock);
+                                    break;
+                            }
+                        }
+                    }
                 }
                 
                 case Struct pse: {
@@ -154,6 +171,15 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
 
     private void AnalyseStatement(Statement statement) {
         switch (statement) {
+            case StatementBlock sb: {
+                BeginScope();
+                foreach (Statement s in sb.Statements) {
+                    AnalyseStatement(s);
+                }
+                EndScope();
+                break;
+            }
+            
             case LocalDeclaration ld: {
                 if (_locals.Contains(ld.Name)) {
                     _errors.Add(new CompilationFailureException(statement, 
@@ -202,9 +228,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
             case IfStatement ifs: {
                 AnalyseExpression(statement, ifs.Condition);
                 BeginScope();
-                foreach (Statement thenStmnt in ifs.ThenStatements) {
-                    AnalyseStatement(thenStmnt);
-                }
+                AnalyseStatement(ifs.ThenStatements);
                 EndScope();
                 break;
             }
@@ -212,9 +236,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
             case WhileStatement ws: {
                 AnalyseExpression(statement, ws.Condition);
                 BeginScope();
-                foreach (Statement bodyStatement in ws.BodyStatements) {
-                    AnalyseStatement(bodyStatement);
-                }
+                AnalyseStatement(ws.BodyStatements);
                 EndScope();
                 break;
             }
@@ -250,6 +272,37 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
             
             case FunctionCall fc: {
                 AnalyseExpression(statement, fc);
+                break;
+            }
+
+            case SwitchStatement switck: {
+                AnalyseExpression(statement, switck.Expression);
+                
+                // all case values must be compile time constant
+                List<uint> resolvedVals = [];
+                foreach ((IValueExpression[] vals, Statement statements) in switck.Cases) {
+                    foreach (IValueExpression val in vals) {
+                        AnalyseExpression(statement, val);
+                        if (!CompileTimeValue.IsValid(val)) {
+                            _errors.Add(new CompilationFailureException(statement, 
+                                "Switch case values must be compile-time constants."));
+                        }
+                        
+                        uint resolvedVal = CompileTimeValue.From(val).Resolve(_structs.ToArray());
+                        resolvedVals.Add(resolvedVal);
+                    }
+                    
+                    AnalyseStatement(statements);
+                }
+                
+                AnalyseStatement(switck.DefaultStatements);
+                
+                // all values must be unique
+                if (resolvedVals.Count != resolvedVals.Distinct().Count()) {
+                    _errors.Add(new CompilationFailureException(statement, 
+                        "Switch case values must be unique."));
+                }
+                
                 break;
             }
 
