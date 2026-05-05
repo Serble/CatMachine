@@ -1,6 +1,8 @@
 ﻿using CatVM.Debugging;
 using CatVM.Display;
 using CatVM.Display.RaylibRenderer;
+using CatVM.Extensions;
+using CatVM.Serial;
 
 string romPath = args.Length > 0 ? args[0] : throw new ArgumentException("Please provide a path to a CatVM ROM file.");
 
@@ -18,6 +20,7 @@ bool errorOnRomWrite = false;
 bool useDebugger = false;
 List<(uint addr, uint length)> disallowedWrite = [];
 List<(uint addr, uint length)> disallowedRead = [];
+Dictionary<uint, ISerialDevice> serialDevices = [];
 
 IRenderer renderer = new DummyRendering();
 
@@ -106,6 +109,10 @@ for (int i = 1; i < args.Length; i++) {
             }
             break;
         
+        case "--timer":
+            serialDevices.Add(0x03, new HardwareTimer());
+            break;
+        
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
@@ -120,6 +127,11 @@ CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     DisallowedWriteRegions = disallowedWrite.ToArray(),
     Fast = fastRun
 };
+
+// add serial devices
+foreach ((uint port, ISerialDevice dev) in serialDevices) {
+    vm.SerialDevices[port] = dev;
+}
 
 renderer.Initialize(vm);
 _ = renderer.Start(vm);

@@ -1,23 +1,31 @@
 #include "std"
 #include "physics.nip"
 #include "drawing.nip"
+#include "utils.nip"
 
 #define BACKGROUND_COLOUR, 0x365235
 
 #define TILE_SIZE, 16
 
-#define PLATFORM_IMG_INDEX, 1  
+#define PLATFORM_IMG_INDEX, 1
 #define PLAYER_IMG_INDEX, 2
+#define SPIKE_IMG_INDEX, 3
+#define RED_IMG_INDEX, 4
 
 #define LEVEL_SIZE_BYTES, 768
 
 // 16 fractional bits
 #define PLAYER_SPEED, (1<<8)
 
+// IMAGES
 #binary IMAGE_PLATFORM, "data/platform.bin"
 #binary IMAGE_PLATFORM_PALETTE, "data/platform.palette.bin"
+#binary IMAGE_SPIKE, "data/spike.bin"
+#binary IMAGE_SPIKE_PALETTE, "data/spike.palette.bin"
 #binary IMAGE_PLAYER, "data/player.bin"
 #binary IMAGE_PLAYER_PALETTE, "data/player.palette.bin"
+#binary IMAGE_RED, "data/red.bin"
+#binary IMAGE_RED_PALETTE, "data/red.palette.bin"
 
 // levels
 #binary LEVEL1, "data/levels/level1.bin"
@@ -44,6 +52,13 @@ global last_jump:4 = 0;
 
 main();
 
+
+fun load_img(index:4, img_ptr:4, palette_ptr:4) {
+    memcpy(disp_buff[TileMode#images][index:4, 128], img_ptr:4, 128);  // place platform image into mem
+    memcpy(disp_buff[TileMode#palettes][index:4, 64], palette_ptr:4, 64);  // and its palette
+}
+
+
 fun main() {
     let changemode_status:4 = set_display_mode(0x11, disp_buff);
     if (changemode_status:4 != 0) {
@@ -56,12 +71,10 @@ fun main() {
     disp_buff:4 = ${BACKGROUND_COLOUR};
     //update_display();
 
-    memcpy(disp_buff[TileMode#images][${PLATFORM_IMG_INDEX}, 128], IMAGE_PLATFORM, 128);  // place platform image into mem
-    memcpy(disp_buff[TileMode#palettes][${PLATFORM_IMG_INDEX}, 64], IMAGE_PLATFORM_PALETTE, 64);  // and its palette
-
-    // now player 
-    memcpy(disp_buff[TileMode#images][${PLAYER_IMG_INDEX}, 128], IMAGE_PLAYER, 128);  // place platform image into mem
-    memcpy(disp_buff[TileMode#palettes][${PLAYER_IMG_INDEX}, 64], IMAGE_PLAYER_PALETTE, 64);  // and its palette
+    load_img(${PLATFORM_IMG_INDEX}, IMAGE_PLATFORM, IMAGE_PLATFORM_PALETTE);
+    load_img(${PLAYER_IMG_INDEX}, IMAGE_PLAYER, IMAGE_PLAYER_PALETTE);
+    load_img(${SPIKE_IMG_INDEX}, IMAGE_SPIKE, IMAGE_SPIKE_PALETTE);
+    load_img(${RED_IMG_INDEX}, IMAGE_RED, IMAGE_RED_PALETTE);
 
     let player_sprite:$Sprite;
     player_sprite[Sprite#image_index]:1 = ${PLAYER_IMG_INDEX};
@@ -134,53 +147,26 @@ fun handle_movement() {
     }
 
     // now for vertical movement, if they are on ground and clicking jump then jump
-    if (held_up:1 && is_on_ground() && last_jump:4 < (get_uptime() - 1000)) {
-        player_vel_y:4 = player_vel_y:4 - (2 << 8);
-        last_jump:4 = get_uptime();
+    if (held_up:1 && is_on_ground()) {
+        player_vel_y:4 = -2 << 8;
     }
 }
 
 
 fun die() {
-    fill_screen(0xFF0000);
+    let index:4 = 0;
+    while (index:4 < 884) {
+        set_tile(index:4, ${RED_IMG_INDEX});
+        if (index:4 % 34 == 0) {
+            update_display();
+            sleep(32);
+        }
+        index:4 = index:4 + 1;
+    }
     halt();
 }
 
 
-fun load_level(id:1) {
-    let level_ptr:4 = LEVEL1[id:1-1, ${LEVEL_SIZE_BYTES}];
 
-    let i:2 = 0;
-    let j:2;
-    while (i:2 < 24) {
-        j:2 = 0;
-        while (j:2 < 32) {
-            // set tile (j, i) to be set if it's set in leveldata
-            let type:1 = level_ptr:4:1;
-            level_ptr:4 = level_ptr:4 + 1;
-
-            let tile_index:4 = (i:2*34)+j:2;
-            
-            disp_buff[TileMode#tile_indexes][tile_index:4]:1 = ${PLATFORM_IMG_INDEX};
-            let palette_offset:4 = disp_buff[TileMode#tile_palettes][tile_index:4/2];
-
-            if (type:1) {
-                palette_offset:4:1 = palette_offset:4:1 | ${PLATFORM_IMG_INDEX} << ((1 - (tile_index:4 % 2))*4);
-            } else {
-                let mask:1 = 0x0F;
-                if (tile_index:4 % 2 == 1) {
-                    mask:1 = 0xF0;
-                }
-                palette_offset:4:1 = palette_offset:4:1 & mask:1;
-            }
-            
-            j:2 = j:2 + 1;
-        }
-
-        i:2 = i:2 + 1;
-    }
-
-    current_level:1 = id:1;
-}
 
 

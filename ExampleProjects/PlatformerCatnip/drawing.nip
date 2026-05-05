@@ -3,3 +3,54 @@ fun fill_screen(colour:4) {
     
 }
 
+
+fun set_tile(tile_index:4, img_index:4) {
+    let palette_offset:4 = disp_buff[TileMode#tile_palettes][tile_index:4/2];
+
+    // we need to ensure anything there is removed first 
+    let mask:1 = 0x0F;
+    if (tile_index:4 % 2 == 1) {
+        mask:1 = 0xF0;
+    }
+    palette_offset:4:1 = palette_offset:4:1 & mask:1 | img_index:4 << ((1 - (tile_index:4 % 2))*4);
+    disp_buff[TileMode#tile_indexes][tile_index:4]:1 = img_index:4;
+}
+
+
+fun load_level(id:1) {
+    let level_ptr:4 = LEVEL1[id:1-1, ${LEVEL_SIZE_BYTES}];
+
+    let i:2 = 0;
+    let j:2;
+    while (i:2 < 24) {
+        j:2 = 0;
+        while (j:2 < 32) {
+            // set tile (j, i) to be set if it's set in leveldata
+            let type:1 = level_ptr:4:1;
+            level_ptr:4 = level_ptr:4 + 1;
+
+            let tile_index:4 = (i:2*34)+j:2;
+            if (type:1 != 0x00) {
+                if (type:1 == 0x01) {
+                    set_tile(tile_index:4, ${PLATFORM_IMG_INDEX});
+                } else if (type:1 == 0x02) {
+                    set_tile(tile_index:4, ${SPIKE_IMG_INDEX});
+                }
+            } else {
+                let mask:1 = 0x0F;
+                if (tile_index:4 % 2 == 1) {
+                    mask:1 = 0xF0;
+                }
+                let palette_offset:4 = disp_buff[TileMode#tile_palettes][tile_index:4/2];
+                palette_offset:4:1 = palette_offset:4:1 & mask:1;
+            }
+            
+            j:2 = j:2 + 1;
+        }
+
+        i:2 = i:2 + 1;
+    }
+
+    current_level:1 = id:1;
+}
+

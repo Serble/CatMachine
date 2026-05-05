@@ -1,0 +1,6 @@
+
+fun sleep(ms:4) {
+    let target_time:4 = get_uptime() + ms:4;
+    while (get_uptime() < target_time:4) { }
+}
+

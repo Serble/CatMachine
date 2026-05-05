@@ -237,6 +237,9 @@ public class CatVM {
     
     private readonly int _memoryBytes;
     private DateTime _lastSlowWarning = DateTime.MinValue;
+
+    private List<(long time, Action callback)> _events = [];
+    private long _nextEvent = long.MaxValue;
     
     public CatVM(int memoryBytes, uint cyclesPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
@@ -537,6 +540,12 @@ public class CatVM {
         if (InterruptsEnabled && HardwareInterruptQueue.Count != 0) {
             HandleInterrupt(HardwareInterruptQueue.Dequeue());
         }
+
+        while (CurrentPicosecondTime >= _nextEvent) {
+            _events[^1].callback();
+            _events.RemoveAt(_events.Count - 1);
+            _nextEvent = _events.Count > 0 ? _events[^1].time : long.MaxValue;
+        }
         
         byte opcode = Read8();
         
@@ -670,6 +679,31 @@ public class CatVM {
         InterruptHandlers.DefaultHandler(this, id);
     }
     
+#endregion
+
+#region Events
+
+    private long CurrentPicosecondTime => Fast ? Runtime.Elapsed.Ticks * PicosecondsPerTick : TicksPassed;
+
+    private void RecalculateEvents() {
+        if (_events.Count == 0) {
+            _nextEvent = long.MaxValue;
+            return;
+        }
+        _events = _events.OrderByDescending(e => e.time).ToList();
+        _nextEvent = _events[^1].time;
+    }
+
+    public void RunAt(long picosecondTime, Action executor) {
+        _events.Add((picosecondTime, executor));
+        RecalculateEvents();
+    }
+
+    public void RunIn(long picosecondTime, Action executor) {
+        _events.Add((picosecondTime + CurrentPicosecondTime, executor));
+        RecalculateEvents();
+    }
+
 #endregion
 
     /// <summary>
