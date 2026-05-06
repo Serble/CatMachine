@@ -1,0 +1,22 @@
+out 2, 0
+in r1, 2
+int 0x90
+
+out 2, 2
+out 2, write_spot
+out 2, 0 ; start block
+out 2, 1 ; block count
+
+out 2, 1
+out 2, write_spot
+out 2, 0
+out 2, 1
+
+mov r1, @write_spot
+int 0x90
+
+int 0x81
+
+write_spot:
+d32 1234567890
+

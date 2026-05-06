@@ -113,6 +113,30 @@ for (int i = 1; i < args.Length; i++) {
             serialDevices.Add(0x03, new HardwareTimer());
             break;
         
+        case "--disk":
+            if (i + 3 >= args.Length) {
+                Console.WriteLine("Invalid or missing value for --disk flag, usage: --disk <filename> <blockCount> <picosPerBlock>");
+                return 1;
+            }
+
+            string fileName = args[i + 1];
+            if (!long.TryParse(args[i + 2], out long blockCount)) {
+                Console.WriteLine("Invalid or missing value for --disk flag, usage: --disk <filename> <blockCount> <picosPerBlock>");
+                return 1;
+            }
+            
+            if (!long.TryParse(args[i + 3], out long speed)) {
+                Console.WriteLine("Invalid or missing value for --disk flag, usage: --disk <filename> <blockCount> <picosPerBlock>");
+                return 1;
+            }
+            
+            i += 3;
+
+            FileStream file = File.Open(fileName, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+            file.SetLength(blockCount * 512);
+            serialDevices.Add(0x02, new Disk(file, speed));
+            break;
+        
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
