@@ -20,11 +20,11 @@ public abstract class CommandBasedSerialDevice<T> : ISerialDevice where T : stru
                 return;
             }
             
-            if (Enum.IsDefined(typeof(T), data)) {
+            if (!Enum.IsDefined(typeof(T), (int)data)) {
                 return;
             }
             
-            _mode = (T?)Enum.ToObject(typeof(T), data);
+            _mode = (T)Enum.ToObject(typeof(T), (int)data);
         }
         else {
             _modeArgs.Add(data);
