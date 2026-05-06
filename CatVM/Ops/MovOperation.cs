@@ -1,6 +1,26 @@
 namespace CatVM.Ops;
 
+using System.Runtime.CompilerServices;
+
 public static class MovOperation {
+
+    /// <summary>
+    /// Allocation free uint store.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void WriteU32(byte[] memory, uint address, uint value) {
+        // Bounds check happens implicitly via the array indexer in WriteUnaligned. We do an
+        // explicit check on the high byte first to make the failure mode (IndexOutOfRangeException)
+        // identical to the previous Array.Copy path.
+        _ = memory[address + 3];
+        Unsafe.WriteUnaligned(ref memory[address], value);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void WriteU16(byte[] memory, uint address, ushort value) {
+        _ = memory[address + 1];
+        Unsafe.WriteUnaligned(ref memory[address], value);
+    }
     
     public static void MovRR(CatVM vm) {
         byte destReg = vm.Read8();
@@ -39,35 +59,31 @@ public static class MovOperation {
         byte srcReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
         uint value = vm.Cpu.Get(srcReg);
-        byte[] bytes = BitConverter.GetBytes(value);
         vm.ValidateMemoryWrite(address, 4);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
+        WriteU32(vm.Memory, address, value);
     }
     
     public static void MovRPI(CatVM vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
         uint immediate = vm.ReadWord();
-        byte[] bytes = BitConverter.GetBytes(immediate);
         vm.ValidateMemoryWrite(address, 4);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
+        WriteU32(vm.Memory, address, immediate);
     }
     
     public static void MovIPR(CatVM vm) {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
         uint value = vm.Cpu.Get(srcReg);
-        byte[] bytes = BitConverter.GetBytes(value);
         vm.ValidateMemoryWrite(address, 4);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
+        WriteU32(vm.Memory, address, value);
     }
     
     public static void MovIPI(CatVM vm) {
         uint address = vm.ReadWord();
         uint immediate = vm.ReadWord();
-        byte[] bytes = BitConverter.GetBytes(immediate);
         vm.ValidateMemoryWrite(address, 4);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 4);
+        WriteU32(vm.Memory, address, immediate);
     }
     
     // Mov byte sized values
@@ -127,9 +143,8 @@ public static class MovOperation {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
         ushort value = (ushort)(vm.Cpu.Get(srcReg) & 0xFFFF);
-        byte[] bytes = BitConverter.GetBytes(value);
         vm.ValidateMemoryWrite(address, 2);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
+        WriteU16(vm.Memory, address, value);
     }
     
     public static void SMovRPR(CatVM vm) {
@@ -137,9 +152,8 @@ public static class MovOperation {
         byte srcReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
         ushort value = (ushort)(vm.Cpu.Get(srcReg) & 0xFFFF);
-        byte[] bytes = BitConverter.GetBytes(value);
         vm.ValidateMemoryWrite(address, 2);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
+        WriteU16(vm.Memory, address, value);
     }
     
     public static void SMovRIP(CatVM vm) {
@@ -162,17 +176,15 @@ public static class MovOperation {
     public static void SMovIPI(CatVM vm) {
         uint address = vm.ReadWord();
         ushort immediate = vm.Read16();
-        byte[] bytes = BitConverter.GetBytes(immediate);
         vm.ValidateMemoryWrite(address, 2);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
+        WriteU16(vm.Memory, address, immediate);
     }
     
     public static void SMovRPI(CatVM vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
         ushort immediate = vm.Read16();
-        byte[] bytes = BitConverter.GetBytes(immediate);
         vm.ValidateMemoryWrite(address, 2);
-        Array.Copy(bytes, 0, vm.Memory, (int)address, 2);
+        WriteU16(vm.Memory, address, immediate);
     }
 }

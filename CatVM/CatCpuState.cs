@@ -1,9 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace CatVM;
 
+// Explicit sequential layout so the Unsafe.Add-based register lookup in Get/Set/RegRef is sound:
+// register N maps to the Nth uint at offset N*4 from the start of the struct.
+[StructLayout(LayoutKind.Sequential)]
 public struct CatCpuState {
     public uint R0;
     public uint R1;
@@ -66,68 +70,36 @@ public struct CatCpuState {
         
     }
 
+    /// <summary>Number of accessible registers (R0..R7, Sp, Ip, Fl, It).</summary>
+    private const int RegisterCount = 12;
+
     public void Set(byte register, uint value) {
-        switch (register) {
-            case 0x00:
-                R0 = value;
-                break;
-            case 0x01:
-                R1 = value;
-                break;
-            case 0x02:
-                R2 = value;
-                break;
-            case 0x03:
-                R3 = value;
-                break;
-            case 0x04:
-                R4 = value;
-                break;
-            case 0x05:
-                R5 = value;
-                break;
-            case 0x06:
-                R6 = value;
-                break;
-            case 0x07:
-                R7 = value;
-                break;
-            case 0x08:
-                Sp = value;
-                break;
-            case 0x09:
-                Ip = value;
-                break;
-            case 0x0A:
-                Fl = value;
-                break;
-            case 0x0B:
-                It = value;
-                break;
-            
-            default:
-                throw new ArgumentOutOfRangeException(nameof(register), "Invalid register: " + register);
-        }
+        if (register >= RegisterCount) ThrowInvalidRegister(register);
+        Unsafe.Add(ref Unsafe.As<CatCpuState, uint>(ref this), register) = value;
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint Get(byte register) {
-        return register switch {
-            0x00 => R0,
-            0x01 => R1,
-            0x02 => R2,
-            0x03 => R3,
-            0x04 => R4,
-            0x05 => R5,
-            0x06 => R6,
-            0x07 => R7,
-            0x08 => Sp,
-            0x09 => Ip,
-            0x0A => Fl,
-            0x0B => It,
-            _ => throw new ArgumentOutOfRangeException(nameof(register), "Invalid register: " + register)
-        };
+        if (register >= RegisterCount) ThrowInvalidRegister(register);
+        return Unsafe.Add(ref Unsafe.As<CatCpuState, uint>(ref this), register);
     }
+
+    /// <summary>
+    /// Returns a ref to the register's storage. Lets callers read-modify-write a register without
+    /// going through a switch twice. Throws <see cref="ArgumentOutOfRangeException"/> for invalid
+    /// register indices.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [UnscopedRef]
+    public ref uint RegRef(byte register) {
+        if (register >= RegisterCount) ThrowInvalidRegister(register);
+        return ref Unsafe.Add(ref Unsafe.As<CatCpuState, uint>(ref this), register);
+    }
+
+    // Throw helper kept out-of-line so the JIT can inline the hot path of Get/Set/RegRef.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowInvalidRegister(byte register) =>
+        throw new ArgumentOutOfRangeException(nameof(register), "Invalid register: " + register);
 
     public string Dump() {
         return $"R0: 0x{R0:X8} R1: 0x{R1:X8} R2: 0x{R2:X8} R3: 0x{R3:X8} R4: 0x{R4:X8} R5: 0x{R5:X8} R6: 0x{R6:X8} " +

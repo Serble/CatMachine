@@ -385,8 +385,8 @@ public class CatVM {
     public void StackPush(uint value) {
         Cpu.Sp -= 4;
         ValidateMemoryWrite(Cpu.Sp, 4);
-        byte[] bytes = BitConverter.GetBytes(value);
-        Array.Copy(bytes, 0, Memory, (int)Cpu.Sp, 4);
+        _ = Memory[Cpu.Sp + 3];
+        Unsafe.WriteUnaligned(ref Memory[Cpu.Sp], value);
     }
     
     public void StackPush(byte value) {
@@ -398,8 +398,8 @@ public class CatVM {
     public void StackPush(ushort value) {
         Cpu.Sp -= 2;
         ValidateMemoryWrite(Cpu.Sp, 2);
-        byte[] bytes = BitConverter.GetBytes(value);
-        Array.Copy(bytes, 0, Memory, (int)Cpu.Sp, 2);
+        _ = Memory[Cpu.Sp + 1];
+        Unsafe.WriteUnaligned(ref Memory[Cpu.Sp], value);
     }
     
     public uint StackPop() {
