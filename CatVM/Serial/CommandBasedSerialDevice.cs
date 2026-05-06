@@ -7,7 +7,7 @@ public abstract class CommandBasedSerialDevice<T> : ISerialDevice where T : stru
     protected readonly Queue<uint> InputQueue = new();
     
     protected abstract int GetArgCount(T mode);
-    protected abstract void RunMode(T mode, List<uint> args);
+    protected abstract void RunMode(CatVM vm, T mode, List<uint> args);
     
     public uint Input(CatVM vm) {
         return InputQueue.Count == 0 ? uint.MaxValue : InputQueue.Dequeue();
@@ -15,11 +15,16 @@ public abstract class CommandBasedSerialDevice<T> : ISerialDevice where T : stru
     
     public void Output(CatVM vm, uint data) {
         if (!_mode.HasValue) {
+            if (data == 0) {
+                InputQueue.Enqueue(Type);
+                return;
+            }
+            
             if (Enum.IsDefined(typeof(T), data)) {
                 return;
             }
             
-            _mode = (T)(object)data;
+            _mode = (T?)Enum.ToObject(typeof(T), data);
         }
         else {
             _modeArgs.Add(data);
@@ -29,7 +34,7 @@ public abstract class CommandBasedSerialDevice<T> : ISerialDevice where T : stru
             return;
         }
         
-        RunMode(_mode.Value, _modeArgs);
+        RunMode(vm, _mode.Value, _modeArgs);
         
         _mode = null;
         _modeArgs.Clear();
