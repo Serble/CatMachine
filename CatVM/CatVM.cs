@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -111,8 +112,12 @@ public class CatVM {
     /// Queue of pending hardware interrupts. Hardware interrupts can be added to this queue using
     /// <see cref="HardwareInterrupt(byte)"/> or <see cref="HardwareInterrupt(SpecialInterupts)"/>.
     /// </summary>
-    public Queue<byte> HardwareInterruptQueue { get; } = [];
-    
+    private ConcurrentQueue<byte> HardwareInterruptQueue { get; } = [];
+
+    // best guess at how many interrupts are pending
+    // use to avoid expensive queue checks.
+    private int _hardwareInterruptAproxCount;
+
     /// <summary>
     /// Number of virtual picoseconds that have passed since the VM started.
     /// <remarks>This is in 'machine' time, not real world time.</remarks>
@@ -537,8 +542,11 @@ public class CatVM {
     /// </summary>
     /// <param name="fast">Whether to ignore timings and run as fast as possible.</param>
     public void ExecuteInstruction(bool fast = false) {
-        if (InterruptsEnabled && HardwareInterruptQueue.Count != 0) {
-            HandleInterrupt(HardwareInterruptQueue.Dequeue());
+        if (InterruptsEnabled
+            && Volatile.Read(ref _hardwareInterruptAproxCount) > 0
+            && HardwareInterruptQueue.TryDequeue(out byte hardwareInterrupt)) {
+            HandleInterrupt(hardwareInterrupt);
+            Interlocked.Decrement(ref _hardwareInterruptAproxCount);
         }
 
         while (CurrentPicosecondTime >= _nextEvent) {
@@ -601,6 +609,7 @@ public class CatVM {
     /// <param name="id">The interrupt code.</param>
     public void HardwareInterrupt(byte id) {
         HardwareInterruptQueue.Enqueue(id);
+        Interlocked.Add(ref _hardwareInterruptAproxCount, 1);
     }
     
     public void HandleInterrupt(byte id) {

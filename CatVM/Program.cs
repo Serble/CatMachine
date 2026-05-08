@@ -1,4 +1,5 @@
-﻿using CatVM.Debugging;
+﻿using System.Net;
+using CatVM.Debugging;
 using CatVM.Display;
 using CatVM.Display.RaylibRenderer;
 using CatVM.Extensions;
@@ -21,6 +22,7 @@ bool useDebugger = false;
 List<(uint addr, uint length)> disallowedWrite = [];
 List<(uint addr, uint length)> disallowedRead = [];
 Dictionary<uint, ISerialDevice> serialDevices = [];
+Dictionary<uint, Func<CatVM.CatVM, ISerialDevice>> serialDeviceFactories = [];
 
 IRenderer renderer = new DummyRendering();
 
@@ -137,6 +139,27 @@ for (int i = 1; i < args.Length; i++) {
             serialDevices.Add(0x02, new Disk(file, speed));
             break;
         
+        case "--vnic":  // --vnic <peer endpoint> <port>
+            if (i + 2 >= args.Length) {
+                Console.WriteLine("Invalid or missing value for --vnic flag, usage: --vnic <peer endpoint> <port>");
+                return 1;
+            }
+
+            if (!IPEndPoint.TryParse(args[i + 1], out IPEndPoint? endpoint)) {
+                Console.WriteLine("Invalid peer endpoint for --vnic flag.");
+                return 1;
+            }
+
+            if (!ushort.TryParse(args[i + 2], out ushort port)) {
+                Console.WriteLine("Invalid port for --vnic flag.");
+                return 1;
+            }
+            
+            // ReSharper disable twice AccessToModifiedClosure
+            serialDeviceFactories.Add(0x04, vm => new VirtualNetworkCard(vm, endpoint, port));
+            i += 2;
+            break;
+        
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
@@ -155,6 +178,9 @@ CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
 // add serial devices
 foreach ((uint port, ISerialDevice dev) in serialDevices) {
     vm.SerialDevices[port] = dev;
+}
+foreach ((uint port, Func<CatVM.CatVM, ISerialDevice> factory) in serialDeviceFactories) {
+    vm.SerialDevices[port] = factory(vm);
 }
 
 renderer.Initialize(vm);
