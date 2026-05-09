@@ -208,11 +208,10 @@ public class Analyser {
             Dictionary<string, string> modConstants = CompactConstants();
             string evalId = Guid.NewGuid().ToString();
             modConstants.Add(evalId, exprStr);
-            _ = EvaluateVariable(evalId, modConstants);
             try {
+                _ = EvaluateVariable(evalId, modConstants);
             } catch (Exception e) when (e is CircularDependencyException or KeyNotFoundException or InvalidOperationException) {
-                // throw Fail(token, "Invalid expression: " + exprStr + " (" + e.Message + ")");
-                throw;
+                throw Fail(token, "Invalid expression: " + exprStr + " (" + e.Message + ")");
             }
         }
 

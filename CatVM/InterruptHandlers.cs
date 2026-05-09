@@ -1,5 +1,3 @@
-using CatVM.Extensions.Renderer;
-
 namespace CatVM;
 
 public static class InterruptHandlers {
