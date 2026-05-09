@@ -21,6 +21,7 @@ bool errorOnRomWrite = false;
 bool useDebugger = false;
 List<(uint addr, uint length)> disallowedWrite = [];
 List<(uint addr, uint length)> disallowedRead = [];
+List<ISerialDevice> genericSerialDevices = [];
 Dictionary<uint, ISerialDevice> serialDevices = [];
 Dictionary<uint, Func<CatVM.CatVM, ISerialDevice>> serialDeviceFactories = [];
 
@@ -160,6 +161,10 @@ for (int i = 1; i < args.Length; i++) {
             i += 2;
             break;
         
+        case "--rcp":
+            genericSerialDevices.Add(new RealityCoProcessor());
+            break;
+        
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
@@ -181,6 +186,10 @@ foreach ((uint port, ISerialDevice dev) in serialDevices) {
 }
 foreach ((uint port, Func<CatVM.CatVM, ISerialDevice> factory) in serialDeviceFactories) {
     vm.SerialDevices[port] = factory(vm);
+}
+
+foreach (ISerialDevice dev in genericSerialDevices) {
+    vm.RegisterSerialDevice(dev);
 }
 
 renderer.Initialize(vm);

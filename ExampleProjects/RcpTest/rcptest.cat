@@ -1,0 +1,29 @@
+
+out 0x10, 0
+in r1, 0x10
+cmp r1, 0x015512442
+jne fail
+
+mov r1, 0000000
+int 0x90 ; debug print number
+
+out 0x10, 0x20      ; ExecuteList
+out 0x10, display_list
+
+loop:
+jmp loop
+
+int 0x81 ; stop everything
+
+fail:
+mov r1, 1111111
+int 0x90 ; debug print number
+jmp fail
+
+display_list:
+d32 0x22            ; ClearBuffers
+d32 0x00000000      ; Color = white
+
+#include "low_poly_mario.cat"
+
+d32 0x21            ; EndList
