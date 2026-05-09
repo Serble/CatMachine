@@ -8,6 +8,7 @@ public class Disk(Stream stream, long picosPerBlock, int queueCapacity = 32) : C
 
     private const long BlockSize = 512;
 
+    private Dictionary<uint, byte[]> _unwrittenData = [];
     private Queue<(bool isRead, uint memAddr, uint startBlock, uint blockCount)> _queue = new(queueCapacity);
     private bool _isRunning;
 
@@ -49,23 +50,50 @@ public class Disk(Stream stream, long picosPerBlock, int queueCapacity = 32) : C
         
         (bool isRead, uint memAddr, uint startBlock, uint blockCount) = _queue.Dequeue();
                 
-        vm.RunIn(blockCount * picosPerBlock, () => {
+        void Execute() {
             Stopwatch sw = Stopwatch.StartNew();
-            stream.Seek(startBlock * BlockSize, SeekOrigin.Begin);
-            Span<byte> span = vm.Memory.AsSpan((int)memAddr..(int)(memAddr + blockCount * BlockSize));
             if (isRead) {
-                stream.ReadExactly(span);
+                for (uint block = startBlock; block < startBlock + blockCount; block++) {
+                    int startAddr = (int)(memAddr + block * BlockSize);
+                    Span<byte> span = vm.Memory.AsSpan(startAddr..(startAddr + (int)BlockSize));
+                    
+                    if (_unwrittenData.TryGetValue(block, out byte[]? data)) {
+                        data.CopyTo(span);
+                    }
+                    else {
+                        stream.Seek(block * BlockSize, SeekOrigin.Begin);
+                        stream.ReadExactly(span);
+                    }
+                }
             }
             else {
-                stream.Write(span);
-                stream.FlushAsync();
+                for (uint block = startBlock; block < startBlock + blockCount; block++) {
+                    int startAddr = (int)(memAddr + block * BlockSize);
+                    Span<byte> span = vm.Memory.AsSpan(startAddr..(int)(startAddr + BlockSize));
+
+                    if (_unwrittenData.TryGetValue(block, out byte[]? array)) {
+                        span.CopyTo(array);
+                    }
+                    else {
+                        array = new byte[BlockSize];
+                        span.CopyTo(array);
+                        _unwrittenData[block] = array;
+                    }
+                }
             }
             
             vm.HardwareInterrupt(SpecialInterupts.DiskOperationFinish);
             Console.WriteLine($"thing is {sw.Elapsed.TotalMilliseconds}");
             
             ExecuteOperation(vm);
-        });
+        }
+
+        if (picosPerBlock == 0) {
+            Execute();
+        }
+        else {
+            vm.RunIn(blockCount * picosPerBlock, Execute);
+        }
     }
     
     public enum Mode {

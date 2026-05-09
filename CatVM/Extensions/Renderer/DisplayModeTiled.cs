@@ -1,7 +1,7 @@
 using System.Numerics;
 using Raylib_cs;
 
-namespace CatVM.Display.RaylibRenderer;
+namespace CatVM.Extensions.Renderer;
 
 public class DisplayModeTiled : IDisplayModeRenderer {
     private const int PaletteLocation = 4;
@@ -23,19 +23,19 @@ public class DisplayModeTiled : IDisplayModeRenderer {
     private byte _scrollX;
     private byte _scrollY;
     
-    public DisplayModeTiled(CatVM vm) {
-        if (((int)vm.DisplayMode & 0xf) != 1) {
-            throw new NotImplementedException($"Display mode {vm.DisplayMode} not implemented!");
+    public DisplayModeTiled(RaylibPpu ppu) {
+        if (((int)ppu.DisplayMode & 0xf) != 1) {
+            throw new NotImplementedException($"Display mode {ppu.DisplayMode} not implemented!");
         }
         
         _tileShader = Raylib.LoadShaderFromMemory(
-            RaylibRendering.ReadResource("TileVertex.vert"),
-            RaylibRendering.ReadResource("TileFragment.frag")
+            RaylibPpu.ReadResource("TileVertex.vert"),
+            RaylibPpu.ReadResource("TileFragment.frag")
         );
 
         _spriteShader = Raylib.LoadShaderFromMemory(
             null,
-            RaylibRendering.ReadResource("SpriteFragment.frag")
+            RaylibPpu.ReadResource("SpriteFragment.frag")
         );
         
         _tileShaderBoundsLocation = Raylib.GetShaderLocation(_tileShader, "bounds");
@@ -57,25 +57,25 @@ public class DisplayModeTiled : IDisplayModeRenderer {
                 177, ShaderUniformDataType.Int);
         }
         
-        _displayData = RaylibRendering.CreateTexture(177, 196, // 177*196 == vm.DisplayBufferSize
+        _displayData = RaylibPpu.CreateTexture(177, 196, // 177*196 == vm.DisplayBufferSize
             PixelFormat.UncompressedGrayscale, 1);
     }
 
-    public void Unload(CatVM vm) {
+    public void Unload(RaylibPpu ppu, CatVM vm) {
         Raylib.UnloadShader(_tileShader);
         Raylib.UnloadShader(_spriteShader);
         Raylib.UnloadTexture(_displayData);
     }
 
-    public void ReadScreenData(CatVM vm) {
+    public void ReadScreenData(RaylibPpu ppu, CatVM vm) {
         // read all the data from the display buffer and store it so we can draw it later
         _uninitialised = false;
-        uint pointer = vm.DisplayBufferAddress;
+        uint pointer = ppu.DisplayBufferAddress;
         
-        _clearColor = RaylibRendering.BgrxToColor(vm.ReadWord(pointer));
+        _clearColor = RaylibPpu.BgrxToColor(vm.ReadWord(pointer));
         
         Raylib.UpdateTexture(_displayData, 
-            vm.Memory.AsSpan((int)pointer..((int)pointer + vm.DisplayBufferSize)));
+            vm.Memory.AsSpan((int)pointer..((int)pointer + ppu.DisplayBufferSize)));
         
         _scrollX = Math.Min(vm.Memory[pointer + TileScrollLocation], (byte)32);
         _scrollY = Math.Min(vm.Memory[pointer + TileScrollLocation + 1], (byte)32);
@@ -117,9 +117,9 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         }
     }
     
-    public void Update(CatVM vm) { }
+    public void Update(RaylibPpu ppu, CatVM vm) { }
     
-    public void Draw(CatVM vm) {
+    public void Draw(RaylibPpu ppu, CatVM vm) {
         if (_uninitialised) {
             Raylib.ClearBackground(Color.Black);
             return;
@@ -127,12 +127,12 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         
         Raylib.ClearBackground(_clearColor);
         
-        Rectangle dest = RaylibRendering.GetCenteredBounds(vm);
+        Rectangle dest = ppu.GetCenteredBounds();
         
         Raylib.BeginShaderMode(_spriteShader);
         foreach (Sprite sprite in _sprites) {
             if (sprite.DoDraw && sprite.DrawBehind) {
-                sprite.Draw(this, vm, dest);
+                sprite.Draw(this, ppu, dest);
             }
         }
         Raylib.EndShaderMode();
@@ -146,7 +146,7 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         Raylib.BeginShaderMode(_spriteShader);
         foreach (Sprite sprite in _sprites) {
             if (sprite.DoDraw && !sprite.DrawBehind) {
-                sprite.Draw(this, vm, dest);
+                sprite.Draw(this, ppu, dest);
             }
         }
         Raylib.EndShaderMode();
@@ -173,10 +173,10 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         ushort YPos,
         ushort Rotation
     ) {
-        public void Draw(DisplayModeTiled dm, CatVM vm, Rectangle dest) {
+        public void Draw(DisplayModeTiled dm, RaylibPpu ppu, Rectangle dest) {
             // Console.WriteLine($"{XPos} {YPos} {Rotation / (float)ushort.MaxValue * 360} {HFlip} {VFlip}");
 
-            Vector2 displayRatio = dest.Size / new Vector2(vm.DisplayWidth, vm.DisplayHeight);
+            Vector2 displayRatio = dest.Size / new Vector2(ppu.DisplayWidth, ppu.DisplayHeight);
             
             Vector2 pos = new(XPos + 8 - dm._scrollX, YPos + 8 - dm._scrollY);
             pos = pos * displayRatio + dest.Position;

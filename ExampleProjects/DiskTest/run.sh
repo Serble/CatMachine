@@ -12,7 +12,7 @@ fi
 echo "Running..."
 
 # Requires raylib rendering
-dotnet run -c Release --project ../../CatVM/CatVM.csproj a.out --test-ints --disk "disk.catdisk" 1000 $*
+dotnet run -c Release --project ../../CatVM/CatVM.csproj a.out --test-ints --disk "disk.catdisk" 16 0 --dump-errors $*
 
 status=$?
 echo "Application exited with status code $status"

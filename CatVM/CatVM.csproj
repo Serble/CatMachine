@@ -20,18 +20,16 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Remove="Display\RaylibRenderer\Shaders\TileVertex.vs" />
-      <EmbeddedResource Include="Display\RaylibRenderer\Shaders\TileVertex.vert" />
-      <None Remove="Display\RaylibRenderer\Shaders\SpriteFragment.frag" />
-      <EmbeddedResource Include="Display\RaylibRenderer\Shaders\SpriteFragment.frag" />
       <None Remove="Extensions\RealityCoProcessor\Shaders\default.frag" />
       <EmbeddedResource Include="Extensions\RealityCoProcessor\Shaders\rcp_default.frag" />
       <None Remove="Extensions\RealityCoProcessor\Shaders\default.vert" />
       <EmbeddedResource Include="Extensions\RealityCoProcessor\Shaders\rcp_default.vert" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <EmbeddedResource Include="Display\RaylibRenderer\Shaders\TileFragment.frag" />
+      <None Remove="Extensions\Renderer\Shaders\SpriteFragment.frag" />
+      <EmbeddedResource Include="Extensions\Renderer\Shaders\SpriteFragment.frag" />
+      <None Remove="Extensions\Renderer\Shaders\TileFragment.frag" />
+      <EmbeddedResource Include="Extensions\Renderer\Shaders\TileFragment.frag" />
+      <None Remove="Extensions\Renderer\Shaders\TileVertex.vert" />
+      <EmbeddedResource Include="Extensions\Renderer\Shaders\TileVertex.vert" />
     </ItemGroup>
 
 </Project>

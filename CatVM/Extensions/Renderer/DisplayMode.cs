@@ -1,4 +1,4 @@
-namespace CatVM;
+namespace CatVM.Extensions.Renderer;
 
 public enum DisplayMode {
     Raw512X512   = 0x00,

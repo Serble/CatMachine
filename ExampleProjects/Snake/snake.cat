@@ -4,6 +4,12 @@ jmp main
 #const INT_UPDATE_SCREEN, 0x86
 #const INT_UPTIME, 0x85
 
+#const MODE_UPDATE_SCREEN, 0x01
+#const MODE_DISPLAY_MODE, 0x02
+
+#const MODE_READ_INPUT, 0x01
+#const MODE_END_READ_INPUT, 0x02
+
 #const DISPLAY_MODE_BUFFER, 0x01
 #const DISPLAY_MODE_TILED, 0x11
 #const SCREEN_WIDTH, 512
@@ -27,7 +33,7 @@ jmp main
 #const SNAKE_TILE, 1
 #const APPLE_TILE, 2
 
-#const TARGET_TIME, 100   ; 100ms per frame
+#const TARGET_TIME, 50   ; 100ms per frame
 #const EAT_GROW_AMOUNT, 3 ; grow 3 times every time you eat
 
 ; IMAGES
@@ -69,6 +75,12 @@ apple_bob_count:
 random_number:
     d16 0
 
+graphics_port:
+    d32 -1
+
+input_port:
+    d32 -1
+
 ; a array of body positions
 ; 2 bytes per body segment bc x and y pos, 32*24 is max size with 8 segments of leeway
 #const snake_body_len, (GAME_WIDTH*GAME_HEIGHT + 8) * 2
@@ -85,28 +97,56 @@ pop r1
 #endmacro
 
 main:
+    ; find the graphics and input device:
+    mov r0, 15 ; index
+    .discover_loop:
+        add r0, 1
+        out r0, 0
+        in r1, r0
+
+        cmp r1, 0xFF64BEF9
+        jne .not_graphics
+            mov @graphics_port, r0
+            jmp .discover_loop
+        .not_graphics:
+
+        cmp r1, 0x2EB3AD76
+        jne .not_input
+            mov @input_port, r0
+            out r0, MODE_READ_INPUT ; enter read mode
+            jmp .discover_loop
+        .not_input:
+        
+        cmp r1, -1
+        jne .discover_loop
+    
     ; Title screen
-    mov r1, DISPLAY_MODE_BUFFER
-    mov r2, title_screen
-    int INT_DISPLAY_MODE
+    mov r1, @graphics_port
+    out r1, MODE_DISPLAY_MODE   ; change display mode
+    out r1, DISPLAY_MODE_BUFFER ; display mode
+    out r1, title_screen        ; buffer address
+    in r0, r1                   ; read response
     cmp r0, 0
     jne panic
     
-    int INT_UPDATE_SCREEN
+    out r1, MODE_UPDATE_SCREEN  ; update screen
     
+    mov r1, @input_port
     .press_any_key_loop:
-    in r0, 0
+    in r0, r1
     cmp r0, -1
     je .press_any_key_loop
     
     ; consume the rest of the input event
-    in r0, 0
-    in r0, 0
+    in r0, r1
+    in r0, r1
     
     ; change display mode because now we are loading into the game
-    mov r1, DISPLAY_MODE_TILED
-    mov r2, display_buffer
-    int INT_DISPLAY_MODE
+    mov r1, @graphics_port
+    out r1, MODE_DISPLAY_MODE
+    out r1, DISPLAY_MODE_TILED
+    out r1, display_buffer
+    in r0, r1
     cmp r0, 0
     jne panic
     
@@ -343,7 +383,8 @@ main:
     add r1, r3
     mov16 @r0, r1
     
-    int INT_UPDATE_SCREEN
+    mov r1, @graphics_port
+    out r1, MODE_UPDATE_SCREEN
     jmp .main_loop
 
 ; value in r1, min in r2 (inclusive), max in r3 (inclusive), result in r0
@@ -365,12 +406,13 @@ wrap_signed:
     ret
 
 handle_input:
-    in r1, 0
+    mov r3, @input_port
+    in r1, r3
     cmp r1, -1 ; is there any info
     je .done   ; if not we r done
     
-    in r2, 0
-    in r3, 0
+    in r2, r3
+    in r3, r3
     
     cmp r1, 0 ; is keyboard
     jne handle_input ; try again

@@ -1,8 +1,7 @@
 ﻿using System.Net;
 using CatVM.Debugging;
-using CatVM.Display;
-using CatVM.Display.RaylibRenderer;
 using CatVM.Extensions;
+using CatVM.Extensions.Renderer;
 using CatVM.Serial;
 
 string romPath = args.Length > 0 ? args[0] : throw new ArgumentException("Please provide a path to a CatVM ROM file.");
@@ -19,13 +18,12 @@ bool enableTestInts = false;
 bool dumpErrors = false;
 bool errorOnRomWrite = false;
 bool useDebugger = false;
+bool raylibPpu = false;
 List<(uint addr, uint length)> disallowedWrite = [];
 List<(uint addr, uint length)> disallowedRead = [];
 List<ISerialDevice> genericSerialDevices = [];
 Dictionary<uint, ISerialDevice> serialDevices = [];
 Dictionary<uint, Func<CatVM.CatVM, ISerialDevice>> serialDeviceFactories = [];
-
-IRenderer renderer = new DummyRendering();
 
 for (int i = 1; i < args.Length; i++) {
     switch (args[i]) {
@@ -50,18 +48,8 @@ for (int i = 1; i < args.Length; i++) {
             }
             break;
         
-        case "--renderer":
-            string rendererType = "raylib";
-            if (i + 1 < args.Length) {
-                rendererType = args[i + 1];
-                i++;
-            }
-
-            renderer = rendererType switch {
-                "raylib" => new RaylibRendering(),
-                "dummy" => new DummyRendering(),
-                _ => throw new ArgumentException($"Unknown rendering type: {rendererType}")
-            };
+        case "--raylib-ppu":
+            raylibPpu = true;
             break;
         
         case "--test-ints":
@@ -192,8 +180,11 @@ foreach (ISerialDevice dev in genericSerialDevices) {
     vm.RegisterSerialDevice(dev);
 }
 
-renderer.Initialize(vm);
-_ = renderer.Start(vm);
+if (raylibPpu) {
+    RaylibPpu ppu = new(vm);
+    vm.RegisterSerialDevice(ppu.Graphics);
+    vm.RegisterSerialDevice(ppu.Input);
+}
 
 CancellationTokenSource cts = new();
 Console.CancelKeyPress += (_, _) => cts.Cancel();

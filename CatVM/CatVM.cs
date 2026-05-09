@@ -85,12 +85,6 @@ public class CatVM {
     public bool DumpErrors { get; set; }
     
     /// <summary>
-    /// The address of the display buffer in the VM's memory.
-    /// <remarks>This should only really be set by user program.</remarks>
-    /// </summary>
-    public uint DisplayBufferAddress { get; set; }
-    
-    /// <summary>
     /// Regions of memory that will trigger an error upon being written to.
     /// <remarks>Only available in <see cref="DebugMode"/>.</remarks>
     /// </summary>
@@ -136,37 +130,12 @@ public class CatVM {
     public bool Fast { get; init; }
     
     /// <summary>
-    /// Event for when the program requests the display to update.
-    /// <p/>
-    /// Display hardware should subscribe to this event and update the display when it is invoked.
-    /// </summary>
-    public event Action? UpdateDisplayEvent;
-    
-    /// <summary>
-    /// Event for when the program changes the display mode.
-    /// The display mode can be read from the <see cref="DisplayMode"/> property.
-    /// <p/>
-    /// Display hardware should subscribe to this event and update the display when it is invoked.
-    /// </summary>
-    public event Action? DisplayModeUpdated;
-    
-    /// <summary>
     /// The virtual CPU state of the VM, including registers and flags.
     /// This is used by instructions to read and modify the CPU state.
     /// <p/>
     /// Be careful when modifying this directly. It is not recommended.
     /// </summary>
     public CatCpuState Cpu;
-
-    /// <summary>
-    /// The width of the current display mode.
-    /// </summary>
-    public int DisplayWidth { get; private set; }
-    
-    /// <summary>
-    /// The height of the current display mode.
-    /// </summary>
-    public int DisplayHeight { get; private set; }
     
     /// <summary>
     /// Whether the VM is currently paused. While paused the VM will not execute instructions
@@ -181,50 +150,6 @@ public class CatVM {
             } else {
                 Runtime.Start();
             }
-        }
-    }
-    
-    public DisplayMode DisplayMode { get;
-        set {
-            field = value;
-
-            if (value == DisplayMode.DummyDisplay) {
-                DisplayWidth = 0;
-                DisplayHeight = 0;
-            }
-            else {
-                switch ((int)value & 0xf) {
-                    case 0:
-                        DisplayWidth = 512;
-                        DisplayHeight = 512;
-                        break;
-                
-                    case 1:
-                        DisplayWidth = 512;
-                        DisplayHeight = 384;
-                        break;
-                }
-            }
-            
-            DisplayModeUpdated?.Invoke();
-        }
-    } = DisplayMode.DummyDisplay;
-    
-    /// <summary>
-    /// The size of the display buffer in bytes for the current display mode.
-    /// Refer to <see cref="DisplayBufferAddress"/> for where the display buffer is located in memory.
-    /// </summary>
-    public int DisplayBufferSize {
-        get {
-            if (DisplayMode == DisplayMode.DummyDisplay) {
-                return 0;
-            }
-            
-            return ((int)DisplayMode & 0xf) switch {
-                0 => DisplayWidth * DisplayHeight * 4,
-                1 => 34_868,
-                _ => 0
-            };
         }
     }
 
@@ -640,16 +565,6 @@ public class CatVM {
                 InterruptHandlers.GetUptimeInterrupt(this);
                 return;
             }
-
-            case 0x86: {  // update display
-                InterruptHandlers.UpdateDisplayInterrupt(this);
-                return;
-            }
-
-            case 0x87: {  // change display mode
-                InterruptHandlers.ChangeDisplayModeInterrupt(this);
-                return;
-            }
             
             // 0x9X DEBUG INTERRUPTS
             
@@ -714,14 +629,6 @@ public class CatVM {
     }
 
 #endregion
-
-    /// <summary>
-    /// Tell any display hardware to update the display.
-    /// This is usually called by an interrupt.
-    /// </summary>
-    public void UpdateDisplay() {
-        UpdateDisplayEvent?.Invoke();
-    }
 
     public void SaveState(Stream stream) {
         stream.Write(Memory);

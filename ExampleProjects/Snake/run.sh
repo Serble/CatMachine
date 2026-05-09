@@ -11,6 +11,6 @@ cd "$(dirname "$0")"
 # --renderer raylib
 
 echo "Running..."
-dotnet run --project ../../CatVM/CatVM.csproj ./bin/snake.bin --renderer raylib $*
+dotnet run --project ../../CatVM/CatVM.csproj ./bin/snake.bin --raylib-ppu $*
 status=$?
 echo "Application exited with status code $status"

@@ -1,3 +1,5 @@
+using CatVM.Extensions.Renderer;
+
 namespace CatVM;
 
 public static class InterruptHandlers {
@@ -27,32 +29,6 @@ public static class InterruptHandlers {
 
     public static void GetUptimeInterrupt(CatVM vm) {
         vm.Cpu.R0 = vm.Fast ? (uint)vm.Runtime.ElapsedMilliseconds : (uint)(vm.TicksPassed / CatVM.PicosecondsPerMillisecond);
-    }
-
-    public static void UpdateDisplayInterrupt(CatVM vm) {
-        vm.UpdateDisplay();
-    }
-
-    public static void ChangeDisplayModeInterrupt(CatVM vm) {
-        uint displayMode = vm.Cpu.R1;
-        if (!Enum.IsDefined(typeof(DisplayMode), (int)displayMode)) {
-            vm.Cpu.R0 = 1;
-            return;
-        }
-
-        DisplayMode oldMode = vm.DisplayMode;
-        uint oldOffset = vm.DisplayBufferAddress;
-        vm.DisplayMode = (DisplayMode)displayMode;
-        vm.DisplayBufferAddress = vm.Cpu.R2;
-
-        if (vm.DisplayBufferAddress + vm.DisplayBufferSize > vm.Memory.Length) {
-            vm.Cpu.R0 = 2;
-            vm.DisplayMode = oldMode;
-            vm.DisplayBufferAddress = oldOffset;
-            return;
-        }
-        
-        vm.Cpu.R0 = 0;
     }
 
     public static void DefaultHandler(CatVM vm, byte opcode) {
