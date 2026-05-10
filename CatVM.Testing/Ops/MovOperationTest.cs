@@ -151,4 +151,81 @@ public class MovOperationTest : OperationTestBase {
         Execute(0x13, 0x30, 0x00, 0x00, 0x00, 0x78); // MOV8 [0x30], 0x78
         Assert.That(_vm.Memory[0x30], Is.EqualTo(0x78));
     }
+
+    // ---- Edge cases ----
+
+    [Test]
+    public void TestBMovZeroExtends() {
+        // BMov from memory loads byte and sign-extends as zero into upper bits
+        _vm.Memory[0x30] = 0xFF;
+        _vm.Cpu.R2 = 0xAAAAAAAA;
+        Execute(0x0F, 0x02, 0x30, 0x00, 0x00, 0x00); // BMov R2, [0x30]
+        Assert.That(_vm.Cpu.R2, Is.EqualTo(0xFFu));
+    }
+
+    [Test]
+    public void TestSMovZeroExtends() {
+        _vm.Memory[0x30] = 0xFF;
+        _vm.Memory[0x31] = 0xFF;
+        _vm.Cpu.R2 = 0xAAAAAAAA;
+        Execute(0x09, 0x02, 0x30, 0x00, 0x00, 0x00); // SMov R2, [0x30]
+        Assert.That(_vm.Cpu.R2, Is.EqualTo(0xFFFFu));
+    }
+
+    [Test]
+    public void TestMovOutOfRangeRead_RaisesPageFault() {
+        _vm.LoadData([0x03, 0x02, 0x00, 0xF0, 0xFF, 0xFF]); // MOV R2, [0xFFFFF000]
+        _vm.Cpu.Ip = 0;
+        _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
+        Assert.That(_vm.Paused, Is.True);
+    }
+
+    [Test]
+    public void TestMovOutOfRangeWrite_RaisesPageFault() {
+        _vm.LoadData([0x07, 0x00, 0xF0, 0xFF, 0xFF, 0x78, 0x56, 0x34, 0x12]); // MOV [0xFFFFF000], 0x12345678
+        _vm.Cpu.Ip = 0;
+        _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
+        Assert.That(_vm.Paused, Is.True);
+    }
+
+    [Test]
+    public void TestMovUnalignedAddress_Works() {
+        // 32-bit access at an odd address should work (Unsafe.WriteUnaligned).
+        Execute(0x07, 0x33, 0x00, 0x00, 0x00, 0x78, 0x56, 0x34, 0x12);
+        Assert.That(BitConverter.ToUInt32(_vm.Memory, 0x33), Is.EqualTo(0x12345678u));
+    }
+
+    [Test]
+    public void TestMovInVirtualMode_InstructionFetchUsesMBase() {
+        // Verifies *IP* translation: a MOV R2, 0x12345678 placed at physical mbase
+        // is executed via virtual IP=0 in user mode.
+        _vm.Reset();
+        const uint mbase = 0x100;
+        const uint mlen  = 0x80;
+        _vm.LoadData([0x01, 0x02, 0x78, 0x56, 0x34, 0x12], mbase); // MOV R2, 0x12345678
+        _vm.Cpu.MBase = mbase;
+        _vm.Cpu.MLen = mlen;
+        _vm.Cpu.Sp = mlen;
+        _vm.Cpu.Mode = 0b01;
+        _vm.Cpu.Ip = 0;
+        _vm.ExecuteInstruction();
+        Assert.Multiple(() => {
+            Assert.That(_vm.Cpu.R2, Is.EqualTo(0x12345678u));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u), "Virtual IP advances normally");
+        });
+    }
+
+    [Test]
+    public void TestVirtualMode_IpBeyondMLen_RaisesPageFault() {
+        _vm.Reset();
+        const uint mbase = 0x40;
+        const uint mlen  = 0x10;
+        _vm.Cpu.MBase = mbase;
+        _vm.Cpu.MLen = mlen;
+        _vm.Cpu.Sp = mlen;
+        _vm.Cpu.Mode = 0b01;
+        _vm.Cpu.Ip = mlen;  // exactly out-of-range for any read
+        _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
+        Assert.That(_vm.Paused, Is.True);
+    }
 }

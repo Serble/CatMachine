@@ -203,4 +203,53 @@ public class JmpOperationTest : OperationTestBase {
         Execute(0x3e, 0x04, 0x12, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x06));  // not hit (6 instruction bytes)
     }
+
+    [Test]
+    public void TestJmpAbsolute_AddrReg0xFF_TreatedAsZero() {
+        // JmpOperation.Jmp special-cases addrReg == 0xFF as "no base" (absolute).
+        _vm.Cpu.R4 = 0xDEAD;  // would otherwise pollute the target
+        Execute(0x30, 0xFF, 0x12, 0x00, 0x00, 0x00);
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x12u));
+    }
+
+    [Test]
+    public void TestJzAbsolute_AddrReg0xFF() {
+        _vm.Cpu.ZeroFlag = true;
+        Execute(0x35, 0xFF, 0x42, 0x00, 0x00, 0x00);
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x42u));
+    }
+
+    [Test]
+    public void TestCmpThenJugIntegration() {
+        // CMP 10, 5 then JUG +0x10 should jump.
+        _vm.Cpu.R4 = 10;
+        _vm.Cpu.R5 = 5;
+        _vm.Cpu.R6 = 0;
+        _vm.LoadData([
+            0x31, 0x04, 0x05,                 // CMP R4, R5
+            0x39, 0x06, 0x10, 0x00, 0x00, 0x00 // JUG R6+0x10
+        ]);
+        _vm.Cpu.Ip = 0;
+        _vm.ExecuteInstruction();
+        _vm.ExecuteInstruction();
+        // Jmp sets Ip = base(0) + offset(0x10) = 0x10
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x10u),
+            "CMP set !CF && !ZF, JUG should jump (offset added to base 0)");
+    }
+
+    [Test]
+    public void TestCmpThenJilIntegration_SignedLessThan() {
+        // CMP -1, 1 (signed) → SF=1, OF=0, JIL should jump.
+        _vm.Cpu.R4 = 0xFFFFFFFF; // -1
+        _vm.Cpu.R5 = 1;
+        _vm.Cpu.R6 = 0;
+        _vm.LoadData([
+            0x31, 0x04, 0x05,                 // CMP R4, R5
+            0x3b, 0x06, 0x10, 0x00, 0x00, 0x00 // JIL R6+0x10
+        ]);
+        _vm.Cpu.Ip = 0;
+        _vm.ExecuteInstruction();
+        _vm.ExecuteInstruction();
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x10u));
+    }
 }
