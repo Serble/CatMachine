@@ -146,7 +146,6 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
             }
             
             vm.HardwareInterrupt(SpecialInterupts.DiskOperationFinish);
-            Console.WriteLine($"thing is {sw.Elapsed.TotalMilliseconds}");
             
             ExecuteOperation(vm);
         }
