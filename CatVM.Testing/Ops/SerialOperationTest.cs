@@ -8,7 +8,7 @@ public class SerialOperationTest : OperationTestBase {
     
     [SetUp]
     public void RegisterSerial() {
-        _vm.RegisterSerialDevice(18, new SerialDevice(
+        _vm.RegisterSerialDevice(18, new SerialDevice(18,
             _ => _serialInput.Dequeue(), 
             (_, val) => _serialOutput.Add(val)));
     }

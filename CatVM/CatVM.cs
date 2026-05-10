@@ -237,7 +237,7 @@ public class CatVM {
     /// </summary>
     /// <param name="device"></param>
     public void RegisterSerialDevice(ISerialDevice device) {
-        uint port = 16;
+        uint port = 0;
         while (SerialDevices.ContainsKey(port)) {
             port++;
         }

@@ -98,11 +98,12 @@ pop r1
 
 main:
     ; find the graphics and input device:
-    mov r0, 15 ; index
+    out 0, 1 ; request devices
+    in r0, 0
+
     .discover_loop:
-        add r0, 1
-        out r0, 0
-        in r1, r0
+        in r0, 0
+        in r1, 0
 
         cmp r1, 0xFF64BEF9
         jne .not_graphics

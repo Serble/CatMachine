@@ -168,6 +168,8 @@ CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     Fast = fastRun
 };
 
+vm.SerialDevices[0] = new HardwareManager();
+
 // add serial devices
 foreach ((uint port, ISerialDevice dev) in serialDevices) {
     vm.SerialDevices[port] = dev;

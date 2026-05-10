@@ -1,6 +1,8 @@
 namespace CatVM.Serial;
 
 public interface ISerialDevice {
+    uint Type { get; }
+    
     /// <summary>
     /// Called when the application reads from the device.
     /// The device should return an uint value as the result of the read operation.
@@ -12,20 +14,21 @@ public interface ISerialDevice {
     /// The device receives the value being written as a parameter.
     /// </summary>
     void Output(CatVM vm, uint data);
-    
+
     /// <summary>
     /// Creates a new serial device with the specified input and output functions.
     /// </summary>
+    /// <param name="type">The id for the serial device</param>
     /// <param name="input">The <see cref="Input"/> function.</param>
     /// <param name="output">The <see cref="Output"/> function.</param>
     /// <returns>The new serial device.</returns>
-    public static ISerialDevice Create(Func<CatVM, uint> input, Action<CatVM, uint> output) =>
-        new SerialDevice(input, output);
+    public static ISerialDevice Create(uint type, Func<CatVM, uint> input, Action<CatVM, uint> output) =>
+        new SerialDevice(type, input, output);
     
     /// <summary>
     /// The null serial device that always returns uint.MaxValue on input and ignores all output.
     /// </summary>
-    public static ISerialDevice Null => new SerialDevice(
+    public static ISerialDevice Null => new SerialDevice(uint.MaxValue,
         _ => uint.MaxValue,
         (_, _) => {}
     );
@@ -36,7 +39,7 @@ public interface ISerialDevice {
 /// </summary>
 /// <param name="Input">The <see cref="ISerialDevice.Input"/> function.</param>
 /// <param name="Output">The <see cref="ISerialDevice.Output"/> function.</param>
-public record SerialDevice(Func<CatVM, uint> Input, Action<CatVM, uint> Output) : ISerialDevice {
+public record SerialDevice(uint Type, Func<CatVM, uint> Input, Action<CatVM, uint> Output) : ISerialDevice {
     uint ISerialDevice.Input(CatVM vm) {
         return Input(vm);
     }
