@@ -1,0 +1,217 @@
+; Cat Firmware
+; load application from disk
+;
+; Supports disk type 0x02.
+
+; ==============================
+;          DEFINES
+; ==============================
+
+#define DISK_TYPE, 0x02
+
+; jumprel instr, label
+; for example: jumprel je, label
+#macro jumprel, 2
+    loadaddr $2  ; load the label into r0
+    $1 r0        ; jump to it
+#endmacro
+
+; load a label into r0, making it relative to the start of the firmware
+#macro loadaddr, 1
+    push fl
+    mov r0, $1              ; move the label they wish to load into r0
+    sub r0, firmware_entry  ; make it relative to the start of the firmware
+    add r0, r7              ; add the current memory offset to it
+    pop fl
+#endmacro
+
+#macro resetdiskready, 0
+    loadaddr disk_ready
+    mov8 [r0], 0             ; reset disk ready flag so we can wait for the next event
+#endmacro
+
+#macro waitfordisk, 0
+    $0_loop:
+        loadaddr disk_ready
+        mov8 r1, [r0]        ; check disk ready flag
+        cmp r1, 0            ; is it ready?
+        jumprel je, $0_loop  ; if not, keep waiting
+#endmacro
+
+; uncomment to enable debugs
+#macro debug, 1
+    ;push r1
+    ;mov r1, $1
+    ;int 0x90
+    ;pop r1
+#endmacro
+
+; the first thing we'll do is load ourselves into the end of memory
+; this is so we can load the application into the start of memory
+; which is where it will expect to be.
+
+; to do this let's find out how many memory is available
+setit memory_search_it_table
+mov r7, 0  ; keep count
+memory_search_loop:
+    mov8 r0, [r7]  ; check byte
+    ; if it hasn't faulted, keep going
+    add r7, 1
+    jmp memory_search_loop
+
+; if it has faulted, r7 will be the size of memory
+end_of_memory:
+    setit 0xFFFFFFFF ; don't silence any more faults
+
+    sub r7, 1 + (end_of_firmware - firmware_entry)
+    
+    ; now r7 is where to load the firmware, so let's load it
+    mov r0, r7             ; destination
+    cpy firmware_entry, end_of_firmware - firmware_entry
+    jmp r7   ; jump to the firmware
+
+
+memory_search_it_table:
+    d8 1    ; count
+    d8 0x00 ; interrupt number for oob memory access
+    d32 end_of_memory
+
+; =====================================================
+; everything from here will be loaded later into memory
+; =====================================================
+firmware_entry:
+; so at this point we cannot use absolute jumps or reference memory absolutely
+; NEVER CLOBBER r7, as it stores where we are in memory
+
+; so we can handle disk events, we need to setup an interrupt handler
+; for the disk interrupt, which is 0x72.
+loadaddr disk_handler_it_callback
+mov r1, r0
+loadaddr disk_ready_callback
+mov [r1], r0             ; set the disk handler callback address in the interrupt table
+loadaddr disk_handler_it
+setit r0                 ; set the interrupt table
+
+; let's find the port of our disk
+mov r2, 0x02             ; port we're checking
+disk_type_loop:
+    out r2, 0            ; query type
+    in r3, r2            ; read type
+    cmp r3, DISK_TYPE
+    jumprel je, found_disk
+    cmp r3, -1           ; if we get -1 back, there is nothing there, so stop searching
+    jumprel je, fail
+    add r2, 1
+    jumprel jmp, disk_type_loop
+found_disk:
+    debug 1
+    
+    ; load partition table
+    loadaddr part_table
+    mov r5, r0           ; mem addr to read partition table into
+    
+    resetdiskready
+    
+    debug 11
+    
+    out r2, 1            ; read
+    out r2, r5           ; mem addr to read into
+    out r2, 0            ; start block
+    out r2, 1            ; block count
+    
+    debug 12
+    
+    waitfordisk          ; wait for the disk to be ready with the partition table
+    
+    debug 13
+    
+    mov r3, r5           ; we'll store the partition table address in r3 for later
+    mov r4, r3           ; so we can iterate through it without losing the base address
+    
+    ; let's look for the magic number for Cat partitions, which is 0x00000033 0x00000000
+    mov r1, [r3]         ; first magic number uint
+    cmp r1, 51           ; check magic number
+    jumprel jne, fail
+    add r4, 4            ; move to the second uint
+    mov r1, [r4]         ; second magic number uint
+    cmp r1, 0            ; check magic number part 2
+    jumprel jne, fail
+    
+    ; it seems to be valid
+    ; let's find the first raw data partition, which we're going
+    ; to assume is the application we want to load.
+    ; raw data has the ID 0x00.
+    add r4, 8            ; move to partition count
+    mov r5, [r4]         ; read partition count
+    add r4, 20           ; move to first partition entry (skip count + UUID)
+    
+    
+    debug 2
+part_scan_loop:
+    mov r6, [r4]         ; read partition type
+    cmp r6, 0            ; is it raw data?
+    jumprel je, found_partition
+    add r4, 12           ; move to next partition entry
+    sub r5, 1            ; decrement partition count
+    cmp r5, 0            ; have we checked all partitions?
+    jumprel juge, part_scan_loop
+    
+    ; if we get here, we didn't find a valid partition
+    jumprel jmp, fail
+
+found_partition:
+    debug 3
+    
+    ; at this point r4 points to a valid data partition entry, so let's load it
+    add r4, 4            ; move to start block
+    mov r6, [r4]         ; read start block
+    add r4, 4            ; move to block count
+    mov r1, [r4]         ; read block count
+    
+    resetdiskready       ; reset disk ready flag so we can wait for the next event
+    
+    out r2, 1            ; read
+    out r2, 0            ; mem addr to read into (start of memory)
+    
+    debug r6
+    debug r1
+    
+    out r2, r6           ; start block
+    out r2, r1           ; block count
+    
+    waitfordisk          ; wait for the disk to be ready with the application
+    
+    ; at this point the application should be loaded into the start of memory, so let's jump to it
+    debug 9
+    
+    jmp 0
+
+fail:
+debug 69
+jumprel jmp, fail
+
+; this is the addr that needs to be loaded into disk_handler_it_callback
+disk_ready_callback:
+    debug 171
+    loadaddr disk_ready
+    mov8 [r0], 1  ; set disk ready flag so we can communicate with the main loop
+    iret
+
+part_table:
+    res8 512  ; the table is 512 bytes
+
+disk_handler_it:
+    d8 1    ; count
+    d8 0x72 ; interrupt number for disk events
+disk_handler_it_callback:
+    d32 0   ; this needs to be changed one we relocate
+
+disk_ready:
+    d8 0    ; just a little status field we can use to communicate whether the disk is ready
+
+stack_space:
+    res8 32 ; reserve some space for the stack
+
+end_of_firmware:
+; anything after this point will not be loaded into memory
+; and will be clobbered by the data loaded from disk
