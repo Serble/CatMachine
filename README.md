@@ -30,3 +30,20 @@ Catnip is a high-level programming language designed specifically for
 programming the Cat VM. It compiles into Cat Assembly.
 
 It lives in the `Catnip` folder.
+
+### CatLLVM
+CatLLVM is an LLVM-IR backend for the Cat VM. It accepts LLVM IR text
+(`.ll`) and emits Cat Assembly, letting you target CatVM from any LLVM
+frontend (clang, rustc, etc.):
+
+```
+clang -S -emit-llvm -O0 -m32 -ffreestanding -nostdlib \
+      -target i386-unknown-none source.c -o source.ll
+dotnet run --project CatLLVM    -- source.ll -o source.cat
+dotnet run --project CatAssembler -- source.cat -o source.bin
+dotnet run --project CatVM      -- source.bin
+```
+
+It lives in the `CatLLVM` folder. See `CatLLVM/README.md` for the supported
+IR subset and calling convention; see `ExampleProjects/LlvmTest/` for
+worked examples.
