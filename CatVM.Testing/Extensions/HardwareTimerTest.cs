@@ -6,7 +6,7 @@ namespace CatVM.Testing.Extensions;
 /// Verifies that <see cref="HardwareTimer"/> obeys the command protocol and
 /// fires callbacks at the requested delay, surfacing the timer id via the
 /// device's <c>Input</c> queue and raising the
-/// <see cref="SpecialInterupts.HardwareTimerCallback"/> interrupt.
+/// <see cref="SpecialInterrupts.HardwareTimerCallback"/> interrupt.
 /// </summary>
 public class HardwareTimerTest {
     private const byte OpNop = 0x4D;

@@ -41,7 +41,7 @@ public class HardwareInterruptTest {
         vm.InterruptsEnabled = true;
 
         uint spBefore = vm.Cpu.Sp;
-        vm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback); // 0x71
+        vm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback); // 0x71
 
         vm.ExecuteInstruction(fast: true);
 
@@ -50,8 +50,8 @@ public class HardwareInterruptTest {
         Assert.Multiple(() => {
             Assert.That(vm.Cpu.Ip, Is.EqualTo(0x41u),
                 "Expected IP to be at handler+1 after dispatch + NOP execution");
-            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 4),
-                "Expected return address to have been pushed (Sp decremented by 4)");
+            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 5),
+                "Expected return address + marker to have been pushed (Sp decremented by 5)");
         });
     }
 
@@ -66,7 +66,7 @@ public class HardwareInterruptTest {
         vm.InterruptsEnabled = false;
 
         uint spBefore = vm.Cpu.Sp;
-        vm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback);
+        vm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback);
 
         vm.ExecuteInstruction(fast: true);
 
@@ -88,7 +88,7 @@ public class HardwareInterruptTest {
         vm.Cpu.Ip = 0;
         vm.InterruptsEnabled = false;
 
-        vm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback);
+        vm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback);
 
         // Run while disabled: interrupt sits in the queue.
         vm.ExecuteInstruction(fast: true);
@@ -102,7 +102,7 @@ public class HardwareInterruptTest {
         Assert.Multiple(() => {
             Assert.That(vm.Cpu.Ip, Is.EqualTo(0x41u),
                 "Expected pending interrupt to dispatch on first enabled tick");
-            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 4),
+            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 5),
                 "Expected return address to have been pushed");
         });
     }
@@ -119,21 +119,21 @@ public class HardwareInterruptTest {
         vm.Cpu.Ip = 0;
         vm.InterruptsEnabled = true;
 
-        vm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback);
-        vm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback);
+        vm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback);
+        vm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback);
 
         uint spBefore = vm.Cpu.Sp;
 
         // Tick 1: dispatch first interrupt (push IP=0, jump to 0x40), then run NOP at 0x40.
         vm.ExecuteInstruction(fast: true);
-        Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 4),
+        Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 5),
             "First tick should push exactly one return address");
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x41u),
             "First tick should land in the handler and execute its NOP");
 
         // Tick 2: dispatch second interrupt (push IP=0x41, jump to 0x40), then run NOP.
         vm.ExecuteInstruction(fast: true);
-        Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 8),
+        Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 10),
             "Second tick should push a second return address");
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x41u),
             "Second tick should re-enter the handler");
@@ -150,7 +150,7 @@ public class HardwareInterruptTest {
         vm.InterruptsEnabled = true;
 
         uint spBefore = vm.Cpu.Sp;
-        vm.HardwareInterrupt(SpecialInterupts.NicNotification); // 0x73
+        vm.HardwareInterrupt(SpecialInterrupts.NicNotification); // 0x73
 
         // Should not throw, should not push (default handler is a no-op for unknown IDs),
         // and the in-place NOP should still execute.
@@ -172,7 +172,7 @@ public class HardwareInterruptTest {
         vm.InterruptsEnabled = true;
 
         uint spBefore = vm.Cpu.Sp;
-        vm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback);
+        vm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback);
 
         Assert.DoesNotThrow(() => vm.ExecuteInstruction(fast: true));
         Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore),
@@ -199,16 +199,16 @@ public class HardwareInterruptTest {
         for (int t = 0; t < threads; t++) {
             tasks[t] = Task.Run(() => {
                 for (int i = 0; i < perThread; i++) {
-                    vm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback);
+                    vm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback);
                 }
             });
         }
         Task.WaitAll(tasks);
 
         // Now drain. Each ExecuteInstruction dispatches at most one queued interrupt,
-        // pushes the return address (Sp -= 4), then executes the handler's NOP.
+        // pushes the return address + marker (Sp -= 5), then executes the handler's NOP.
         // We need `total` ticks to drain everything. Memory is 512 bytes; each push uses
-        // 4 bytes. Use a vm with enough stack room.
+        // 5 bytes. Use a vm with enough stack room.
         CatVM bigVm = new(64 * 1024, 10_000) { Fast = true };
         bigVm.LoadData([OpNop]);
         bigVm.LoadData([OpNop], 0x40);
@@ -220,7 +220,7 @@ public class HardwareInterruptTest {
         for (int t = 0; t < threads; t++) {
             tasks2[t] = Task.Run(() => {
                 for (int i = 0; i < perThread; i++) {
-                    bigVm.HardwareInterrupt(SpecialInterupts.HardwareTimerCallback);
+                    bigVm.HardwareInterrupt(SpecialInterrupts.HardwareTimerCallback);
                 }
             });
         }
@@ -233,9 +233,9 @@ public class HardwareInterruptTest {
             bigVm.ExecuteInstruction(fast: true);
         }
 
-        uint pushed = (spBefore - bigVm.Cpu.Sp) / 4;
+        uint pushed = (spBefore - bigVm.Cpu.Sp) / 5;
         Assert.That(pushed, Is.EqualTo((uint)total),
-            $"Expected exactly {total} interrupts to dispatch (one push of 4 bytes each), got {pushed}");
+            $"Expected exactly {total} interrupts to dispatch (one push of 5 bytes each), got {pushed}");
     }
 
     [Test]
@@ -273,12 +273,12 @@ public class HardwareInterruptTest {
             vm.InterruptsEnabled = enabled;
 
             uint spBefore = vm.Cpu.Sp;
-            vm.Interrupt(SpecialInterupts.HardwareTimerCallback);
+            vm.Interrupt(SpecialInterrupts.HardwareTimerCallback);
 
             Assert.Multiple(() => {
                 Assert.That(vm.Cpu.Ip, Is.EqualTo(0x40u),
                     $"Software Interrupt should jump to handler immediately (enabled={enabled})");
-                Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 4),
+                Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 5),
                     $"Software Interrupt should push the return address (enabled={enabled})");
             });
         }

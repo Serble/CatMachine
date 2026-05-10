@@ -131,7 +131,7 @@ public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mo
                 // we went all the way around, no room
                 // just drop the packet
                 RaiseStatus(StatusFlags.PacketDropped);
-                _vm.HardwareInterrupt(SpecialInterupts.NicNotification);
+                _vm.HardwareInterrupt(SpecialInterrupts.NicNotification);
                 return;
             }
             // Guard against a wider tail value if the ring shrank under us.
@@ -177,7 +177,7 @@ public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mo
         Volatile.Write(ref _vm.Memory[descAddr + 8], (byte)(DescFlags.Done | DescFlags.EndOfPacket));
 
         RaiseStatus(StatusFlags.ReceiveDone);
-        _vm.HardwareInterrupt(SpecialInterupts.NicNotification);
+        _vm.HardwareInterrupt(SpecialInterrupts.NicNotification);
     }
 
     /// <summary>
@@ -247,7 +247,7 @@ public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mo
 
                 RaiseStatus(sendOk ? StatusFlags.TransmitDone
                                    : StatusFlags.TransmitDone | StatusFlags.TransmitError);
-                _vm.HardwareInterrupt(SpecialInterupts.NicNotification);
+                _vm.HardwareInterrupt(SpecialInterrupts.NicNotification);
 
                 _inUseTxDescriptors.TryRemove(descAddr, out _);
             });

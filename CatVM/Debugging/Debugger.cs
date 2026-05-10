@@ -79,6 +79,15 @@ public class Debugger {
             
             // try and find a symbol here
             DebugSymbol? symbol = GetSymbolAt(_vm.Cpu.Ip);
+            if (symbol == null) {
+                try {
+                    (Action<CatVM> executor, int cycles) op = CatVM.Operations[_vm.Memory[_vm.Cpu.Ip]];
+                    symbol = new DebugSymbol(0, 0, op.executor.Method.Name);
+                }
+                catch (Exception) {
+                    // ignore, just means we don't have a symbol for this instruction
+                }
+            }
             Console.WriteLine(symbol != null ? $"=> {symbol.RawLine}" : "Unknown Symbol.");
             
             Console.WriteLine("Stack trace:");

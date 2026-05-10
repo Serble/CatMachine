@@ -35,9 +35,14 @@ public class CatVM {
 #region Parameters
     
     /// <summary>
-    /// The memory of the VM. Be careful when modifying this directly.
+    /// The physical memory of the VM. Indices into this array are *physical* addresses.
+    /// Guest accesses go through <see cref="Translate"/> first when Virtual Mode is on; when
+    /// Virtual Mode is off the guest's address is the physical address (identity mapping),
+    /// so kernel code and external consumers can index this array directly without any
+    /// performance penalty.
+    /// <para/>Be careful when modifying this directly — bypasses translation and bounds checks.
     /// </summary>
-    public byte[] Memory { get; set; } = null!;
+    public byte[] Memory = null!;
     
     /// <summary>
     /// A copy of the original ROM data. This is used to reset the VM.
@@ -104,7 +109,7 @@ public class CatVM {
     
     /// <summary>
     /// Queue of pending hardware interrupts. Hardware interrupts can be added to this queue using
-    /// <see cref="HardwareInterrupt(byte)"/> or <see cref="HardwareInterrupt(SpecialInterupts)"/>.
+    /// <see cref="HardwareInterrupt(byte)"/> or <see cref="HardwareInterrupt(SpecialInterrupts)"/>.
     /// </summary>
     private ConcurrentQueue<byte> HardwareInterruptQueue { get; } = [];
 
@@ -199,6 +204,7 @@ public class CatVM {
         
         // get offset for display buffer (it will go at the end of memory)
         Cpu.Sp = (uint)_memoryBytes;  // end of regular memory (non display buffer)
+        Cpu.MLen = (uint)_memoryBytes;
         
         if (Rom.Length > 0) {
             LoadData(Rom);
@@ -254,42 +260,125 @@ public class CatVM {
         return SerialDevices.GetValueOrDefault(port, ISerialDevice.Null);
     }
 
+    /// <summary>
+    /// Privilege gate for opcodes that may only run in kernel mode.
+    /// In v1 "kernel mode" means simply <c>!VirtualMode</c>; the
+    /// SupervisorMode bit is reserved for a future driver tier and is
+    /// not required here.
+    /// Raises <see cref="SpecialInterrupts.ProtectionFault"/> and returns
+    /// <c>false</c> when called from user (virtual) mode.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryPrivileged() {
+        if (!Cpu.VirtualMode || Cpu.SupervisorMode) {
+            return true;
+        }
+
+        Interrupt(SpecialInterrupts.ProtectionFault);
+        return false;
+    }
+
 #region Memory Read/Write Methods
-    
+
+    /// <summary>
+    /// Translate a guest address to a physical address.
+    /// <para/>
+    /// When Virtual Mode is off (the common case for the kernel and all legacy programs)
+    /// this is a single predictable branch and a return — the JIT inlines it to nothing on
+    /// the hot path. When Virtual Mode is on, the address is bounds-checked against
+    /// <c>MLen</c> and offset by <c>MBase</c>.
+    /// </summary>
+    /// <param name="addr">Guest (virtual) address.</param>
+    /// <param name="size">Access width in bytes — used only for the upper-bound check.</param>
+    /// <returns>Physical address that should be used to index <see cref="Memory"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private uint Translate(uint addr, uint size) {
+        if ((Cpu.Mode & 1u) == 0u) {
+            return addr;
+        }
+        return TranslateVirt(addr, size);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private uint TranslateVirt(uint addr, uint size) {
+        uint end = addr + size;
+        if (end < addr || end > Cpu.MLen) ThrowVirtOob(addr, size);
+        return addr + Cpu.MBase;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowVirtOob(uint addr, uint size) =>
+        throw new MemoryOutOfRange(false, addr, size, "Virtual mode bounds violation");
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read8() {
-        ValidateMemoryRead(Cpu.Ip, 1);
-        return Memory[Cpu.Ip++];
+        uint p = Translate(Cpu.Ip, 1);
+        Cpu.Ip++;
+        ValidateMemoryRead(p, 1);
+        return Memory[p];
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte Read8(uint ptr) {
-        ValidateMemoryRead(ptr, 1);
-        return Memory[ptr];
+        uint p = Translate(ptr, 1);
+        ValidateMemoryRead(p, 1);
+        return Memory[p];
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ushort Read16() {
-        ValidateMemoryRead(Cpu.Ip, 2);
-        ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Ip);
+        uint p = Translate(Cpu.Ip, 2);
+        ValidateMemoryRead(p, 2);
+        ushort value = Unsafe.ReadUnaligned<ushort>(ref Memory[p]);
         Cpu.Ip += 2;
         return value;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ushort Read16(uint ptr) {
-        ValidateMemoryRead(ptr, 2);
-        return BitConverter.ToUInt16(Memory, (int)ptr);
+        uint p = Translate(ptr, 2);
+        ValidateMemoryRead(p, 2);
+        return Unsafe.ReadUnaligned<ushort>(ref Memory[p]);
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint ReadWord() {
-        ValidateMemoryRead(Cpu.Ip, 4);
-        uint value = BitConverter.ToUInt32(Memory, (int)Cpu.Ip);
+        uint p = Translate(Cpu.Ip, 4);
+        ValidateMemoryRead(p, 4);
+        uint value = Unsafe.ReadUnaligned<uint>(ref Memory[p]);
         Cpu.Ip += 4;
         return value;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint ReadWord(uint ptr) {
+        uint p = Translate(ptr, 4);
+        ValidateMemoryRead(p, 4);
+        return Unsafe.ReadUnaligned<uint>(ref Memory[p]);
+    }
+
+    /// <summary>
+    /// Read a byte from physical memory, bypassing virtual-mode translation.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public byte Read8Physical(uint ptr) {
+        ValidateMemoryRead(ptr, 1);
+        return Memory[ptr];
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint Read16Physical(uint ptr) {
+        ValidateMemoryRead(ptr, 2);
+        return Unsafe.ReadUnaligned<ushort>(ref Memory[ptr]);
+    }
+
+    /// <summary>
+    /// Read a 32-bit word from physical memory, bypassing virtual-mode translation.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint ReadWordPhysical(uint ptr) {
         ValidateMemoryRead(ptr, 4);
-        return BitConverter.ToUInt32(Memory, (int)ptr);
+        return Unsafe.ReadUnaligned<uint>(ref Memory[ptr]);
     }
     
     public string ReadString() {
@@ -312,43 +401,53 @@ public class CatVM {
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void StackPush(uint value) {
         Cpu.Sp -= 4;
-        ValidateMemoryWrite(Cpu.Sp, 4);
-        _ = Memory[Cpu.Sp + 3];
-        Unsafe.WriteUnaligned(ref Memory[Cpu.Sp], value);
+        uint p = Translate(Cpu.Sp, 4);
+        ValidateMemoryWrite(p, 4);
+        Unsafe.WriteUnaligned(ref Memory[p], value);
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void StackPush(byte value) {
         Cpu.Sp -= 1;
-        ValidateMemoryWrite(Cpu.Sp, 1);
-        Memory[Cpu.Sp] = value;
+        uint p = Translate(Cpu.Sp, 1);
+        ValidateMemoryWrite(p, 1);
+        Memory[p] = value;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void StackPush(ushort value) {
         Cpu.Sp -= 2;
-        ValidateMemoryWrite(Cpu.Sp, 2);
-        _ = Memory[Cpu.Sp + 1];
-        Unsafe.WriteUnaligned(ref Memory[Cpu.Sp], value);
+        uint p = Translate(Cpu.Sp, 2);
+        ValidateMemoryWrite(p, 2);
+        Unsafe.WriteUnaligned(ref Memory[p], value);
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint StackPop() {
-        ValidateMemoryRead(Cpu.Sp, 4);
-        uint value = BitConverter.ToUInt32(Memory, (int)Cpu.Sp);
+        uint p = Translate(Cpu.Sp, 4);
+        ValidateMemoryRead(p, 4);
+        uint value = Unsafe.ReadUnaligned<uint>(ref Memory[p]);
         Cpu.Sp += 4;
         return value;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte StackPop8() {
-        ValidateMemoryRead(Cpu.Sp, 1);
-        byte value = Memory[Cpu.Sp];
+        uint p = Translate(Cpu.Sp, 1);
+        ValidateMemoryRead(p, 1);
+        byte value = Memory[p];
         Cpu.Sp += 1;
         return value;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ushort StackPop16() {
-        ValidateMemoryRead(Cpu.Sp, 2);
-        ushort value = BitConverter.ToUInt16(Memory, (int)Cpu.Sp);
+        uint p = Translate(Cpu.Sp, 2);
+        ValidateMemoryRead(p, 2);
+        ushort value = Unsafe.ReadUnaligned<ushort>(ref Memory[p]);
         Cpu.Sp += 2;
         return value;
     }
@@ -416,17 +515,16 @@ public class CatVM {
         }
         catch (DivideByZeroException e) {
             DumpError(e);
-            Interrupt(SpecialInterupts.DivideByZero);
+            Interrupt(SpecialInterrupts.DivideByZero);
         }
         catch (MemoryOutOfRange e) {
             DumpError(e);
             try {
-                StackPush(e.Address);
-                Interrupt(SpecialInterupts.PageFault);
+                Interrupt(SpecialInterrupts.PageFault);
             }
             catch (MemoryOutOfRange ex) {
                 DumpError(ex);
-                Interrupt(SpecialInterupts.PageFault);
+                Interrupt(SpecialInterrupts.PageFault);
             }
         }
         catch (IndexOutOfRangeException e) {
@@ -438,20 +536,20 @@ public class CatVM {
             StackFrame[] frames = trace.GetFrames();
             if (frames.Length > 1 && frames[1].GetMethod()?.Name == nameof(ExecuteInstruction)) {
                 // invalid opcode
-                Interrupt(SpecialInterupts.InvalidInstruction);
+                Interrupt(SpecialInterrupts.InvalidInstruction);
             }
             else {
                 // some other index out of range (we'll assume with memory)
-                Interrupt(SpecialInterupts.PageFault);
+                Interrupt(SpecialInterrupts.PageFault);
             }
         }
         catch (ArgumentException e) {
             DumpError(e);
-            Interrupt(SpecialInterupts.PageFault);
+            Interrupt(SpecialInterrupts.PageFault);
         }
         catch (Exception e) {
             DumpError(e);
-            Interrupt(SpecialInterupts.InvalidInstruction);
+            Interrupt(SpecialInterrupts.InvalidInstruction);
         }
     }
 
@@ -508,7 +606,7 @@ public class CatVM {
     /// Send a software interrupt to the application.
     /// </summary>
     /// <param name="id">The interrupt code.</param>
-    public void Interrupt(SpecialInterupts id) => Interrupt((byte)id);
+    public void Interrupt(SpecialInterrupts id) => Interrupt((byte)id);
     
     /// <summary>
     /// Send a software interrupt to the application.
@@ -524,7 +622,7 @@ public class CatVM {
     /// handled when possible.
     /// </summary>
     /// <param name="id">The interrupt code.</param>
-    public void HardwareInterrupt(SpecialInterupts id) => HardwareInterrupt((byte)id);
+    public void HardwareInterrupt(SpecialInterrupts id) => HardwareInterrupt((byte)id);
     
     /// <summary>
     /// Send a hardware interrupt to the application.
@@ -581,18 +679,17 @@ public class CatVM {
             return;
         }
         
-        // Find the handler
-        byte entryCount = Read8(Cpu.It);
+        // Find the handler. The IT lives in kernel space (a physical address) so bypass
+        // translation so a user-mode interrupt can't redirect IT lookups through MBase.
+        byte entryCount = Read8Physical(Cpu.It);
 
         uint entryPtr = Cpu.It + 1;
         for (int i = 0; i < entryCount; i++) {
-            byte code = Read8(entryPtr);
-            uint handlerPtr = ReadWord(entryPtr + 1);
+            byte code = Read8Physical(entryPtr);
+            uint handlerPtr = ReadWordPhysical(entryPtr + 1);
             if (code == id) {
-                // found
-                // push state
-                StackPush(Cpu.Ip);
-                Cpu.Ip = handlerPtr;
+                // found, build the appropriate frame and dispatch
+                BuildInterruptFrameAndDispatch(handlerPtr);
                 return;  // now executing the handler
             }
 
@@ -601,6 +698,114 @@ public class CatVM {
         
         // not found, default
         InterruptHandlers.DefaultHandler(this, id);
+    }
+
+    /// <summary>
+    /// Markers pushed at the top of every interrupt frame.
+    /// <see cref="Iret"/> consults this to decide what to restore.
+    /// </summary>
+    public const byte InterruptFrameMarkerKernel     = 0x00;
+    public const byte InterruptFrameMarkerUser       = 0x01;
+    public const byte InterruptFrameMarkerSupervisor = 0x02;
+
+    /// <summary>
+    /// Build the entry frame for an IT-resolved interrupt and jump into the handler.
+    /// <para/>
+    /// Both paths push a 1-byte marker last so <see cref="Iret"/> can dispatch uniformly.
+    /// User -> kernel: switch <c>Sp</c> onto <c>Ksp</c>, clear VirtMode, push full frame.
+    /// Kernel -> kernel: push only <c>Ip</c> + marker on the current kernel stack.
+    /// Every handler returns via <c>iret</c>; <c>ret</c> is for <c>call</c>/<c>ret</c> only.
+    /// </summary>
+    private void BuildInterruptFrameAndDispatch(uint handlerPtr) {
+        if ((Cpu.Mode & 1u) != 0u) {
+            // Virtual mode (user or driver) -> kernel: full frame on the kernel stack.
+            // Marker 0x01 = user (Mode=0b01), 0x02 = driver/supervisor-virtual (Mode=0b11).
+            byte marker = Cpu.SupervisorMode
+                ? InterruptFrameMarkerSupervisor
+                : InterruptFrameMarkerUser;
+
+            uint userSp = Cpu.Sp;
+            uint userIp = Cpu.Ip;
+
+            // Switch to canonical kernel mode (Mode=0) and onto Ksp BEFORE any push so the
+            // pushes go to KSp physically, not through the preempted process's window.
+            // Clearing both bits (not just bit 0) means the handler runs at full kernel
+            // privilege regardless of whether it preempted user or driver.
+            Cpu.Mode = 0;
+            Cpu.Sp   = Cpu.Ksp;
+
+            // Push GP regs first so iret pops them last (atomic-restore order).
+            StackPush(Cpu.R0); StackPush(Cpu.R1); StackPush(Cpu.R2); StackPush(Cpu.R3);
+            StackPush(Cpu.R4); StackPush(Cpu.R5); StackPush(Cpu.R6); StackPush(Cpu.R7);
+
+            StackPush(Cpu.MLen);
+            StackPush(Cpu.MBase);
+            StackPush(Cpu.Fl);
+            StackPush(userSp);
+            StackPush(userIp);
+            StackPush(marker);
+        } else {
+            // Kernel to kernel (also covers degenerate Mode=0b10): lightweight frame.
+            StackPush(Cpu.Ip);
+            StackPush(InterruptFrameMarkerKernel);
+        }
+
+        Cpu.Ip = handlerPtr;
+    }
+
+    /// <summary>
+    /// Atomically return from any interrupt frame. Pops the marker, then dispatches:
+    /// <c>0x00</c> kernel-mode frame (pop IP only); <c>0x01</c> user-mode frame
+    /// (pop full state, restore Mode=0b01); <c>0x02</c> supervisor/driver frame
+    /// (pop full state, restore Mode=0b11). Any other marker raises
+    /// <see cref="SpecialInterrupts.InvalidInstruction"/>.
+    /// </summary>
+    public void Iret() {
+        // The marker is on the kernel stack, which is what we're in
+        byte marker = StackPop8();
+
+        switch (marker) {
+            case InterruptFrameMarkerKernel: {
+                Cpu.Ip = StackPop();
+                return;
+            }
+
+            case InterruptFrameMarkerUser:
+            case InterruptFrameMarkerSupervisor: {
+                // Pop in mirror order of the push.
+                uint ip = StackPop();
+                uint sp = StackPop();
+                uint fl = StackPop();
+                uint mb = StackPop();
+                uint ml = StackPop();
+                uint r7 = StackPop();
+                uint r6 = StackPop();
+                uint r5 = StackPop();
+                uint r4 = StackPop();
+                uint r3 = StackPop();
+                uint r2 = StackPop();
+                uint r1 = StackPop();
+                uint r0 = StackPop();
+
+                // Atomic-ish restore: write everything at the very end. The Mode write is
+                // last so any earlier exception leaves us cleanly in kernel mode on the
+                // kernel stack.
+                Cpu.R0 = r0; Cpu.R1 = r1; Cpu.R2 = r2; Cpu.R3 = r3;
+                Cpu.R4 = r4; Cpu.R5 = r5; Cpu.R6 = r6; Cpu.R7 = r7;
+                Cpu.MBase = mb;
+                Cpu.MLen  = ml;
+                Cpu.Fl    = fl;
+                Cpu.Sp    = sp;
+                Cpu.Ip    = ip;
+                // marker 0x01 -> Mode 0b01 (user); marker 0x02 -> Mode 0b11 (driver).
+                Cpu.Mode  = marker == InterruptFrameMarkerSupervisor ? (byte)0b11 : (byte)0b01;
+                return;
+            }
+
+            default:
+                Interrupt(SpecialInterrupts.InvalidInstruction);
+                return;
+        }
     }
     
 #endregion
@@ -629,16 +834,6 @@ public class CatVM {
     }
 
 #endregion
-
-    public void SaveState(Stream stream) {
-        stream.Write(Memory);
-        Cpu.SaveState(stream);
-    }
-    
-    public void LoadState(Stream stream) {
-        _ = stream.Read(Memory, 0, Memory.Length);
-        Cpu = CatCpuState.LoadState(stream);
-    }
 
     public void ValidateMemoryWrite(uint address, uint size) {
         // Bounds checking is not needed here because
@@ -760,5 +955,13 @@ public class CatVM {
         (ShiftOperation.ShlRI, 3),
         (ShiftOperation.ShrRR, 3),
         (ShiftOperation.ShrRI, 3),
+        (VirtModeRetOperation.IRet, 8),
+        (InterruptTableOperation.SetItR, 2),
+        (InterruptTableOperation.SetItI, 2),
+        (InterruptTableOperation.GetItR, 2),
+        (KspOperation.SetKspR, 2),
+        (KspOperation.SetKspI, 2),
+        (KspOperation.GetKspR, 2),
+        (IntOperation.Syscall, 64)
     ];
 }

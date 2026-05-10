@@ -11,8 +11,7 @@ public enum Register : byte {
     R7 = 0x07,
     Sp = 0x08,
     Ip = 0x09,
-    Fl = 0x0A,
-    It = 0x0B
+    Fl = 0x0A
 }
 
 public static class RegisterExtensions {
@@ -30,7 +29,6 @@ public static class RegisterExtensions {
             "sp" => Register.Sp,
             "ip" => Register.Ip,
             "fl" => Register.Fl,
-            "it" => Register.It,
             _ => null
         };
         if (reg is not null) {

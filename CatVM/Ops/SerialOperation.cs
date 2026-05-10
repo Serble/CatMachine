@@ -1,5 +1,3 @@
-using CatVM.Serial;
-
 namespace CatVM.Ops;
 
 public static class SerialOperation {

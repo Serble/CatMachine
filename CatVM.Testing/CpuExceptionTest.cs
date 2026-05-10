@@ -5,9 +5,9 @@ namespace CatVM.Testing;
 /// are translated into the correct CPU exception interrupts by
 /// <see cref="CatVM.ExecuteWithErrorHandling"/>:
 /// <list type="bullet">
-///   <item><see cref="SpecialInterupts.DivideByZero"/> (0x02)</item>
-///   <item><see cref="SpecialInterupts.InvalidInstruction"/> (0x01)</item>
-///   <item><see cref="SpecialInterupts.PageFault"/> (0x00) with the faulting
+///   <item><see cref="SpecialInterrupts.DivideByZero"/> (0x02)</item>
+///   <item><see cref="SpecialInterrupts.InvalidInstruction"/> (0x01)</item>
+///   <item><see cref="SpecialInterrupts.PageFault"/> (0x00) with the faulting
 ///         address pushed onto the stack</item>
 /// </list>
 /// Both the IT-routed path (custom handler) and the IT-less default path
@@ -58,7 +58,7 @@ public class CpuExceptionTest {
         const uint handlerAddr = 0x80;
         vm.LoadData([OpDivRR, R4, R5]);
         vm.LoadData([OpNop], handlerAddr);
-        vm.LoadData(MakeIt((byte)SpecialInterupts.DivideByZero, handlerAddr), 0x100);
+        vm.LoadData(MakeIt((byte)SpecialInterrupts.DivideByZero, handlerAddr), 0x100);
         vm.Cpu.It = 0x100;
         vm.Cpu.R4 = 100; // dividend != 0
         vm.Cpu.R5 = 0;   // divisor == 0 ⇒ DivideByZeroException
@@ -69,8 +69,8 @@ public class CpuExceptionTest {
         Assert.Multiple(() => {
             Assert.That(vm.Cpu.Ip, Is.EqualTo(handlerAddr),
                 "IP should jump into the divide-by-zero handler");
-            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 4),
-                "Return IP should be pushed onto the stack");
+            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 5),
+                "Return IP + marker should be pushed onto the stack");
             Assert.That(vm.Paused, Is.False,
                 "Custom handler installed ⇒ default-handler halt should not fire");
         });
@@ -117,7 +117,7 @@ public class CpuExceptionTest {
         const uint handlerAddr = 0x80;
         vm.LoadData([OpInvalid]);
         vm.LoadData([OpNop], handlerAddr);
-        vm.LoadData(MakeIt((byte)SpecialInterupts.InvalidInstruction, handlerAddr), 0x100);
+        vm.LoadData(MakeIt((byte)SpecialInterrupts.InvalidInstruction, handlerAddr), 0x100);
         vm.Cpu.It = 0x100;
         uint spBefore = vm.Cpu.Sp;
 
@@ -126,8 +126,8 @@ public class CpuExceptionTest {
         Assert.Multiple(() => {
             Assert.That(vm.Cpu.Ip, Is.EqualTo(handlerAddr),
                 "IP should jump into the invalid-instruction handler");
-            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 4),
-                "Return IP should be pushed onto the stack");
+            Assert.That(vm.Cpu.Sp, Is.EqualTo(spBefore - 5),
+                "Return IP + marker should be pushed onto the stack");
         });
     }
 
@@ -159,10 +159,10 @@ public class CpuExceptionTest {
         // IT with two entries.
         byte[] it = [
             2,
-            (byte)SpecialInterupts.InvalidInstruction,
+            (byte)SpecialInterrupts.InvalidInstruction,
             (byte)(invalidHandler & 0xFF), (byte)((invalidHandler >> 8) & 0xFF),
             (byte)((invalidHandler >> 16) & 0xFF), (byte)((invalidHandler >> 24) & 0xFF),
-            (byte)SpecialInterupts.PageFault,
+            (byte)SpecialInterrupts.PageFault,
             (byte)(pageFaultHandler & 0xFF), (byte)((pageFaultHandler >> 8) & 0xFF),
             (byte)((pageFaultHandler >> 16) & 0xFF), (byte)((pageFaultHandler >> 24) & 0xFF),
         ];
@@ -195,7 +195,7 @@ public class CpuExceptionTest {
         ];
         vm.LoadData(code);
         vm.LoadData([OpNop], handlerAddr);
-        vm.LoadData(MakeIt((byte)SpecialInterupts.PageFault, handlerAddr), 50);
+        vm.LoadData(MakeIt((byte)SpecialInterrupts.PageFault, handlerAddr), 50);
         vm.Cpu.It = 50;
         uint spBefore = vm.Cpu.Sp;
 
@@ -224,7 +224,7 @@ public class CpuExceptionTest {
         ];
         vm.LoadData(code);
         vm.LoadData([OpNop], handlerAddr);
-        vm.LoadData(MakeIt((byte)SpecialInterupts.PageFault, handlerAddr), 50);
+        vm.LoadData(MakeIt((byte)SpecialInterrupts.PageFault, handlerAddr), 50);
         vm.Cpu.It = 50;
 
         RunOne(vm);
@@ -263,10 +263,10 @@ public class CpuExceptionTest {
         // Layout:
         //   0x00: div r4, r5      (3 bytes)
         //   0x03: nop             (post-fault resume point)
-        //   0x80: ret             (handler — pops IP and resumes)
+        //   0x80: iret            (handler — pops marker + IP and resumes)
         vm.LoadData([OpDivRR, R4, R5, OpNop]);
-        vm.LoadData([0x40], 0x80); // 0x40 = Ret opcode
-        vm.LoadData(MakeIt((byte)SpecialInterupts.DivideByZero, 0x80), 0x100);
+        vm.LoadData([0x52], 0x80); // 0x52 = Iret opcode
+        vm.LoadData(MakeIt((byte)SpecialInterrupts.DivideByZero, 0x80), 0x100);
         vm.Cpu.It = 0x100;
         vm.Cpu.R4 = 1;
         vm.Cpu.R5 = 0;
@@ -274,10 +274,10 @@ public class CpuExceptionTest {
         RunOne(vm);
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x80u), "handler entered");
 
-        // Step through: handler RET should jump back to 0x03 (the NOP).
-        vm.ExecuteInstruction(fast: true); // executes RET
+        // Step through: handler IRET should jump back to 0x03 (the NOP).
+        vm.ExecuteInstruction(fast: true); // executes IRET
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x03u),
-            "RET in handler should return to the instruction after DIV");
+            "IRET in handler should return to the instruction after DIV");
 
         vm.ExecuteInstruction(fast: true); // executes the NOP
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x04u),

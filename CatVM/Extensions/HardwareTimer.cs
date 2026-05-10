@@ -19,7 +19,7 @@ public class HardwareTimer : CommandBasedSerialDevice<HardwareTimer.Mode> {
                 uint timerId = args[1];
                 vm.RunIn(picoseconds, () => {
                     InputQueue.Enqueue(timerId);
-                    vm.Interrupt(SpecialInterupts.HardwareTimerCallback);
+                    vm.Interrupt(SpecialInterrupts.HardwareTimerCallback);
                 });
                 break;
             

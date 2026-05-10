@@ -144,6 +144,22 @@ public static class Spec {
         new(["shl"], 0x4f, (InstructionArgTypes.Register, false), (InstructionArgTypes.Immediate32, false)),
         new(["shr"], 0x50, (InstructionArgTypes.Register, false), (InstructionArgTypes.Register, false)),
         new(["shr"], 0x51, (InstructionArgTypes.Register, false), (InstructionArgTypes.Immediate32, false)),
+        
+        // IRET
+        new(["iret"], 0x52),
+
+        // IT
+        new(["setit"], 0x53, (InstructionArgTypes.Register, false)),
+        new(["setit"], 0x54, (InstructionArgTypes.Immediate32, false)),
+        new(["getit"], 0x55, (InstructionArgTypes.Register, false)),
+
+        // KSP
+        new(["setksp"], 0x56, (InstructionArgTypes.Register, false)),
+        new(["setksp"], 0x57, (InstructionArgTypes.Immediate32, false)),
+        new(["getksp"], 0x58, (InstructionArgTypes.Register, false)),
+
+        // SYSCALL
+        new(["syscall"], 0x59),
     ];
 
     public static readonly (string[] Mneumonics, IOutputSegment Segment)[] CustomInstructions = [

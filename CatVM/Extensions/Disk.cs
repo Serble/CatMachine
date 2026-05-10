@@ -145,7 +145,7 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
                 }
             }
             
-            vm.HardwareInterrupt(SpecialInterupts.DiskOperationFinish);
+            vm.HardwareInterrupt(SpecialInterrupts.DiskOperationFinish);
             
             ExecuteOperation(vm);
         }

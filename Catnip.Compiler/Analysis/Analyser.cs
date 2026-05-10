@@ -5,7 +5,7 @@ namespace Catnip.Compiler.Analysis;
 public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
     public static readonly string[] ValidRegisters = [
         "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
-        "fl", "sp", "ip", "it"  // probably don't use these
+        "fl", "sp", "ip"  // probably don't use these
     ];
     
     private readonly Stack<int> _scopes = [];  // each scope is length of locals at scope start

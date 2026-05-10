@@ -116,7 +116,7 @@ public class DiskTest {
         byte handlerLo = 0x00, handlerMd = 0x08;
         vm.LoadData([
             1,
-            (byte)SpecialInterupts.DiskOperationFinish,
+            (byte)SpecialInterrupts.DiskOperationFinish,
             handlerLo, handlerMd, 0x00, 0x00,
         ], 0x900);
         vm.Cpu.It = 0x900;
