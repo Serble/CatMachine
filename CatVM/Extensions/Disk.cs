@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Threading.Channels;
 using CatVM.Serial;
 
@@ -10,26 +9,26 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
 
     private const long BlockSize = 512;
 
-    private Lock _lock = new();
-    private Lock _streamLock = new();
-    private Dictionary<uint, WriteCached> _unwritten = new();
-    private Channel<WriteCached> _channel = Channel.CreateUnbounded<WriteCached>();
+    private readonly Lock _lock = new();
+    private readonly Lock _streamLock = new();
+    private readonly Dictionary<uint, WriteCached> _unwritten = new();
+    private readonly Channel<WriteCached> _channel = Channel.CreateUnbounded<WriteCached>();
     
-    private Queue<(bool isRead, uint memAddr, uint startBlock, uint blockCount)> _queue;
+    private readonly Queue<(bool isRead, uint memAddr, uint startBlock, uint blockCount)> _queue;
     private bool _isRunning;
     private readonly Stream _stream;
     private readonly long _picosPerBlock;
     
-    public Disk(Stream stream, long picosPerBlock, int queueCapacity = 32, CancellationToken? token = null) {
+    public Disk(Stream stream, long picosPerBlock, int queueCapacity = 32, CancellationToken token = default) {
         _stream = stream;
         _picosPerBlock = picosPerBlock;
         _queue = new Queue<(bool isRead, uint memAddr, uint startBlock, uint blockCount)>(queueCapacity);
-        
-        Task.Run(() => Run(token ?? CancellationToken.None));
+
+        _ = Run(token);
     }
 
     // TODO: ask if this is how it should stop, and if it should catch exceptions
-    private async void Run(CancellationToken token) {
+    private async Task Run(CancellationToken token) {
         List<WriteCached> written = [];
         
         while (!token.IsCancellationRequested) {
@@ -107,7 +106,6 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
         (bool isRead, uint memAddr, uint startBlock, uint blockCount) = _queue.Dequeue();
                 
         void Execute() {
-            Stopwatch sw = Stopwatch.StartNew();
             if (isRead) {
                 for (uint block = 0; block < blockCount; block++) {
                     int startAddr = (int)(memAddr + block * BlockSize);
