@@ -185,7 +185,9 @@ foreach (ISerialDevice dev in genericSerialDevices) {
 if (raylibPpu) {
     RaylibPpu ppu = new(vm);
     vm.RegisterSerialDevice(ppu.Graphics);
-    vm.RegisterSerialDevice(ppu.Input);
+    foreach (RaylibPpu.InputDevice device in ppu.InputDevices) {
+        vm.RegisterSerialDevice(device);        
+    }
 }
 
 CancellationTokenSource cts = new();

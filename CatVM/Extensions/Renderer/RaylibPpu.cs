@@ -11,7 +11,9 @@ public class RaylibPpu {
     public bool DrawFps { get; set; }
 
     public GraphicsDevice Graphics { get; private init; }
-    public InputDevice Input { get; private init; }
+    public KeyboardInputDevice Keyboard { get; private init; }
+    public MouseInputDevice Mouse { get; private init; }
+    public List<InputDevice> InputDevices { get; private init; }
     
     private IDisplayModeRenderer? _renderer;
     private readonly ManualResetEventSlim _updateDisplay = new(true);
@@ -72,7 +74,9 @@ public class RaylibPpu {
 
     public RaylibPpu(CatVM vm) {
         Graphics = new GraphicsDevice(this);
-        Input = new InputDevice();
+        Keyboard = new KeyboardInputDevice();
+        Mouse = new MouseInputDevice();
+        InputDevices = [Keyboard, Mouse];
         Task.Run(() => Start(vm));
     }
 
@@ -127,67 +131,33 @@ public class RaylibPpu {
         }
     }
     
-    public class InputDevice : CommandBasedSerialDevice<InputDevice.Mode> {
-        public override uint Type => 0x2EB3AD76;
-        protected override bool AutoDiscovery => false;
+    public abstract class InputDevice : ISerialDevice {
+        public abstract uint Type { get; }
 
         private byte _interruptCode = 0x70;
         private Queue<uint> _inputsQueue = new();
-        private bool _readMode;
-        
-        protected override int GetArgCount(Mode mode) {
-            return mode switch {
-                Mode.Discovery => 0,
-                Mode.ReadMode => 0,
-                Mode.EndRead => 0,
-                Mode.ChangeInterrupt => 1,
-                _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
-            };
-        }
-        
-        protected override void RunMode(CatVM vm, Mode mode, List<uint> args) {
-            switch (mode) {
-                case Mode.Discovery:
-                    _readMode = false;
-                    InputQueue.Enqueue(Type);
-                    break;
-                
-                case Mode.ReadMode:
-                    _readMode = true;
-                    break;
-                
-                case Mode.EndRead:
-                    _readMode = false;
-                    break;
-                
-                case Mode.ChangeInterrupt:
-                    _readMode = false;
-                    _interruptCode = (byte)args[0];
-                    break;
-                
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
-            }
+
+        public uint Input(CatVM vm) {
+            return _inputsQueue.Count == 0 ? uint.MaxValue : _inputsQueue.Dequeue();
         }
 
-        public override uint Input(CatVM vm) {
-            Queue<uint> queue = _readMode ? _inputsQueue : InputQueue;
-            return queue.Count == 0 ? uint.MaxValue : queue.Dequeue();
+        public void Output(CatVM vm, uint data) {
+            _interruptCode = (byte)data;
         }
 
-        public void SendInput(CatVM vm, uint device, uint inputType, uint value) {
-            _inputsQueue.Enqueue(device);
+        public void SendInput(CatVM vm, uint inputType, uint value) {
             _inputsQueue.Enqueue(inputType);
             _inputsQueue.Enqueue(value);
             vm.HardwareInterrupt(_interruptCode);
         }
-        
-        public enum Mode {
-            Discovery       = 0,
-            ReadMode        = 1,
-            EndRead         = 2,
-            ChangeInterrupt = 3,
-        }
+    }
+    
+    public class KeyboardInputDevice : InputDevice {
+        public override uint Type => 0x2EB3AD76;
+    }
+    
+    public class MouseInputDevice : InputDevice {
+        public override uint Type => 0x25A3E57D;
     }
     
     private void SetRenderer(CatVM vm) {
@@ -240,7 +210,7 @@ public class RaylibPpu {
                     return false;
                 }
                     
-                Input.SendInput(vm, 0, 1, (uint)key);
+                Keyboard.SendInput(vm, 0, (uint)key);
                 return true;
             });
             
@@ -251,15 +221,15 @@ public class RaylibPpu {
                 }
                 
                 pressedKeys.Add((KeyboardKey) key);
-                Input.SendInput(vm, 0, 0, (uint)key);
+                Keyboard.SendInput(vm, 1, (uint)key);
             }
 
             foreach (MouseButton button in Enum.GetValues<MouseButton>()) {
                 if (Raylib.IsMouseButtonPressed(button)) {
-                    Input.SendInput(vm, 0, 0, (uint)button);
+                    Mouse.SendInput(vm, 1, (uint)button);
                 }
                 else if (Raylib.IsMouseButtonReleased(button)) {
-                    Input.SendInput(vm, 0, 1, (uint)button);
+                    Mouse.SendInput(vm, 0, (uint)button);
                 }
             }
 
@@ -271,7 +241,7 @@ public class RaylibPpu {
             if (mousePosX != lastMouseX || mousePosY != lastMouseY) {
                 lastMouseX = mousePosX;
                 lastMouseY = mousePosY;
-                // Input.SendInput(vm, 0, 2, (uint)((ushort)mousePosX | ((ushort)mousePosY << 16)));
+                Mouse.SendInput(vm, 2, (uint)((ushort)mousePosX | ((ushort)mousePosY << 16)));
             }
             
             if (!_changeDisplayMode.IsSet) {

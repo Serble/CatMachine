@@ -7,9 +7,6 @@ jmp main
 #const MODE_UPDATE_SCREEN, 0x01
 #const MODE_DISPLAY_MODE, 0x02
 
-#const MODE_READ_INPUT, 0x01
-#const MODE_END_READ_INPUT, 0x02
-
 #const DISPLAY_MODE_BUFFER, 0x01
 #const DISPLAY_MODE_TILED, 0x11
 #const SCREEN_WIDTH, 512
@@ -78,7 +75,7 @@ random_number:
 graphics_port:
     d32 -1
 
-input_port:
+keyboard_port:
     d32 -1
 
 ; a array of body positions
@@ -113,8 +110,7 @@ main:
 
         cmp r1, 0x2EB3AD76
         jne .not_input
-            mov @input_port, r0
-            out r0, MODE_READ_INPUT ; enter read mode
+            mov @keyboard_port, r0
             jmp .discover_loop
         .not_input:
         
@@ -132,7 +128,7 @@ main:
     
     out r1, MODE_UPDATE_SCREEN  ; update screen
     
-    mov r1, @input_port
+    mov r1, @keyboard_port
     .press_any_key_loop:
     in r0, r1
     cmp r0, -1
@@ -407,25 +403,21 @@ wrap_signed:
     ret
 
 handle_input:
-    mov r3, @input_port
+    mov r3, @keyboard_port
     in r1, r3
     cmp r1, -1 ; is there any info
     je .done   ; if not we r done
     
     in r2, r3
-    in r3, r3
     
-    cmp r1, 0 ; is keyboard
+    cmp r1, 1 ; is pressed
     jne handle_input ; try again
     
-    cmp r2, 0 ; is pressed
-    jne handle_input ; try again
-    
-    mov8 r1, @last_input ; repeated inputs are ignored
-    cmp r3, r1
+    mov8 r3, @last_input ; repeated inputs are ignored
+    cmp r3, r2
     je handle_input 
     
-    cmp r3, 'D'
+    cmp r2, 'D'
     jne .skip_d
         cmp r1, 'A'
         je handle_input
@@ -436,7 +428,7 @@ handle_input:
         jmp .done
     .skip_d:
     
-    cmp r3, 'A'
+    cmp r2, 'A'
     jne .skip_a
         cmp r1, 'D'
         je handle_input
@@ -447,7 +439,7 @@ handle_input:
         jmp .done
     .skip_a:
     
-    cmp r3, 'W'
+    cmp r2, 'W'
     jne .skip_w
         cmp r1, 'S'
         je handle_input
@@ -458,7 +450,7 @@ handle_input:
         jmp .done
     .skip_w:
     
-    cmp r3, 'S'
+    cmp r2, 'S'
     jne .skip_s
         cmp r1, 'W'
         je handle_input
