@@ -564,7 +564,7 @@ public class CatVM {
     /// This method also handles timing and all interrupts.
     /// </summary>
     /// <param name="fast">Whether to ignore timings and run as fast as possible.</param>
-    public void ExecuteInstruction(bool fast = false) {
+    public unsafe void ExecuteInstruction(bool fast = false) {
         if (InterruptsEnabled
             && Volatile.Read(ref _hardwareInterruptAproxCount) > 0
             && HardwareInterruptQueue.TryDequeue(out byte hardwareInterrupt)) {
@@ -572,19 +572,23 @@ public class CatVM {
             Interlocked.Decrement(ref _hardwareInterruptAproxCount);
         }
 
-        while (CurrentPicosecondTime >= _nextEvent) {
-            _events[^1].callback();
-            _events.RemoveAt(_events.Count - 1);
-            _nextEvent = _events.Count > 0 ? _events[^1].time : long.MaxValue;
+        // Short-circuit: when no events are scheduled (_nextEvent == long.MaxValue, the
+        // steady state for any pure-throughput run) this avoids the QueryPerformanceCounter
+        // syscall hidden in CurrentPicosecondTime via Stopwatch.Elapsed (~15-30ns/call).
+        if (_nextEvent != long.MaxValue && CurrentPicosecondTime >= _nextEvent) {
+            FireDueEvents();
         }
         
         byte opcode = Read8();
         
         // don't bounds check opcode because the array lookup
         // will do that for us and throw an IndexOutOfRangeException
-        (Action<CatVM> executor, int cycles) instruction = Operations[opcode];
-        instruction.executor(this);
-        TicksPassed += instruction.cycles * PicosecondsPerCycle;
+        // (CpuExceptionTest.InvalidInstruction_PathDistinguishedFromGenericIndexOutOfRange
+        //  relies on the IOOR throwing from inside this method).
+        delegate*<CatVM, void> executor = OperationExecutors[opcode];
+        int cycles = OperationCycles[opcode];
+        executor(this);
+        TicksPassed += cycles * PicosecondsPerCycle;
         
         if (fast) return;  // don't bother calculating anything if fast
         
@@ -814,6 +818,15 @@ public class CatVM {
 
     private long CurrentPicosecondTime => Fast ? Runtime.Elapsed.Ticks * PicosecondsPerTick : TicksPassed;
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void FireDueEvents() {
+        while (CurrentPicosecondTime >= _nextEvent) {
+            _events[^1].callback();
+            _events.RemoveAt(_events.Count - 1);
+            _nextEvent = _events.Count > 0 ? _events[^1].time : long.MaxValue;
+        }
+    }
+
     private void RecalculateEvents() {
         if (_events.Count == 0) {
             _nextEvent = long.MaxValue;
@@ -870,98 +883,155 @@ public class CatVM {
     }
     
     /// <summary>
-    /// List of all operations supported by the VM, along with their cycle counts.
+    /// Function-pointer dispatch table for opcodes. Indexed by opcode byte.
+    /// <para/>
+    /// Stored as raw <c>delegate*&lt;CatVM, void&gt;</c> rather than <c>Action&lt;CatVM&gt;</c>
+    /// so the hot dispatch in <see cref="ExecuteInstruction"/> is a single indirect call
+    /// with no delegate-target indirection. Cycles, names, and executors are kept in three
+    /// parallel arrays so each is hot in its own cache line and the cycles array is only
+    /// touched outside the loop body.
     /// </summary>
-    public static readonly (Action<CatVM> executor, int cycles)[] Operations = [
-        (MovOperation.MovRR, 2),
-        (MovOperation.MovRI, 2),
-        (MovOperation.MovRRP, 6),
-        (MovOperation.MovRIP, 5),
-        (MovOperation.MovRPR, 8),
-        (MovOperation.MovRPI, 7),
-        (MovOperation.MovIPR, 7),
-        (MovOperation.MovIPI, 6),
-        (MovOperation.SMovRRP, 6),
-        (MovOperation.SMovRIP, 5),
-        (MovOperation.SMovRPR, 8),
-        (MovOperation.SMovRPI, 7),
-        (MovOperation.SMovIPR, 7),
-        (MovOperation.SMovIPI, 6),
-        (MovOperation.BMovRRP, 6),
-        (MovOperation.BMovRIP, 5),
-        (MovOperation.BMovRPR, 8),
-        (MovOperation.BMovRPI, 7),
-        (MovOperation.BMovIPR, 7),
-        (MovOperation.BMovIPI, 6),
-        (AddOperation.AddRR, 2),
-        (AddOperation.AddRI, 2),
-        (SubOperation.SubRR, 2),
-        (SubOperation.SubRI, 2),
-        (MulOperation.MulRR, 8),
-        (MulOperation.MulRI, 8),
-        (MulOperation.IMulRR, 8),
-        (MulOperation.IMulRI, 8),
-        (DivOperation.DivRR, 32),
-        (DivOperation.IDivRR, 32),
-        (IntOperation.IntR, 64),
-        (IntOperation.IntI, 64),
-        (StackOperation.PushR, 6),
-        (StackOperation.PushI, 6),
-        (StackOperation.Push16R, 6),
-        (StackOperation.Push16I, 6),
-        (StackOperation.Push8R, 6),
-        (StackOperation.Push8I, 6),
-        (StackOperation.PopR, 4),
-        (StackOperation.Pop16R, 4),
-        (StackOperation.Pop8R, 4),
-        (OrOperation.OrRR, 3),
-        (OrOperation.OrRI, 3),
-        (AndOperation.AndRR, 3),
-        (AndOperation.AndRI, 3),
-        (XorOperation.XorRR, 3),
-        (XorOperation.XorRI, 3),
-        (NotOperation.NotR, 2),
-        (JmpOperation.JmpRI, 2),
-        (CmpOperation.CmpRR, 2),
-        (CmpOperation.CmpRI, 2),
-        (CmpOperation.CmpIR, 2),
-        (CmpOperation.CmpII, 2),
-        (JmpOperation.JzRI, 3),
-        (JmpOperation.JnzRI, 3),
-        (JmpOperation.JulRI, 3),
-        (JmpOperation.JuleRI, 3),
-        (JmpOperation.JugRI, 3),
-        (JmpOperation.JugeRI, 3),
-        (JmpOperation.JilRI, 3),
-        (JmpOperation.JileRI, 3),
-        (JmpOperation.JigRI, 3),
-        (JmpOperation.JigeRI, 3),
-        (StackOperation.Call, 6),
-        (StackOperation.Ret, 4),
-        (CpyOperation.CpyRR, 256),
-        (CpyOperation.CpyRI, 256),
-        (CpyOperation.CpyIR, 256),
-        (CpyOperation.CpyII, 256),
-        (IntOperation.Di, 2),
-        (IntOperation.Ei, 2),
-        (SerialOperation.InRR, 12),
-        (SerialOperation.InRI, 12),
-        (SerialOperation.OutRR, 12),
-        (SerialOperation.OutRI, 12),
-        (SerialOperation.OutIR, 12),
-        (SerialOperation.OutII, 12),
-        (NopOperation.Nop, 1),
-        (ShiftOperation.ShlRR, 3),
-        (ShiftOperation.ShlRI, 3),
-        (ShiftOperation.ShrRR, 3),
-        (ShiftOperation.ShrRI, 3),
-        (VirtModeRetOperation.IRet, 8),
-        (InterruptTableOperation.SetItR, 2),
-        (InterruptTableOperation.SetItI, 2),
-        (InterruptTableOperation.GetItR, 2),
-        (KspOperation.SetKspR, 2),
-        (KspOperation.SetKspI, 2),
-        (KspOperation.GetKspR, 2),
-        (IntOperation.Syscall, 64)
-    ];
+    public static readonly unsafe delegate*<CatVM, void>[] OperationExecutors;
+
+    /// <summary>Cycle cost per opcode, indexed by opcode byte. Parallel to <see cref="OperationExecutors"/>.</summary>
+    public static readonly int[] OperationCycles;
+
+    /// <summary>Human-readable name per opcode, indexed by opcode byte. Used by the debugger.</summary>
+    public static readonly string[] OperationNames;
+
+    static CatVM() {
+        // Single source of truth for the dispatch table. The legacy Operations tuple,
+        // the function-pointer table, the cycles table, and the names table are all
+        // derived from this list - any new opcode goes here and only here.
+        // Opcode byte values are positional, so do NOT reorder existing entries.
+        (string name, int cycles, Action<CatVM> executor)[] table = [
+            ("MovRR",   2, MovOperation.MovRR),
+            ("MovRI",   2, MovOperation.MovRI),
+            ("MovRRP",  6, MovOperation.MovRRP),
+            ("MovRIP",  5, MovOperation.MovRIP),
+            ("MovRPR",  8, MovOperation.MovRPR),
+            ("MovRPI",  7, MovOperation.MovRPI),
+            ("MovIPR",  7, MovOperation.MovIPR),
+            ("MovIPI",  6, MovOperation.MovIPI),
+            ("SMovRRP", 6, MovOperation.SMovRRP),
+            ("SMovRIP", 5, MovOperation.SMovRIP),
+            ("SMovRPR", 8, MovOperation.SMovRPR),
+            ("SMovRPI", 7, MovOperation.SMovRPI),
+            ("SMovIPR", 7, MovOperation.SMovIPR),
+            ("SMovIPI", 6, MovOperation.SMovIPI),
+            ("BMovRRP", 6, MovOperation.BMovRRP),
+            ("BMovRIP", 5, MovOperation.BMovRIP),
+            ("BMovRPR", 8, MovOperation.BMovRPR),
+            ("BMovRPI", 7, MovOperation.BMovRPI),
+            ("BMovIPR", 7, MovOperation.BMovIPR),
+            ("BMovIPI", 6, MovOperation.BMovIPI),
+            ("AddRR",   2, AddOperation.AddRR),
+            ("AddRI",   2, AddOperation.AddRI),
+            ("SubRR",   2, SubOperation.SubRR),
+            ("SubRI",   2, SubOperation.SubRI),
+            ("MulRR",   8, MulOperation.MulRR),
+            ("MulRI",   8, MulOperation.MulRI),
+            ("IMulRR",  8, MulOperation.IMulRR),
+            ("IMulRI",  8, MulOperation.IMulRI),
+            ("DivRR",  32, DivOperation.DivRR),
+            ("IDivRR", 32, DivOperation.IDivRR),
+            ("IntR",   64, IntOperation.IntR),
+            ("IntI",   64, IntOperation.IntI),
+            ("PushR",   6, StackOperation.PushR),
+            ("PushI",   6, StackOperation.PushI),
+            ("Push16R", 6, StackOperation.Push16R),
+            ("Push16I", 6, StackOperation.Push16I),
+            ("Push8R",  6, StackOperation.Push8R),
+            ("Push8I",  6, StackOperation.Push8I),
+            ("PopR",    4, StackOperation.PopR),
+            ("Pop16R",  4, StackOperation.Pop16R),
+            ("Pop8R",   4, StackOperation.Pop8R),
+            ("OrRR",    3, OrOperation.OrRR),
+            ("OrRI",    3, OrOperation.OrRI),
+            ("AndRR",   3, AndOperation.AndRR),
+            ("AndRI",   3, AndOperation.AndRI),
+            ("XorRR",   3, XorOperation.XorRR),
+            ("XorRI",   3, XorOperation.XorRI),
+            ("NotR",    2, NotOperation.NotR),
+            ("JmpRI",   2, JmpOperation.JmpRI),
+            ("CmpRR",   2, CmpOperation.CmpRR),
+            ("CmpRI",   2, CmpOperation.CmpRI),
+            ("CmpIR",   2, CmpOperation.CmpIR),
+            ("CmpII",   2, CmpOperation.CmpII),
+            ("JzRI",    3, JmpOperation.JzRI),
+            ("JnzRI",   3, JmpOperation.JnzRI),
+            ("JulRI",   3, JmpOperation.JulRI),
+            ("JuleRI",  3, JmpOperation.JuleRI),
+            ("JugRI",   3, JmpOperation.JugRI),
+            ("JugeRI",  3, JmpOperation.JugeRI),
+            ("JilRI",   3, JmpOperation.JilRI),
+            ("JileRI",  3, JmpOperation.JileRI),
+            ("JigRI",   3, JmpOperation.JigRI),
+            ("JigeRI",  3, JmpOperation.JigeRI),
+            ("Call",    6, StackOperation.Call),
+            ("Ret",     4, StackOperation.Ret),
+            ("CpyRR", 256, CpyOperation.CpyRR),
+            ("CpyRI", 256, CpyOperation.CpyRI),
+            ("CpyIR", 256, CpyOperation.CpyIR),
+            ("CpyII", 256, CpyOperation.CpyII),
+            ("Di",      2, IntOperation.Di),
+            ("Ei",      2, IntOperation.Ei),
+            ("InRR",   12, SerialOperation.InRR),
+            ("InRI",   12, SerialOperation.InRI),
+            ("OutRR",  12, SerialOperation.OutRR),
+            ("OutRI",  12, SerialOperation.OutRI),
+            ("OutIR",  12, SerialOperation.OutIR),
+            ("OutII",  12, SerialOperation.OutII),
+            ("Nop",     1, NopOperation.Nop),
+            ("ShlRR",   3, ShiftOperation.ShlRR),
+            ("ShlRI",   3, ShiftOperation.ShlRI),
+            ("ShrRR",   3, ShiftOperation.ShrRR),
+            ("ShrRI",   3, ShiftOperation.ShrRI),
+            ("IRet",    8, VirtModeRetOperation.IRet),
+            ("SetItR",  2, InterruptTableOperation.SetItR),
+            ("SetItI",  2, InterruptTableOperation.SetItI),
+            ("GetItR",  2, InterruptTableOperation.GetItR),
+            ("SetKspR", 2, KspOperation.SetKspR),
+            ("SetKspI", 2, KspOperation.SetKspI),
+            ("GetKspR", 2, KspOperation.GetKspR),
+            ("Syscall",64, IntOperation.Syscall),
+        ];
+
+        int n = table.Length;
+        OperationNames  = new string[n];
+        OperationCycles = new int[n];
+        Operations      = new (Action<CatVM>, int)[n];
+        unsafe {
+            OperationExecutors = new delegate*<CatVM, void>[n];
+        }
+
+        for (int i = 0; i < n; i++) {
+            (string name, int cycles, Action<CatVM> exec) = table[i];
+            OperationNames[i]  = name;
+            OperationCycles[i] = cycles;
+            Operations[i]      = (exec, cycles);
+
+            // Derive the function pointer from the delegate's MethodInfo. PrepareMethod
+            // forces the JIT to produce the final codegen entry point now, so the pointer
+            // we cache is the real method address and not a tier-0 stub.
+            // All entries in the table above must be static methods - if a non-static
+            // method ever slips in, the check below fires at startup.
+            if (!exec.Method.IsStatic) {
+                throw new InvalidOperationException(
+                    $"Opcode '{name}' must be backed by a static method (got {exec.Method.DeclaringType}.{exec.Method.Name}).");
+            }
+            RuntimeHelpers.PrepareMethod(exec.Method.MethodHandle);
+            IntPtr fp = exec.Method.MethodHandle.GetFunctionPointer();
+            unsafe {
+                OperationExecutors[i] = (delegate*<CatVM, void>)fp;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Legacy view of the dispatch table as <c>(Action&lt;CatVM&gt;, int)</c> tuples.
+    /// Retained for any external consumer that still indexes it; the hot dispatch path
+    /// uses <see cref="OperationExecutors"/> + <see cref="OperationCycles"/> instead.
+    /// </summary>
+    public static readonly (Action<CatVM> executor, int cycles)[] Operations;
 }

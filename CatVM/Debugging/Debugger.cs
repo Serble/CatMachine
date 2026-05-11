@@ -81,8 +81,8 @@ public class Debugger {
             DebugSymbol? symbol = GetSymbolAt(_vm.Cpu.Ip);
             if (symbol == null) {
                 try {
-                    (Action<CatVM> executor, int cycles) op = CatVM.Operations[_vm.Memory[_vm.Cpu.Ip]];
-                    symbol = new DebugSymbol(0, 0, op.executor.Method.Name);
+                    string name = CatVM.OperationNames[_vm.Memory[_vm.Cpu.Ip]];
+                    symbol = new DebugSymbol(0, 0, name);
                 }
                 catch (Exception) {
                     // ignore, just means we don't have a symbol for this instruction
