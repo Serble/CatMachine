@@ -75,8 +75,8 @@ fun reset() {
 }
 
 fun get_uptime() {
-    ~~~ | | ;
-    int 0x85
+    ~~~ | | r1 ;
+    uptms
     ~~~
     // r0 is now the uptime
     // so we can just return

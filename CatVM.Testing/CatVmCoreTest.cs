@@ -187,14 +187,6 @@ public class CatVmCoreTest {
     }
 
     [Test]
-    public void HandleInterrupt_0x85_PopulatesR0WithUptime() {
-        CatVM vm = NewVm();
-        vm.Cpu.R0 = 0xDEAD;
-        vm.HandleInterrupt(0x85);
-        Assert.That(vm.Cpu.R0, Is.LessThan(0xDEADu));  // overwritten with small uptime
-    }
-
-    [Test]
     public void HandleInterrupt_0x90_GatedByEnableTestingInterrupts() {
         // Capture stdout
         TextWriter old = Console.Out;

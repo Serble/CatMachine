@@ -25,10 +25,6 @@ public static class InterruptHandlers {
         Console.WriteLine($"{vm.Cpu.R1} 0x{vm.Cpu.R1:x8}");
     }
 
-    public static void GetUptimeInterrupt(CatVM vm) {
-        vm.Cpu.R0 = vm.Fast ? (uint)vm.Runtime.ElapsedMilliseconds : (uint)(vm.TicksPassed / CatVM.PicosecondsPerMillisecond);
-    }
-
     public static void DefaultHandler(CatVM vm, byte opcode) {
         if (opcode >= 0x10) return;  // ignore non errors
         

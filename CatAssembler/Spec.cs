@@ -160,6 +160,10 @@ public static class Spec {
 
         // SYSCALL
         new(["syscall"], 0x59),
+        
+        // TIMING
+        new(["uptms"], 0x5a),
+        new(["uptns"], 0x5b),
     ];
 
     public static readonly (string[] Mneumonics, IOutputSegment Segment)[] CustomInstructions = [

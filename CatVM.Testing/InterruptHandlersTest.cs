@@ -59,23 +59,6 @@ public class InterruptHandlersTest {
     }
 
     [Test]
-    public void GetUptime_FastMode_UsesRuntimeMs() {
-        // Fast=true -> Runtime.ElapsedMilliseconds (started at 0 since Reset)
-        InterruptHandlers.GetUptimeInterrupt(_vm);
-        Assert.That(_vm.Cpu.R0, Is.LessThan(1000u));
-    }
-
-    [Test]
-    public void GetUptime_VirtualMode_UsesTicksPassed() {
-        CatVM vm = new(1024, 10_000) { Fast = false };
-        vm.LoadData([0x4D]); // NOP, takes some cycles
-        vm.ExecuteInstruction(true); // bypass real-time sleep
-        InterruptHandlers.GetUptimeInterrupt(vm);
-        // TicksPassed grows in picoseconds; ms = picos / 1e9.
-        Assert.That(vm.Cpu.R0, Is.LessThan(1000u));
-    }
-
-    [Test]
     public void PrintNumInterrupt_PrintsR1DecimalAndHex() {
         _vm.Cpu.R1 = 0x1F;
         InterruptHandlers.PrintNumInterrupt(_vm);

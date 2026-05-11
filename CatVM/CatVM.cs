@@ -28,9 +28,10 @@ public class CatVM {
     public const bool DebugMode = false;
     
     // Time constants
-    public const long PicosecondsPerSecond = 1000000000000L;
-    public const long PicosecondsPerTick = 100000L;
-    public const long PicosecondsPerMillisecond = 1000000000L;
+    public const long PicosecondsPerSecond = 1_000_000_000_000L;
+    public const long PicosecondsPerTick = 100_000L;
+    public const long PicosecondsPerMillisecond = 1_000_000_000L;
+    public const long PicosecondsPerNanosecond = 1_000L;
 
 #region Parameters
     
@@ -643,10 +644,12 @@ public class CatVM {
         switch (id) {
             // 0x8X SYSTEM INTERRUPTS
             
-            case 0x80: {  // print
+            case 0x80: {  // print REMOVE
                 InterruptHandlers.PrintInterrupt(this);
                 return;
             }
+            
+            // SYS MANAGEMENT TODO REMOVE
 
             case 0x81: {  // halt
                 InterruptHandlers.HaltInterrupt(this);
@@ -660,11 +663,6 @@ public class CatVM {
             
             case 0x83: {  // reset
                 InterruptHandlers.ResetInterrupt(this);
-                return;
-            }
-            
-            case 0x85: {  // get uptime
-                InterruptHandlers.GetUptimeInterrupt(this);
                 return;
             }
             
@@ -995,6 +993,8 @@ public class CatVM {
             ("SetKspI", 2, KspOperation.SetKspI),
             ("GetKspR", 2, KspOperation.GetKspR),
             ("Syscall",64, IntOperation.Syscall),
+            ("UptMs", 12, TimingOperation.UptMs),
+            ("UptNs", 8, TimingOperation.UptNs),
         ];
 
         int n = table.Length;
