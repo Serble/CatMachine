@@ -2,7 +2,7 @@ namespace CatVM.Ops;
 
 public static class NotOperation {
     
-    public static void NotR(CatVM vm) {
+    public static void NotR(CatVm vm) {
         byte destReg = vm.Read8();
         uint value = vm.Cpu.Get(destReg);
         uint result = ~value;

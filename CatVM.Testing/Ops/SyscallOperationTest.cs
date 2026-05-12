@@ -24,11 +24,11 @@ public class SyscallOperationTest {
         ];
     }
 
-    private static CatVM NewVm() => new(64 * 1024, 100_000) { Fast = true };
+    private static CatVm NewVm() => new(64 * 1024, 100_000) { Fast = true };
 
     [Test]
     public void Syscall_FromUserMode_DispatchesIntoSyscallHandler() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         const uint mbase = 0x4000;
         const uint mlen  = 0x1000;
@@ -62,7 +62,7 @@ public class SyscallOperationTest {
 
     [Test]
     public void Syscall_FromDriverMode_DispatchesAndPushesSupervisorMarker() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         const uint mbase = 0x4000;
         const uint mlen  = 0x1000;
@@ -96,7 +96,7 @@ public class SyscallOperationTest {
     [Test]
     public void IntI_InUserMode_Faults() {
         // Counterpart sanity: the privileged `int N` opcode must still trap from user mode.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint mbase = 0x1000;
         const uint mlen  = 0x100;
         vm.LoadData([OpIntI, 0x10], mbase);

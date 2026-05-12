@@ -23,7 +23,7 @@ List<(uint addr, uint length)> disallowedWrite = [];
 List<(uint addr, uint length)> disallowedRead = [];
 List<ISerialDevice> genericSerialDevices = [];
 Dictionary<uint, ISerialDevice> serialDevices = [];
-Dictionary<uint, Func<CatVM.CatVM, ISerialDevice>> serialDeviceFactories = [];
+Dictionary<uint, Func<CatVM.CatVm, ISerialDevice>> serialDeviceFactories = [];
 
 for (int i = 1; i < args.Length; i++) {
     switch (args[i]) {
@@ -69,7 +69,7 @@ for (int i = 1; i < args.Length; i++) {
             break;
         
         case "--disallow-write":
-            if (!CatVM.CatVM.DebugMode) {
+            if (!CatVM.CatVm.DebugMode) {
                 Console.WriteLine("--disallow-write flag requires the VM to be built in debug mode.");
                 return 1;
             }
@@ -85,7 +85,7 @@ for (int i = 1; i < args.Length; i++) {
             break;
         
         case "--disallow-read":
-            if (!CatVM.CatVM.DebugMode) {
+            if (!CatVM.CatVm.DebugMode) {
                 Console.WriteLine("--disallow-read flag requires the VM to be built in debug mode.");
                 return 1;
             }
@@ -159,7 +159,7 @@ for (int i = 1; i < args.Length; i++) {
     }
 }
 
-CatVM.CatVM vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
+CatVM.CatVm vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     EnableTestingInterrupts = enableTestInts,
     DumpErrors = dumpErrors,
     ErrorOnRomWrite = errorOnRomWrite,
@@ -174,7 +174,7 @@ vm.SerialDevices[0] = new HardwareManager();
 foreach ((uint port, ISerialDevice dev) in serialDevices) {
     vm.SerialDevices[port] = dev;
 }
-foreach ((uint port, Func<CatVM.CatVM, ISerialDevice> factory) in serialDeviceFactories) {
+foreach ((uint port, Func<CatVM.CatVm, ISerialDevice> factory) in serialDeviceFactories) {
     vm.SerialDevices[port] = factory(vm);
 }
 

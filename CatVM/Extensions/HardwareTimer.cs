@@ -12,10 +12,10 @@ public class HardwareTimer : CommandBasedSerialDevice<HardwareTimer.Mode> {
         };
     }
 
-    protected override void RunMode(CatVM vm, Mode mode, List<uint> args) {
+    protected override void RunMode(CatVm vm, Mode mode, List<uint> args) {
         switch (mode) {
             case Mode.NewTimer:
-                long picoseconds = args[0] * CatVM.PicosecondsPerMillisecond;
+                long picoseconds = args[0] * CatVm.PicosecondsPerMillisecond;
                 uint timerId = args[1];
                 vm.RunIn(picoseconds, () => {
                     InputQueue.Enqueue(timerId);

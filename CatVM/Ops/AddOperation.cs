@@ -2,7 +2,7 @@ namespace CatVM.Ops;
 
 public static class AddOperation {
     
-    public static void AddRR(CatVM vm) {
+    public static void AddRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint left = vm.Cpu.Get(destReg);
@@ -10,14 +10,14 @@ public static class AddOperation {
         Add(vm, destReg, left, right);
     }
     
-    public static void AddRI(CatVM vm) {
+    public static void AddRI(CatVm vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(destReg);
         Add(vm, destReg, left, immediate);
     }
     
-    public static void Add(CatVM vm, byte destReg, uint a, uint b) {
+    public static void Add(CatVm vm, byte destReg, uint a, uint b) {
         uint result = a + b;
 
         vm.Cpu.OverflowFlag = (~(a ^ b) & (a ^ result)) >> 31 == 1;

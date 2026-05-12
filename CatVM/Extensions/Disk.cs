@@ -75,7 +75,7 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
         };
     }
     
-    protected override void RunMode(CatVM vm, Mode mode, List<uint> args) {
+    protected override void RunMode(CatVm vm, Mode mode, List<uint> args) {
         switch (mode) {
             case Mode.Read: {
                 _queue.Enqueue((true, args[0], args[1], args[2]));
@@ -97,7 +97,7 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
         }
     }
 
-    private void ExecuteOperation(CatVM vm) {
+    private void ExecuteOperation(CatVm vm) {
         if (_queue.Count == 0) {
             _isRunning = false;
             return;

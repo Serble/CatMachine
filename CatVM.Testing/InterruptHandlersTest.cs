@@ -7,13 +7,13 @@ namespace CatVM.Testing;
 /// intentionally not covered as it calls <see cref="Environment.Exit"/>.
 /// </summary>
 public class InterruptHandlersTest {
-    private CatVM _vm = null!;
+    private CatVm _vm = null!;
     private TextWriter _origOut = null!;
     private StringWriter _captured = null!;
 
     [SetUp]
     public void Setup() {
-        _vm = new CatVM(1024, 10_000) { Fast = true };
+        _vm = new CatVm(1024, 10_000) { Fast = true };
         _origOut = Console.Out;
         _captured = new StringWriter();
         Console.SetOut(_captured);

@@ -2,7 +2,7 @@ namespace CatVM.Ops;
 
 public static class AndOperation {
     
-    public static void AndRR(CatVM vm) {
+    public static void AndRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint left = vm.Cpu.Get(destReg);
@@ -11,7 +11,7 @@ public static class AndOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    public static void AndRI(CatVM vm) {
+    public static void AndRI(CatVm vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(destReg);

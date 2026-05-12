@@ -1,11 +1,11 @@
 namespace CatVM.Testing;
 
 public class OperationTestBase {
-    protected CatVM _vm = null!;
+    protected CatVm _vm = null!;
 
     [SetUp]
     public void Setup() {
-        _vm = new CatVM(512, 10_000);
+        _vm = new CatVm(512, 10_000);
     }
 
     protected void Execute(params byte[] data) {

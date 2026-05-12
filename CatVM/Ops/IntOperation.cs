@@ -2,7 +2,7 @@ namespace CatVM.Ops;
 
 public static class IntOperation {
     
-    public static void IntR(CatVM vm) {
+    public static void IntR(CatVm vm) {
         byte idReg = vm.Read8();
         
         if (!vm.TryPrivileged()) {
@@ -13,7 +13,7 @@ public static class IntOperation {
         vm.Interrupt(intNumber);
     }
     
-    public static void IntI(CatVM vm) {
+    public static void IntI(CatVm vm) {
         byte intNumber = vm.Read8();
         
         if (!vm.TryPrivileged()) {
@@ -23,7 +23,7 @@ public static class IntOperation {
         vm.Interrupt(intNumber);
     }
     
-    public static void Di(CatVM vm) {
+    public static void Di(CatVm vm) {
         if (!vm.TryPrivileged()) {
             return;
         }
@@ -31,7 +31,7 @@ public static class IntOperation {
         vm.InterruptsEnabled = false;
     }
     
-    public static void Ei(CatVM vm) {
+    public static void Ei(CatVm vm) {
         if (!vm.TryPrivileged()) {
             return;
         }
@@ -40,7 +40,7 @@ public static class IntOperation {
     }
 
     // non privileged interrupt instruction
-    public static void Syscall(CatVM vm) {
+    public static void Syscall(CatVm vm) {
         vm.Interrupt(SpecialInterrupts.Syscall);
     }
 }

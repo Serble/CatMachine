@@ -52,14 +52,14 @@ public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mo
     
     private StatusFlags _statusFlags = StatusFlags.LinkUp;
     private readonly byte[] _macAddress = new byte[6];
-    private readonly CatVM _vm;
+    private readonly CatVm _vm;
 
     private readonly CancellationTokenSource _listeningToken = new();
     private readonly Task _listeningTask;
 
     private readonly UdpClient _transportClient;
 
-    public VirtualNetworkCard(CatVM vm, IPEndPoint peer, int listenPort = -1) {
+    public VirtualNetworkCard(CatVm vm, IPEndPoint peer, int listenPort = -1) {
         _vm = vm;
         _transportClient = listenPort == -1
             ? new UdpClient()
@@ -271,7 +271,7 @@ public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mo
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
     };
 
-    protected override void RunMode(CatVM vm, Mode mode, List<uint> args) {
+    protected override void RunMode(CatVm vm, Mode mode, List<uint> args) {
         switch (mode) {
             case Mode.Reset:
                 Interlocked.Increment(ref _txConfigGeneration);

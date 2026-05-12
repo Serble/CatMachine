@@ -2,7 +2,7 @@ namespace CatVM.Ops;
 
 public static class ShiftOperation {
     
-    public static void ShlRR(CatVM vm) {
+    public static void ShlRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint left = vm.Cpu.Get(destReg);
@@ -11,7 +11,7 @@ public static class ShiftOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    public static void ShlRI(CatVM vm) {
+    public static void ShlRI(CatVm vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(destReg);
@@ -19,7 +19,7 @@ public static class ShiftOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    public static void ShrRR(CatVM vm) {
+    public static void ShrRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint left = vm.Cpu.Get(destReg);
@@ -28,7 +28,7 @@ public static class ShiftOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    public static void ShrRI(CatVM vm) {
+    public static void ShrRI(CatVm vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(destReg);

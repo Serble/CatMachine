@@ -72,7 +72,7 @@ public class RaylibPpu {
     /// </summary>
     public uint DisplayBufferAddress { get; set; }
 
-    public RaylibPpu(CatVM vm) {
+    public RaylibPpu(CatVm vm) {
         Graphics = new GraphicsDevice(this);
         Keyboard = new KeyboardInputDevice();
         Mouse = new MouseInputDevice();
@@ -91,7 +91,7 @@ public class RaylibPpu {
             };
         }
         
-        protected override void RunMode(CatVM vm, Mode mode, List<uint> args) {
+        protected override void RunMode(CatVm vm, Mode mode, List<uint> args) {
             switch (mode) {
                 case Mode.UpdateDisplay:
                     ppu._updateDisplay.Reset(); // mark as outdated
@@ -137,15 +137,15 @@ public class RaylibPpu {
         private byte _interruptCode = 0x70;
         private Queue<uint> _inputsQueue = new();
 
-        public uint Input(CatVM vm) {
+        public uint Input(CatVm vm) {
             return _inputsQueue.Count == 0 ? uint.MaxValue : _inputsQueue.Dequeue();
         }
 
-        public void Output(CatVM vm, uint data) {
+        public void Output(CatVm vm, uint data) {
             _interruptCode = (byte)data;
         }
 
-        public void SendInput(CatVM vm, uint inputType, uint value) {
+        public void SendInput(CatVm vm, uint inputType, uint value) {
             _inputsQueue.Enqueue(inputType);
             _inputsQueue.Enqueue(value);
             vm.HardwareInterrupt(_interruptCode);
@@ -160,7 +160,7 @@ public class RaylibPpu {
         public override uint Type => 0x25A3E57D;
     }
     
-    private void SetRenderer(CatVM vm) {
+    private void SetRenderer(CatVm vm) {
         _renderer?.Unload(this, vm);
 
         // Console.WriteLine("Setting renderer to " + vm.DisplayMode);
@@ -171,7 +171,7 @@ public class RaylibPpu {
         };
     }
 
-    private void Start(CatVM vm) {
+    private void Start(CatVm vm) {
         start:
         
         // wait for display mode to not be DummyDisplay

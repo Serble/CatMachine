@@ -18,13 +18,13 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
             PixelFormat.UncompressedR8G8B8A8, 4);
     }
 
-    public void Update(RaylibPpu ppu, CatVM vm) { }
+    public void Update(RaylibPpu ppu, CatVm vm) { }
     
-    public void ReadScreenData(RaylibPpu ppu, CatVM vm) {
+    public void ReadScreenData(RaylibPpu ppu, CatVm vm) {
         Raylib.UpdateTexture(_texture, vm.Memory.AsSpan((int)ppu.DisplayBufferAddress..));
     }
 
-    public void Draw(RaylibPpu ppu, CatVM vm) {
+    public void Draw(RaylibPpu ppu, CatVm vm) {
         Raylib.ClearBackground(Color.Black);
         
         Raylib.BeginShaderMode(_textureShader);
@@ -35,7 +35,7 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
         Raylib.EndShaderMode();
     }
 
-    public void Unload(RaylibPpu ppu, CatVM vm) {
+    public void Unload(RaylibPpu ppu, CatVm vm) {
         Raylib.UnloadShader(_textureShader);
         Raylib.UnloadTexture(_texture);
     }

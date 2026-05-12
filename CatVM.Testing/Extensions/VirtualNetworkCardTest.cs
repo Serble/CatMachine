@@ -32,8 +32,8 @@ public class VirtualNetworkCardTest {
         return ((IPEndPoint)probe.Client.LocalEndPoint!).Port;
     }
 
-    private static CatVM NewVm(int memory = 4096) {
-        return new CatVM(memory, 10_000) { Fast = true };
+    private static CatVm NewVm(int memory = 4096) {
+        return new CatVm(memory, 10_000) { Fast = true };
     }
 
     private static void WriteU32(byte[] mem, uint addr, uint value) {
@@ -70,7 +70,7 @@ public class VirtualNetworkCardTest {
     /// <see cref="UdpClient"/> can be used to send packets to the VNIC's
     /// listener thread (the VNIC will respond/transmit to the peer port).
     /// </summary>
-    private static (VirtualNetworkCard vnic, UdpClient peer) CreatePair(CatVM vm, out int vnicPort, out int peerPort) {
+    private static (VirtualNetworkCard vnic, UdpClient peer) CreatePair(CatVm vm, out int vnicPort, out int peerPort) {
         vnicPort = GetFreePort();
         peerPort = GetFreePort();
         UdpClient peer = new(peerPort);
@@ -81,7 +81,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Probe_WriteZero_ReturnsType0x04() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             vnic.Output(vm, 0);
@@ -94,7 +94,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Tx_BroadcastFrame_IsTransmittedAndDescriptorMarkedDone() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint frameAddr = 0x200;
@@ -136,7 +136,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Tx_DescriptorWithoutOwn_IsNotTransmitted() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint frameAddr = 0x200;
@@ -170,7 +170,7 @@ public class VirtualNetworkCardTest {
     public void Tx_SnapshotsBufferBeforeTransmit() {
         // Verifies that mutating the TX buffer immediately after KickTx does
         // not affect what gets sent on the wire (the VNIC takes a snapshot).
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint frameAddr = 0x200;
@@ -209,7 +209,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Rx_BroadcastFrame_PopulatesDescriptorAndSetsDone() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint bufAddr = 0x300;
@@ -244,7 +244,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Rx_FrameToDifferentMac_IsDropped() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             // SetMac to AA:BB:CC:DD:EE:FF (LE-packed across two args)
@@ -282,7 +282,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Rx_FrameToConfiguredMac_IsAccepted() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             byte[] mac = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF];
@@ -313,7 +313,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Rx_ShortFrame_IsDropped() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint descAddr = 0x100;
@@ -342,7 +342,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Rx_RingFull_RaisesPacketDroppedStatus() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             // Single descriptor; we'll fill it then send another packet.
@@ -381,7 +381,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void GetStatus_ReadsAndClearsExceptLinkUp() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             // Send a TX so we'll end up with TransmitDone set.
@@ -421,7 +421,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Reset_ClearsRingsAndStateSoFurtherTrafficIsIgnored() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint descAddr = 0x100;
@@ -454,7 +454,7 @@ public class VirtualNetworkCardTest {
 
     [Test]
     public void Tx_BufferBeyondMemory_IsSilentlySkipped() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint descAddr = 0x100;
@@ -485,7 +485,7 @@ public class VirtualNetworkCardTest {
         // Guest sets Own, kicks. The VNIC marks the descriptor in-use, sends,
         // and (by the test's end) sets Done. A second KickTx between the
         // in-flight period must not enqueue a duplicate.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             uint frameAddr = 0x200;

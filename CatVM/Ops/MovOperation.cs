@@ -22,21 +22,21 @@ public static class MovOperation {
         Unsafe.WriteUnaligned(ref memory[address], value);
     }
     
-    public static void MovRR(CatVM vm) {
+    public static void MovRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint value = vm.Cpu.Get(srcReg);
         vm.Cpu.Set(destReg, value);
     }
     
-    public static void MovRI(CatVM vm) {
+    public static void MovRI(CatVm vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         vm.Cpu.Set(destReg, immediate);
     }
 
     // Move from memory (pointer in register) to register
-    public static void MovRRP(CatVM vm) {
+    public static void MovRRP(CatVm vm) {
         byte destReg = vm.Read8();
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -46,7 +46,7 @@ public static class MovOperation {
     }
     
     // Move from memory (immediate address) to register
-    public static void MovRIP(CatVM vm) {
+    public static void MovRIP(CatVm vm) {
         byte destReg = vm.Read8();
         uint address = vm.ReadWord();
         vm.ValidateMemoryRead(address, 4);
@@ -54,7 +54,7 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
 
-    public static void MovRPR(CatVM vm) {
+    public static void MovRPR(CatVm vm) {
         byte ptrReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -63,7 +63,7 @@ public static class MovOperation {
         WriteU32(vm.Memory, address, value);
     }
     
-    public static void MovRPI(CatVM vm) {
+    public static void MovRPI(CatVm vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
         uint immediate = vm.ReadWord();
@@ -71,7 +71,7 @@ public static class MovOperation {
         WriteU32(vm.Memory, address, immediate);
     }
     
-    public static void MovIPR(CatVM vm) {
+    public static void MovIPR(CatVm vm) {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
         uint value = vm.Cpu.Get(srcReg);
@@ -79,7 +79,7 @@ public static class MovOperation {
         WriteU32(vm.Memory, address, value);
     }
     
-    public static void MovIPI(CatVM vm) {
+    public static void MovIPI(CatVm vm) {
         uint address = vm.ReadWord();
         uint immediate = vm.ReadWord();
         vm.ValidateMemoryWrite(address, 4);
@@ -88,7 +88,7 @@ public static class MovOperation {
     
     // Mov byte sized values
     
-    public static void BMovIPR(CatVM vm) {
+    public static void BMovIPR(CatVm vm) {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
         byte value = (byte)(vm.Cpu.Get(srcReg) & 0xFF);
@@ -96,7 +96,7 @@ public static class MovOperation {
         vm.Memory[address] = value;
     }
     
-    public static void BMovRPR(CatVM vm) {
+    public static void BMovRPR(CatVm vm) {
         byte ptrReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -105,7 +105,7 @@ public static class MovOperation {
         vm.Memory[address] = value;
     }
     
-    public static void BMovRIP(CatVM vm) {
+    public static void BMovRIP(CatVm vm) {
         byte destReg = vm.Read8();
         uint address = vm.ReadWord();
         vm.ValidateMemoryRead(address, 1);
@@ -113,7 +113,7 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    public static void BMovRRP(CatVM vm) {
+    public static void BMovRRP(CatVm vm) {
         byte destReg = vm.Read8();
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -122,14 +122,14 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    public static void BMovIPI(CatVM vm) {
+    public static void BMovIPI(CatVm vm) {
         uint address = vm.ReadWord();
         byte immediate = vm.Read8();
         vm.ValidateMemoryWrite(address, 1);
         vm.Memory[address] = immediate;
     }
     
-    public static void BMovRPI(CatVM vm) {
+    public static void BMovRPI(CatVm vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
         byte immediate = vm.Read8();
@@ -139,7 +139,7 @@ public static class MovOperation {
     
     // Mov short sized values
     
-    public static void SMovIPR(CatVM vm) {
+    public static void SMovIPR(CatVm vm) {
         uint address = vm.ReadWord();
         byte srcReg = vm.Read8();
         ushort value = (ushort)(vm.Cpu.Get(srcReg) & 0xFFFF);
@@ -147,7 +147,7 @@ public static class MovOperation {
         WriteU16(vm.Memory, address, value);
     }
     
-    public static void SMovRPR(CatVM vm) {
+    public static void SMovRPR(CatVm vm) {
         byte ptrReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -156,7 +156,7 @@ public static class MovOperation {
         WriteU16(vm.Memory, address, value);
     }
     
-    public static void SMovRIP(CatVM vm) {
+    public static void SMovRIP(CatVm vm) {
         byte destReg = vm.Read8();
         uint address = vm.ReadWord();
         vm.ValidateMemoryRead(address, 2);
@@ -164,7 +164,7 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    public static void SMovRRP(CatVM vm) {
+    public static void SMovRRP(CatVm vm) {
         byte destReg = vm.Read8();
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
@@ -173,14 +173,14 @@ public static class MovOperation {
         vm.Cpu.Set(destReg, value);
     }
     
-    public static void SMovIPI(CatVM vm) {
+    public static void SMovIPI(CatVm vm) {
         uint address = vm.ReadWord();
         ushort immediate = vm.Read16();
         vm.ValidateMemoryWrite(address, 2);
         WriteU16(vm.Memory, address, immediate);
     }
     
-    public static void SMovRPI(CatVM vm) {
+    public static void SMovRPI(CatVm vm) {
         byte ptrReg = vm.Read8();
         uint address = vm.Cpu.Get(ptrReg);
         ushort immediate = vm.Read16();

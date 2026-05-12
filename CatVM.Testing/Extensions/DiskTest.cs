@@ -18,17 +18,17 @@ public class DiskTest {
     private const int WriteFlushTimeoutMs = 5_000;
 
     /// <summary>
-    /// Disk callbacks are scheduled via <see cref="CatVM.RunIn"/> using a
+    /// Disk callbacks are scheduled via <see cref="CatVm.RunIn"/> using a
     /// virtual-time clock when Fast=false. 1 cycle/sec ⇒ 1 second per cycle
     /// in picoseconds; we set picosPerBlock = PicosecondsPerCycle so each
     /// block takes exactly one NOP of virtual time.
     /// </summary>
-    private static CatVM NewVm(int memory = 4096) {
-        return new CatVM(memory, 1000) { Fast = false };
+    private static CatVm NewVm(int memory = 4096) {
+        return new CatVm(memory, 1000) { Fast = false };
     }
 
     /// <summary>Picosecond cost of one NOP at 1000 cycles/sec.</summary>
-    private static long OneCyclePs => CatVM.PicosecondsPerSecond / 1000;
+    private static long OneCyclePs => CatVm.PicosecondsPerSecond / 1000;
 
     private static MemoryStream MakeBacking(int blocks, byte fill = 0) {
         byte[] data = new byte[blocks * BlockSize];
@@ -39,7 +39,7 @@ public class DiskTest {
 
     [Test]
     public void Probe_WriteZero_ReturnsType0x02() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         using CancellationTokenSource cts = new();
         Disk disk = new(MakeBacking(1), OneCyclePs, token: cts.Token);
         disk.Output(vm, 0);
@@ -48,7 +48,7 @@ public class DiskTest {
 
     [Test]
     public void Read_PopulatesVmMemoryFromStream() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         MemoryStream backing = MakeBacking(2);
 
         // Put a recognisable pattern in block 1 of the disk.
@@ -74,7 +74,7 @@ public class DiskTest {
 
     [Test]
     public void Write_PersistsVmMemoryToStream() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         MemoryStream backing = MakeBacking(2);
 
         // Pattern in VM memory at 0x100, to be written into block 0.
@@ -107,7 +107,7 @@ public class DiskTest {
 
     [Test]
     public void DiskOperationFinish_InterruptIsRaisedOnCompletion() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         // Code at 0: NOPs. Handler at 0x800: NOP (sentinel address we look for).
         vm.LoadData(Enumerable.Repeat(OpNop, 8).ToArray());
@@ -137,7 +137,7 @@ public class DiskTest {
 
     [Test]
     public void MultipleOperations_AreExecutedSerially() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         MemoryStream backing = MakeBacking(3);
 
         // Pre-populate block 0 and block 2 with distinct patterns so we can

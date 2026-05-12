@@ -2,7 +2,7 @@ namespace CatVM.Testing;
 
 /// <summary>
 /// Verifies that hardware interrupts are dispatched correctly: queued, gated by
-/// <see cref="CatVM.InterruptsEnabled"/>, routed through the IT vector table when
+/// <see cref="CatVm.InterruptsEnabled"/>, routed through the IT vector table when
 /// installed, fall through to the default handler otherwise, and are safe to enqueue
 /// from arbitrary threads.
 /// </summary>
@@ -24,14 +24,14 @@ public class HardwareInterruptTest {
         ];
     }
 
-    private static CatVM NewVm(int memory = 512, uint cyclesPerSecond = 10_000) {
+    private static CatVm NewVm(int memory = 512, uint cyclesPerSecond = 10_000) {
         // Fast = true so ExecuteInstruction never sleeps for "real" timing.
-        return new CatVM(memory, cyclesPerSecond) { Fast = true };
+        return new CatVm(memory, cyclesPerSecond) { Fast = true };
     }
 
     [Test]
     public void HardwareInterrupt_DispatchedOnNextExecute_WhenEnabled() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         // Single NOP at address 0; interrupt handler at address 0x40 also a NOP.
         vm.LoadData([OpNop]);
         vm.LoadData([OpNop], 0x40);
@@ -57,7 +57,7 @@ public class HardwareInterruptTest {
 
     [Test]
     public void HardwareInterrupt_NotDispatched_WhenDisabled() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop]);
         vm.LoadData([OpNop], 0x40);
         vm.LoadData(MakeIt(0x71, 0x40), 0x100);
@@ -80,7 +80,7 @@ public class HardwareInterruptTest {
 
     [Test]
     public void HardwareInterrupt_QueuedWhileDisabled_DispatchedAfterEnable() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop, OpNop]);
         vm.LoadData([OpNop], 0x40);
         vm.LoadData(MakeIt(0x71, 0x40), 0x100);
@@ -109,7 +109,7 @@ public class HardwareInterruptTest {
 
     [Test]
     public void HardwareInterrupt_OnePerExecuteInstruction() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         // Handler at 0x40 just NOPs; we don't return from it, we only care that two
         // queued interrupts take two ExecuteInstruction calls to drain.
         vm.LoadData([OpNop, OpNop, OpNop]);
@@ -141,7 +141,7 @@ public class HardwareInterruptTest {
 
     [Test]
     public void HardwareInterrupt_FallsThroughToDefaultHandler_WhenIdNotInTable() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop]);
         // Vector table only has an entry for 0x71; we'll fire 0x73.
         vm.LoadData(MakeIt(0x71, 0x40), 0x100);
@@ -165,7 +165,7 @@ public class HardwareInterruptTest {
 
     [Test]
     public void HardwareInterrupt_NoVectorTable_UsesDefaultHandler() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop]);
         // Cpu.It defaults to uint.MaxValue meaning "no table".
         vm.Cpu.Ip = 0;
@@ -183,7 +183,7 @@ public class HardwareInterruptTest {
     public void HardwareInterrupt_EnqueueIsThreadSafe() {
         // Stress: many threads racing to enqueue should not throw or lose interrupts
         // (the underlying ConcurrentQueue<byte> guarantees atomic enqueue).
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop]);
         // Handler at 0x40 just NOPs; we won't drain so we can count enqueues by Sp pushes.
         vm.LoadData([OpNop], 0x40);
@@ -209,7 +209,7 @@ public class HardwareInterruptTest {
         // pushes the return address + marker (Sp -= 5), then executes the handler's NOP.
         // We need `total` ticks to drain everything. Memory is 512 bytes; each push uses
         // 5 bytes. Use a vm with enough stack room.
-        CatVM bigVm = new(64 * 1024, 10_000) { Fast = true };
+        CatVm bigVm = new(64 * 1024, 10_000) { Fast = true };
         bigVm.LoadData([OpNop]);
         bigVm.LoadData([OpNop], 0x40);
         bigVm.LoadData(MakeIt(0x71, 0x40), 0x100);
@@ -240,7 +240,7 @@ public class HardwareInterruptTest {
 
     [Test]
     public void HardwareInterrupt_DoesNotDispatchWhenQueueEmpty() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop, OpNop, OpNop]);
         vm.LoadData([OpNop], 0x40);
         vm.LoadData(MakeIt(0x71, 0x40), 0x100);
@@ -264,7 +264,7 @@ public class HardwareInterruptTest {
     public void Interrupt_SoftwareDispatchesImmediately_RegardlessOfEnabled() {
         // Software Interrupt() bypasses the queue and InterruptsEnabled. Verify both states.
         foreach (bool enabled in new[] { true, false }) {
-            CatVM vm = NewVm();
+            CatVm vm = NewVm();
             vm.LoadData([OpNop]);
             vm.LoadData([OpNop], 0x40);
             vm.LoadData(MakeIt(0x71, 0x40), 0x100);

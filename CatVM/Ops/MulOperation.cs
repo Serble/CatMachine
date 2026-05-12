@@ -2,7 +2,7 @@ namespace CatVM.Ops;
 
 public static class MulOperation {
     
-    public static void MulRR(CatVM vm) {
+    public static void MulRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
         uint left = vm.Cpu.Get(destReg);
@@ -11,7 +11,7 @@ public static class MulOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    public static void MulRI(CatVM vm) {
+    public static void MulRI(CatVm vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(destReg);
@@ -19,7 +19,7 @@ public static class MulOperation {
         vm.Cpu.Set(destReg, result);
     }
     
-    public static void IMulRR(CatVM vm) {
+    public static void IMulRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte srcReg = vm.Read8();
         int left = (int)vm.Cpu.Get(destReg);
@@ -28,7 +28,7 @@ public static class MulOperation {
         vm.Cpu.Set(destReg, (uint)result);
     }
     
-    public static void IMulRI(CatVM vm) {
+    public static void IMulRI(CatVm vm) {
         byte destReg = vm.Read8();
         uint immediate = vm.ReadWord();
         int left = (int)vm.Cpu.Get(destReg);

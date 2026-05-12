@@ -9,7 +9,7 @@ namespace CatVM.Ops;
 /// </summary>
 public static class KspOperation {
 
-    public static void SetKspR(CatVM vm) {
+    public static void SetKspR(CatVm vm) {
         byte reg = vm.Read8();
 
         if (!vm.TryPrivileged()) {
@@ -19,7 +19,7 @@ public static class KspOperation {
         vm.Cpu.Ksp = vm.Cpu.Get(reg);
     }
 
-    public static void SetKspI(CatVM vm) {
+    public static void SetKspI(CatVm vm) {
         uint imm = vm.ReadWord();
 
         if (!vm.TryPrivileged()) {
@@ -29,7 +29,7 @@ public static class KspOperation {
         vm.Cpu.Ksp = imm;
     }
 
-    public static void GetKspR(CatVM vm) {
+    public static void GetKspR(CatVm vm) {
         byte reg = vm.Read8();
 
         if (!vm.TryPrivileged()) {

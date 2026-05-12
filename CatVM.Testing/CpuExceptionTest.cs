@@ -1,9 +1,9 @@
 namespace CatVM.Testing;
 
 /// <summary>
-/// Verifies that runtime exceptions inside <see cref="CatVM.ExecuteInstruction"/>
+/// Verifies that runtime exceptions inside <see cref="CatVm.ExecuteInstruction"/>
 /// are translated into the correct CPU exception interrupts by
-/// <see cref="CatVM.ExecuteWithErrorHandling"/>:
+/// <see cref="CatVm.ExecuteWithErrorHandling"/>:
 /// <list type="bullet">
 ///   <item><see cref="SpecialInterrupts.DivideByZero"/> (0x02)</item>
 ///   <item><see cref="SpecialInterrupts.InvalidInstruction"/> (0x01)</item>
@@ -37,16 +37,16 @@ public class CpuExceptionTest {
         ];
     }
 
-    private static CatVM NewVm(int memory = 1024) {
+    private static CatVm NewVm(int memory = 1024) {
         // Fast=true to skip sleep timing; DumpErrors=false to keep test output clean.
-        return new CatVM(memory, 10_000) { Fast = true, DumpErrors = false };
+        return new CatVm(memory, 10_000) { Fast = true, DumpErrors = false };
     }
 
     /// <summary>
-    /// Run a single instruction wrapped in <see cref="CatVM.ExecuteWithErrorHandling"/>
+    /// Run a single instruction wrapped in <see cref="CatVm.ExecuteWithErrorHandling"/>
     /// so any exception is converted to its corresponding interrupt.
     /// </summary>
-    private static void RunOne(CatVM vm) {
+    private static void RunOne(CatVm vm) {
         vm.ExecuteWithErrorHandling(() => vm.ExecuteInstruction(fast: true));
     }
 
@@ -54,7 +54,7 @@ public class CpuExceptionTest {
 
     [Test]
     public void DivideByZero_RoutesThroughItHandler() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint handlerAddr = 0x80;
         vm.LoadData([OpDivRR, R4, R5]);
         vm.LoadData([OpNop], handlerAddr);
@@ -78,7 +78,7 @@ public class CpuExceptionTest {
 
     [Test]
     public void DivideByZero_WithoutItHandler_HaltsViaDefaultHandler() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpDivRR, R4, R5]);
         vm.Cpu.R4 = 100;
         vm.Cpu.R5 = 0;
@@ -95,7 +95,7 @@ public class CpuExceptionTest {
         // The divide implementation short-circuits when the *dividend* is zero
         // (returning (0,0)) so the DivideByZeroException path is *not* taken
         // even when the divisor is also zero.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpDivRR, R4, R5]);
         vm.Cpu.R4 = 0;
         vm.Cpu.R5 = 0;
@@ -113,7 +113,7 @@ public class CpuExceptionTest {
 
     [Test]
     public void InvalidInstruction_RoutesThroughItHandler() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint handlerAddr = 0x80;
         vm.LoadData([OpInvalid]);
         vm.LoadData([OpNop], handlerAddr);
@@ -133,7 +133,7 @@ public class CpuExceptionTest {
 
     [Test]
     public void InvalidInstruction_WithoutItHandler_HaltsViaDefaultHandler() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpInvalid]);
 
         RunOne(vm);
@@ -149,7 +149,7 @@ public class CpuExceptionTest {
         // ExecuteInstruction (i.e. the bad index was the Operations table
         // lookup). Any other IndexOutOfRangeException must fall through to
         // PageFault. We exercise the "lookup failed" branch here.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint invalidHandler = 0x80;
         const uint pageFaultHandler = 0xC0;
         // Install BOTH handlers; verify only the invalid-instruction one fires.
@@ -179,7 +179,7 @@ public class CpuExceptionTest {
 
     [Test]
     public void PageFault_OnOutOfRangeWrite_RoutesToHandler() {
-        CatVM vm = NewVm(memory: 64);
+        CatVm vm = NewVm(memory: 64);
         const uint handlerAddr = 32;
         // mov [0xFFFFFF00], 0x12345678 — the inner Memory[..] indexer throws
         // IndexOutOfRangeException, which the catch chain converts to a
@@ -213,7 +213,7 @@ public class CpuExceptionTest {
 
     [Test]
     public void PageFault_OnOutOfRangeRead_RoutesToHandler() {
-        CatVM vm = NewVm(memory: 64);
+        CatVm vm = NewVm(memory: 64);
         const uint handlerAddr = 32;
         const uint badAddr = 0xFFFFFF00;
         // mov r4, [badAddr]   (opcode 0x03 = MovRIP)
@@ -235,7 +235,7 @@ public class CpuExceptionTest {
 
     [Test]
     public void PageFault_WithoutItHandler_HaltsViaDefaultHandler() {
-        CatVM vm = NewVm(memory: 64);
+        CatVm vm = NewVm(memory: 64);
         // Out-of-range read via RIP from a stratospheric address.
         const uint badAddr = 0xFFFFFF00;
         byte[] code = [
@@ -258,7 +258,7 @@ public class CpuExceptionTest {
         // End-to-end: DIV by zero → handler runs → RET pops back into the
         // following NOP. Verifies the saved IP is the *return* IP (i.e.
         // the instruction after the faulting one).
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         // Layout:
         //   0x00: div r4, r5      (3 bytes)

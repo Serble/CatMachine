@@ -5,10 +5,10 @@ using CatData;
 namespace CatVM.Debugging;
 
 public class Debugger {
-    private readonly CatVM _vm;
+    private readonly CatVm _vm;
     private readonly DebugTable _table;
 
-    public Debugger(CatVM vm, string romPath) {
+    public Debugger(CatVm vm, string romPath) {
         _vm = vm;
 
         _table = new DebugTable([], []);
@@ -81,7 +81,7 @@ public class Debugger {
             DebugSymbol? symbol = GetSymbolAt(_vm.Cpu.Ip);
             if (symbol == null) {
                 try {
-                    string name = CatVM.OperationNames[_vm.Memory[_vm.Cpu.Ip]];
+                    string name = CatVm.OperationNames[_vm.Memory[_vm.Cpu.Ip]];
                     symbol = new DebugSymbol(0, 0, name);
                 }
                 catch (Exception) {

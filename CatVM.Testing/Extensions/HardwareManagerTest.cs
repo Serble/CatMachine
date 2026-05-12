@@ -4,11 +4,11 @@ using CatVM.Serial;
 namespace CatVM.Testing.Extensions;
 
 public class HardwareManagerTest {
-    private CatVM _vm = null!;
+    private CatVm _vm = null!;
 
     [SetUp]
     public void Setup() {
-        _vm = new CatVM(64, 10_000) { Fast = true };
+        _vm = new CatVm(64, 10_000) { Fast = true };
     }
 
     [Test]

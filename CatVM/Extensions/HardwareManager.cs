@@ -12,7 +12,7 @@ public class HardwareManager : CommandBasedSerialDevice<HardwareManager.Mode> {
         };
     }
     
-    protected override void RunMode(CatVM vm, Mode mode, List<uint> args) {
+    protected override void RunMode(CatVm vm, Mode mode, List<uint> args) {
         switch (mode) {
             case Mode.ListDevices: {
                 InputQueue.Enqueue((uint)vm.SerialDevices.Count);

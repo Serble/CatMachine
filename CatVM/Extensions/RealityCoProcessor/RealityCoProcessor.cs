@@ -177,7 +177,7 @@ public class RealityCoProcessor : CommandBasedSerialDevice<RealityCoProcessor.Mo
         };
     }
 
-    protected override void RunMode(CatVM vm, Mode mode, List<uint> args) {
+    protected override void RunMode(CatVm vm, Mode mode, List<uint> args) {
         switch (mode) {
             case Mode.LoadVertices: {
                 uint address = args[0];
@@ -814,12 +814,12 @@ public class RealityCoProcessor : CommandBasedSerialDevice<RealityCoProcessor.Mo
         GC.SuppressFinalize(this);
     }
     
-    float ReadFixed(CatVM vm, uint address) {
+    float ReadFixed(CatVm vm, uint address) {
         short raw = (short)vm.Read16(address);
         return raw / 32f;
     }
 
-    Vertex[] ReadVerts(uint address, uint count, CatVM vm) {
+    Vertex[] ReadVerts(uint address, uint count, CatVm vm) {
         int vertexCount = checked((int)count);
 
         Vertex[] verts = new Vertex[vertexCount];

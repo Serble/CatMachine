@@ -25,11 +25,11 @@ public class VirtualModeInterruptTest {
         ];
     }
 
-    private static CatVM NewVm() => new(64 * 1024, 100_000) { Fast = true };
+    private static CatVm NewVm() => new(64 * 1024, 100_000) { Fast = true };
 
     [Test]
     public void UserMode_HardwareInterrupt_BuildsFullFrameAndIretRestores() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         // Lay out a tiny "user program" at virtual 0 inside an MBase=0x4000 window of size 0x1000.
         // Code is just one NOP — we'll arrange for an IRQ to fire before it executes.
@@ -87,7 +87,7 @@ public class VirtualModeInterruptTest {
     public void KernelMode_HardwareInterrupt_StillUsesLegacyIpOnlyFrame() {
         // Sanity: with VirtMode off, the existing kernel→kernel path is unchanged
         // (Sp -= 4, no marker). Mirrors HardwareInterruptTest's basic dispatch shape.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop, OpNop]);
         vm.LoadData([OpNop], 0x40);
         vm.LoadData(MakeIt(0x71, 0x40), 0x100);
@@ -112,7 +112,7 @@ public class VirtualModeInterruptTest {
     public void KernelInterrupt_IretRoundTrips() {
         // After a kernel-mode interrupt, the handler should be able to `iret` cleanly
         // back to the pre-interrupt instruction, with Mode/Sp/regs untouched.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpNop, OpNop]);                       // post-interrupt code at IP=1
         vm.LoadData([OpIret], 0x40);                       // handler: just iret
         vm.LoadData(MakeIt(0x71, 0x40), 0x100);
@@ -146,7 +146,7 @@ public class VirtualModeInterruptTest {
     public void Iret_OnInvalidMarker_RaisesInvalidInstruction() {
         // Push a bogus marker (0xFF) onto the kernel stack and invoke iret.
         // Iret should refuse and raise InvalidInstruction (default handler halts the VM).
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpIret]);
         vm.Cpu.Sp = 0x2000;
         vm.Cpu.VirtualMode = false;
@@ -166,7 +166,7 @@ public class VirtualModeInterruptTest {
         // Driver mode = VirtualMode + SupervisorMode (Mode = 0b11). A driver runs in a
         // translated window like user code, but is privileged for IO opcodes etc. An IRQ
         // must push marker 0x02 and iret must restore Mode to exactly 0b11.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         const uint mbase = 0x4000;
         const uint mlen  = 0x1000;
@@ -217,7 +217,7 @@ public class VirtualModeInterruptTest {
         // A driver (Mode=0b11) executes a privileged opcode (setit) that would fault
         // if it were a plain user. Verifies TryPrivileged accepts SupervisorMode regardless
         // of VirtualMode.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         const uint mbase = 0x1000;
         const uint mlen  = 0x100;
@@ -244,7 +244,7 @@ public class VirtualModeInterruptTest {
     [Test]
     public void UserMode_PrivilegedOpcode_StillFaults() {
         // Sanity counterpart: pure user (Mode=0b01, no supervisor) hits ProtectionFault.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
 
         const uint mbase = 0x1000;
         const uint mlen  = 0x100;

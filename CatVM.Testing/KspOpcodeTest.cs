@@ -18,11 +18,11 @@ public class KspOpcodeTest {
     private const byte R0 = 0;
     private const byte R1 = 1;
 
-    private static CatVM NewVm() => new(64 * 1024, 100_000) { Fast = true };
+    private static CatVm NewVm() => new(64 * 1024, 100_000) { Fast = true };
 
     [Test]
     public void SetKspR_WritesKsp_InKernelMode() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpSetKspR, R0]);
         vm.Cpu.R0 = 0x1234_5678;
         vm.Cpu.VirtualMode = false;
@@ -34,7 +34,7 @@ public class KspOpcodeTest {
 
     [Test]
     public void SetKspI_WritesKsp_InKernelMode() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpSetKspI, 0xEF, 0xBE, 0xAD, 0xDE]);   // little-endian 0xDEADBEEF
         vm.Cpu.VirtualMode = false;
 
@@ -45,7 +45,7 @@ public class KspOpcodeTest {
 
     [Test]
     public void GetKspR_ReadsKsp_InKernelMode() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpGetKspR, R1]);
         vm.Cpu.Ksp = 0xCAFEBABE;
         vm.Cpu.VirtualMode = false;
@@ -57,7 +57,7 @@ public class KspOpcodeTest {
 
     [Test]
     public void SetKspThenGetKsp_RoundTrips() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([
             OpSetKspI, 0x00, 0xF0, 0x00, 0x00,    // setksp 0xF000
             OpGetKspR, R0                          // R0 := Ksp

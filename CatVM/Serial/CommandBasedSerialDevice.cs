@@ -10,13 +10,13 @@ public abstract class CommandBasedSerialDevice<T> : ISerialDevice where T : stru
     protected readonly Queue<uint> InputQueue = new();
     
     protected abstract int GetArgCount(T mode);
-    protected abstract void RunMode(CatVM vm, T mode, List<uint> args);
+    protected abstract void RunMode(CatVm vm, T mode, List<uint> args);
     
-    public virtual uint Input(CatVM vm) {
+    public virtual uint Input(CatVm vm) {
         return InputQueue.Count == 0 ? uint.MaxValue : InputQueue.Dequeue();
     }
     
-    public virtual void Output(CatVM vm, uint data) {
+    public virtual void Output(CatVm vm, uint data) {
         if (!_mode.HasValue) {
             if (AutoDiscovery && data == 0) {
                 InputQueue.Enqueue(Type);

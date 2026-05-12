@@ -17,11 +17,11 @@ public class VirtModeRetOperationTest {
     private const byte InterruptFrameMarkerKernel     = 0x00;
     private const byte InterruptFrameMarkerSupervisor = 0x02;
 
-    private static CatVM NewVm() => new(64 * 1024, 100_000) { Fast = true };
+    private static CatVm NewVm() => new(64 * 1024, 100_000) { Fast = true };
 
     [Test]
     public void Iret_KernelMarker_PopsIpOnly() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpIret], 0x200);
 
         vm.Cpu.Mode = 0;
@@ -53,7 +53,7 @@ public class VirtModeRetOperationTest {
 
     [Test]
     public void Iret_UnknownMarker_RaisesInvalidInstruction() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpIret], 0x200);
 
         vm.Cpu.Mode = 0;
@@ -71,7 +71,7 @@ public class VirtModeRetOperationTest {
 
     [Test]
     public void Iret_InPureUserMode_FaultsViaPrivilegeGate() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint mbase = 0x1000;
         const uint mlen  = 0x100;
         vm.LoadData([OpIret], mbase);
@@ -97,7 +97,7 @@ public class VirtModeRetOperationTest {
     public void Iret_InDriverMode_AllowedAndRestoresFromMarker() {
         // Driver (Mode=0b11) IRETing from a supervisor frame: should restore Mode=0b11
         // and the full saved process state.
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpIret], 0x300);
 
         vm.Cpu.Mode = 0;          // we're inside the kernel handler

@@ -61,13 +61,13 @@ public class DisplayModeTiled : IDisplayModeRenderer {
             PixelFormat.UncompressedGrayscale, 1);
     }
 
-    public void Unload(RaylibPpu ppu, CatVM vm) {
+    public void Unload(RaylibPpu ppu, CatVm vm) {
         Raylib.UnloadShader(_tileShader);
         Raylib.UnloadShader(_spriteShader);
         Raylib.UnloadTexture(_displayData);
     }
 
-    public void ReadScreenData(RaylibPpu ppu, CatVM vm) {
+    public void ReadScreenData(RaylibPpu ppu, CatVm vm) {
         // read all the data from the display buffer and store it so we can draw it later
         _uninitialised = false;
         uint pointer = ppu.DisplayBufferAddress;
@@ -117,9 +117,9 @@ public class DisplayModeTiled : IDisplayModeRenderer {
         }
     }
     
-    public void Update(RaylibPpu ppu, CatVM vm) { }
+    public void Update(RaylibPpu ppu, CatVm vm) { }
     
-    public void Draw(RaylibPpu ppu, CatVM vm) {
+    public void Draw(RaylibPpu ppu, CatVm vm) {
         if (_uninitialised) {
             Raylib.ClearBackground(Color.Black);
             return;

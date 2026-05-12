@@ -5,7 +5,7 @@ public static class DivOperation {
     // div destReg, remReg
     // destReg = destReg / remReg
     // remReg = destReg % remReg
-    public static void DivRR(CatVM vm) {
+    public static void DivRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte remReg = vm.Read8();
         uint dividend = vm.Cpu.Get(destReg);
@@ -15,7 +15,7 @@ public static class DivOperation {
         vm.Cpu.Set(remReg, remainder);
     }
     
-    public static void IDivRR(CatVM vm) {
+    public static void IDivRR(CatVm vm) {
         byte destReg = vm.Read8();
         byte remReg = vm.Read8();
         int dividend = (int)vm.Cpu.Get(destReg);

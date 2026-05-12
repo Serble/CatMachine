@@ -11,9 +11,9 @@ namespace CatVM;
 /// <summary>
 /// A virtual machine instance that executions instructions stored in its memory.
 /// <p/>
-/// See <see cref="LoadData"/> and <see cref="CatVM(int, uint, byte[])"/>.
+/// See <see cref="LoadData"/> and <see cref="CatVm(int, uint, byte[])"/>.
 /// </summary>
-public class CatVM {
+public class CatVm {
     /// <summary>
     /// In benchmark mode the VM will print out the instructions per second
     /// every 10 million instructions.
@@ -177,7 +177,7 @@ public class CatVM {
     private List<(long time, Action callback)> _events = [];
     private long _nextEvent = long.MaxValue;
     
-    public CatVM(int memoryBytes, uint cyclesPerSecond, byte[]? rom = null) {
+    public CatVm(int memoryBytes, uint cyclesPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
         Rom = rom ?? [];
         PicosecondsPerCycle = PicosecondsPerSecond / cyclesPerSecond;
@@ -586,7 +586,7 @@ public class CatVM {
         // will do that for us and throw an IndexOutOfRangeException
         // (CpuExceptionTest.InvalidInstruction_PathDistinguishedFromGenericIndexOutOfRange
         //  relies on the IOOR throwing from inside this method).
-        delegate*<CatVM, void> executor = OperationExecutors[opcode];
+        delegate*<CatVm, void> executor = OperationExecutors[opcode];
         int cycles = OperationCycles[opcode];
         executor(this);
         TicksPassed += cycles * PicosecondsPerCycle;
@@ -889,7 +889,7 @@ public class CatVM {
     /// parallel arrays so each is hot in its own cache line and the cycles array is only
     /// touched outside the loop body.
     /// </summary>
-    public static readonly unsafe delegate*<CatVM, void>[] OperationExecutors;
+    public static readonly unsafe delegate*<CatVm, void>[] OperationExecutors;
 
     /// <summary>Cycle cost per opcode, indexed by opcode byte. Parallel to <see cref="OperationExecutors"/>.</summary>
     public static readonly int[] OperationCycles;
@@ -897,12 +897,12 @@ public class CatVM {
     /// <summary>Human-readable name per opcode, indexed by opcode byte. Used by the debugger.</summary>
     public static readonly string[] OperationNames;
 
-    static CatVM() {
+    static CatVm() {
         // Single source of truth for the dispatch table. The legacy Operations tuple,
         // the function-pointer table, the cycles table, and the names table are all
         // derived from this list - any new opcode goes here and only here.
         // Opcode byte values are positional, so do NOT reorder existing entries.
-        (string name, int cycles, Action<CatVM> executor)[] table = [
+        (string name, int cycles, Action<CatVm> executor)[] table = [
             ("MovRR",   2, MovOperation.MovRR),
             ("MovRI",   2, MovOperation.MovRI),
             ("MovRRP",  6, MovOperation.MovRRP),
@@ -1000,13 +1000,13 @@ public class CatVM {
         int n = table.Length;
         OperationNames  = new string[n];
         OperationCycles = new int[n];
-        Operations      = new (Action<CatVM>, int)[n];
+        Operations      = new (Action<CatVm>, int)[n];
         unsafe {
-            OperationExecutors = new delegate*<CatVM, void>[n];
+            OperationExecutors = new delegate*<CatVm, void>[n];
         }
 
         for (int i = 0; i < n; i++) {
-            (string name, int cycles, Action<CatVM> exec) = table[i];
+            (string name, int cycles, Action<CatVm> exec) = table[i];
             OperationNames[i]  = name;
             OperationCycles[i] = cycles;
             Operations[i]      = (exec, cycles);
@@ -1023,7 +1023,7 @@ public class CatVM {
             RuntimeHelpers.PrepareMethod(exec.Method.MethodHandle);
             IntPtr fp = exec.Method.MethodHandle.GetFunctionPointer();
             unsafe {
-                OperationExecutors[i] = (delegate*<CatVM, void>)fp;
+                OperationExecutors[i] = (delegate*<CatVm, void>)fp;
             }
         }
     }
@@ -1033,5 +1033,5 @@ public class CatVM {
     /// Retained for any external consumer that still indexes it; the hot dispatch path
     /// uses <see cref="OperationExecutors"/> + <see cref="OperationCycles"/> instead.
     /// </summary>
-    public static readonly (Action<CatVM> executor, int cycles)[] Operations;
+    public static readonly (Action<CatVm> executor, int cycles)[] Operations;
 }

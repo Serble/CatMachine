@@ -5,11 +5,11 @@ namespace CatVM.Benchmarking;
 
 [SimpleJob(RunStrategy.Throughput)]
 public abstract class InstructionBenchmarkBase {
-    protected CatVM Vm = null!;
+    protected CatVm Vm = null!;
     
     [GlobalSetup]
     public void Setup() {
-        Vm = new CatVM(Program.VmMemory, 1) {
+        Vm = new CatVm(Program.VmMemory, 1) {
             Fast = true
         };
     }

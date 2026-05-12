@@ -4,7 +4,7 @@ namespace CatVM.Ops;
 
 public static class CmpOperation {
     
-    public static void CmpRR(CatVM vm) {
+    public static void CmpRR(CatVm vm) {
         byte leftReg = vm.Read8();
         byte rightReg = vm.Read8();
         uint left = vm.Cpu.Get(leftReg);
@@ -12,21 +12,21 @@ public static class CmpOperation {
         Cmp(vm, left, right);
     }
     
-    public static void CmpRI(CatVM vm) {
+    public static void CmpRI(CatVm vm) {
         byte leftReg = vm.Read8();
         uint immediate = vm.ReadWord();
         uint left = vm.Cpu.Get(leftReg);
         Cmp(vm, left, immediate);
     }
     
-    public static void CmpIR(CatVM vm) {
+    public static void CmpIR(CatVm vm) {
         uint immediate = vm.ReadWord();
         byte rightReg = vm.Read8();
         uint right = vm.Cpu.Get(rightReg);
         Cmp(vm, immediate, right);
     }
     
-    public static void CmpII(CatVM vm) {
+    public static void CmpII(CatVm vm) {
         uint left = vm.ReadWord();
         uint right = vm.ReadWord();
         Cmp(vm, left, right);
@@ -36,7 +36,7 @@ public static class CmpOperation {
     // at worst, it doesn't seem to have a negative impact.
     // feel free to retest and remove if needed.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Cmp(CatVM vm, uint a, uint b) {
+    public static void Cmp(CatVm vm, uint a, uint b) {
         uint result = a - b;
         int sResult = (int)result;
         

@@ -30,13 +30,13 @@ public class HardwareTimerTest {
     /// which makes the timer test deterministic without sleeping.
     /// Fast=false uses the virtual TicksPassed clock for event firing.
     /// </summary>
-    private static CatVM NewVm(int memory = 512) {
-        return new CatVM(memory, 1000) { Fast = false };
+    private static CatVm NewVm(int memory = 512) {
+        return new CatVm(memory, 1000) { Fast = false };
     }
 
     [Test]
     public void Probe_WriteZero_ReturnsType0x03() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         HardwareTimer timer = new();
         timer.Output(vm, 0);
         Assert.That(timer.Input(vm), Is.EqualTo((uint)0x03));
@@ -44,7 +44,7 @@ public class HardwareTimerTest {
 
     [Test]
     public void NewTimer_FiresAfterRequestedMilliseconds() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData(Enumerable.Repeat(OpNop, 16).ToArray());
 
         HardwareTimer timer = new();
@@ -70,7 +70,7 @@ public class HardwareTimerTest {
 
     [Test]
     public void NewTimer_FiringRaisesHardwareTimerCallbackInterrupt() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData(Enumerable.Repeat(OpNop, 16).ToArray());
         vm.LoadData([OpNop], 0x80);                // handler
         vm.LoadData(MakeIt(0x71, 0x80), 0x100);    // IT
@@ -95,7 +95,7 @@ public class HardwareTimerTest {
 
     [Test]
     public void MultipleTimers_FireInOrder() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData(Enumerable.Repeat(OpNop, 32).ToArray());
 
         HardwareTimer timer = new();
@@ -124,7 +124,7 @@ public class HardwareTimerTest {
 
     [Test]
     public void NewTimer_DoesNotFireBeforeDelay() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData(Enumerable.Repeat(OpNop, 8).ToArray());
 
         HardwareTimer timer = new();
@@ -140,7 +140,7 @@ public class HardwareTimerTest {
 
     [Test]
     public void Input_OnEmptyQueue_ReturnsUintMax() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         HardwareTimer timer = new();
         Assert.That(timer.Input(vm), Is.EqualTo(uint.MaxValue));
     }

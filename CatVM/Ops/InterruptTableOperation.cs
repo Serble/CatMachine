@@ -2,7 +2,7 @@ namespace CatVM.Ops;
 
 public static class InterruptTableOperation {
 
-    public static void SetItR(CatVM vm) {
+    public static void SetItR(CatVm vm) {
         byte reg = vm.Read8();
         
         if (!vm.TryPrivileged()) {
@@ -12,7 +12,7 @@ public static class InterruptTableOperation {
         vm.Cpu.It = vm.Cpu.Get(reg);
     }
 
-    public static void SetItI(CatVM vm) {
+    public static void SetItI(CatVm vm) {
         uint imm = vm.ReadWord();
 
         if (!vm.TryPrivileged()) {
@@ -22,7 +22,7 @@ public static class InterruptTableOperation {
         vm.Cpu.It = imm;
     }
 
-    public static void GetItR(CatVM vm) {
+    public static void GetItR(CatVm vm) {
         byte reg = vm.Read8();
         
         if (!vm.TryPrivileged()) {

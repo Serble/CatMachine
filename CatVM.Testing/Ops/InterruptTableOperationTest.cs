@@ -17,11 +17,11 @@ public class InterruptTableOperationTest {
     private const byte R0 = 0;
     private const byte R1 = 1;
 
-    private static CatVM NewVm() => new(64 * 1024, 100_000) { Fast = true };
+    private static CatVm NewVm() => new(64 * 1024, 100_000) { Fast = true };
 
     [Test]
     public void SetItR_WritesIt_InKernelMode() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpSetItR, R0]);
         vm.Cpu.R0 = 0x1234_5678;
         vm.Cpu.VirtualMode = false;
@@ -33,7 +33,7 @@ public class InterruptTableOperationTest {
 
     [Test]
     public void SetItI_WritesIt_InKernelMode() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpSetItI, 0xEF, 0xBE, 0xAD, 0xDE]);
         vm.Cpu.VirtualMode = false;
 
@@ -44,7 +44,7 @@ public class InterruptTableOperationTest {
 
     [Test]
     public void GetItR_ReadsIt_InKernelMode() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([OpGetItR, R1]);
         vm.Cpu.It = 0xCAFEBABE;
         vm.Cpu.VirtualMode = false;
@@ -56,7 +56,7 @@ public class InterruptTableOperationTest {
 
     [Test]
     public void SetItThenGetIt_RoundTrips() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         vm.LoadData([
             OpSetItI, 0x00, 0x01, 0x00, 0x00,
             OpGetItR, R0
@@ -74,7 +74,7 @@ public class InterruptTableOperationTest {
 
     [Test]
     public void SetItI_InUserMode_FaultsAndDoesNotWrite() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint mbase = 0x1000;
         const uint mlen  = 0x100;
         vm.LoadData([OpSetItI, 0x00, 0x00, 0xFE, 0xCA], mbase);
@@ -98,7 +98,7 @@ public class InterruptTableOperationTest {
 
     [Test]
     public void GetItR_InUserMode_FaultsAndDoesNotWriteRegister() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint mbase = 0x1000;
         const uint mlen  = 0x100;
         vm.LoadData([OpGetItR, R0], mbase);
@@ -122,7 +122,7 @@ public class InterruptTableOperationTest {
 
     [Test]
     public void SetItI_InDriverMode_IsAllowed() {
-        CatVM vm = NewVm();
+        CatVm vm = NewVm();
         const uint mbase = 0x1000;
         const uint mlen  = 0x100;
         vm.LoadData([OpSetItI, 0x00, 0x02, 0x00, 0x00], mbase);
