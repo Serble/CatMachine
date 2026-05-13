@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using CatData;
 using CatVM.Serial;
 
 namespace CatVM.Extensions;
@@ -59,6 +60,14 @@ public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mo
 
     private readonly UdpClient _transportClient;
 
+    [CommandLineConstructable("VNic")]
+    public VirtualNetworkCard(CatVm vm, string ip, int listenPort = -1)
+        : this(vm,
+            IPEndPoint.TryParse(ip, out IPEndPoint? endpoint)
+                ? endpoint
+                : throw new ArgumentException("VNic ip invalid"),
+            listenPort) {}
+    
     public VirtualNetworkCard(CatVm vm, IPEndPoint peer, int listenPort = -1) {
         _vm = vm;
         _transportClient = listenPort == -1

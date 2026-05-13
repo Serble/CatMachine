@@ -1,9 +1,13 @@
+using CatData;
 using CatVM.Serial;
 
 namespace CatVM.Extensions;
 
 public class HardwareTimer : CommandBasedSerialDevice<HardwareTimer.Mode> {
     public override uint Type => 0x03;
+    
+    [CommandLineConstructable("Timer")]
+    public HardwareTimer() {}
 
     protected override int GetArgCount(Mode mode) {
         return mode switch {

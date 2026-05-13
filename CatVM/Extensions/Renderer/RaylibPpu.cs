@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using CatData;
 using CatVM.Serial;
 using Raylib_cs;
 
@@ -72,11 +73,15 @@ public class RaylibPpu {
     /// </summary>
     public uint DisplayBufferAddress { get; set; }
 
+    [CommandLineConstructable("RaylibPpu")]
     public RaylibPpu(CatVm vm) {
         Graphics = new GraphicsDevice(this);
         Keyboard = new KeyboardInputDevice();
         Mouse = new MouseInputDevice();
         InputDevices = [Keyboard, Mouse];
+        vm.RegisterSerialDevice(Graphics);
+        vm.RegisterSerialDevice(Keyboard);
+        vm.RegisterSerialDevice(Mouse);
         Task.Run(() => Start(vm));
     }
 

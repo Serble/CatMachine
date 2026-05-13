@@ -1,9 +1,13 @@
+using CatData;
 using CatVM.Serial;
 
 namespace CatVM.Extensions;
 
 public class HardwareManager : CommandBasedSerialDevice<HardwareManager.Mode> {
     public override uint Type => 0;
+    
+    [CommandLineConstructable("HardwareManager")]
+    public HardwareManager() {}
     
     protected override int GetArgCount(Mode mode) {
         return mode switch {

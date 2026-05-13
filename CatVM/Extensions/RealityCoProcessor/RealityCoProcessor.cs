@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using CatData;
 using CatVM.Serial;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
@@ -150,6 +151,7 @@ public class RealityCoProcessor : CommandBasedSerialDevice<RealityCoProcessor.Mo
         ClearBuffers    = 0x22,
     }
 
+    [CommandLineConstructable("RealityCoProcessor")]
     public RealityCoProcessor() {
         EnsureContext();
     }

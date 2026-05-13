@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using CatData;
 using CatVM.Serial;
 
 namespace CatVM.Extensions;
@@ -6,9 +7,9 @@ namespace CatVM.Extensions;
 // TODO: Disk bounds checking
 public class Disk : CommandBasedSerialDevice<Disk.Mode> {
     public override uint Type => 0x02;
-
+    
     private const long BlockSize = 512;
-
+    
     private readonly Lock _lock = new();
     private readonly Lock _streamLock = new();
     private readonly Dictionary<uint, WriteCached> _unwritten = new();
@@ -18,6 +19,16 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
     private bool _isRunning;
     private readonly Stream _stream;
     private readonly long _picosPerBlock;
+    
+    [CommandLineConstructable("Disk")]
+    public Disk(string file, long picosPerBlock, long size, int queueCapacity = 32, CancellationToken token = default) {
+        _stream = new FileStream(file, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+        _stream.SetLength(size);
+        _picosPerBlock = picosPerBlock;
+        _queue = new Queue<(bool isRead, uint memAddr, uint startBlock, uint blockCount)>(queueCapacity);
+        
+        _ = Run(token);
+    }
     
     public Disk(Stream stream, long picosPerBlock, int queueCapacity = 32, CancellationToken token = default) {
         _stream = stream;
