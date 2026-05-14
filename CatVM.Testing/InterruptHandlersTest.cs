@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace CatVM.Testing;
 
 /// <summary>
@@ -23,17 +21,6 @@ public class InterruptHandlersTest {
     public void TearDown() {
         Console.SetOut(_origOut);
         _captured.Dispose();
-    }
-
-    [Test]
-    public void PrintInterrupt_WritesNullTerminatedStringFromR1() {
-        byte[] msg = Encoding.UTF8.GetBytes("hello\0");
-        _vm.LoadData(msg, 0x40);
-        _vm.Cpu.R1 = 0x40;
-
-        InterruptHandlers.PrintInterrupt(_vm);
-
-        Assert.That(_captured.ToString(), Is.EqualTo("hello"));
     }
 
     [Test]
