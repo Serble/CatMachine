@@ -3,8 +3,7 @@
 # Navigate to the script's directory
 cd "$(dirname "$0")"
 
-./build.sh
-
+./build.sh || exit $?
 # Keep in mind you still need to pass CLI args you want
 # passed to the VM, for example to enable a display backend
 # you might do:

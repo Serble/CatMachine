@@ -1,9 +1,5 @@
 jmp main
 
-#const INT_DISPLAY_MODE, 0x87
-#const INT_UPDATE_SCREEN, 0x86
-#const INT_UPTIME, 0x85
-
 #const MODE_UPDATE_SCREEN, 0x01
 #const MODE_DISPLAY_MODE, 0x02
 
@@ -30,7 +26,7 @@ jmp main
 #const SNAKE_TILE, 1
 #const APPLE_TILE, 2
 
-#const TARGET_TIME, 50   ; 100ms per frame
+#const TARGET_TIME, 100   ; 100ms per frame
 #const EAT_GROW_AMOUNT, 3 ; grow 3 times every time you eat
 
 ; IMAGES
@@ -176,19 +172,25 @@ main:
     
 .main_loop:
     ; timing
-    int INT_UPTIME ; in r0
-    mov r2, @last_time
-    mov r1, r0
-    add r1, TARGET_TIME ; r1 is now time to sleep until
+    uptms ; we only care about low, which is in r0, but this does override r1
     
+    mov r2, @last_time
+    add r2, TARGET_TIME ; r1 is now time to sleep until
+    
+    cmp r0, r2
+    jule .no_thing
+    debug 123
+    .no_thing:
+
     .sleep_loop:
-        cmp r0, r1
+        cmp r0, r2
         jug .exit_sleep_loop
         
-        int INT_UPTIME
+        uptms
         jmp .sleep_loop
     .exit_sleep_loop:
     
+    ; FRAME START
     mov @last_time, r0
     
     call handle_input
