@@ -49,9 +49,11 @@ static class Program {
             Fast = result.Fast,
             EnableTestingInterrupts = result.TestInts,
             DumpErrors = result.DumpErrors,
+#if DEBUG
             ErrorOnRomWrite = result.ProtectRom,
             DisallowedWriteRegions = result.DisallowWrites.Regions.ToArray(),
             DisallowedReadRegions = result.DisallowReads.Regions.ToArray()
+#endif
         };
         
         CancellationTokenSource cts = new();

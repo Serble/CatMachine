@@ -14,19 +14,6 @@ namespace CatVM;
 /// See <see cref="LoadData"/> and <see cref="CatVm(int, uint, byte[])"/>.
 /// </summary>
 public class CatVm {
-    /// <summary>
-    /// In benchmark mode the VM will print out the instructions per second
-    /// every 10 million instructions.
-    /// </summary>
-    public const bool BenchmarkMode = false;
-    
-    /// <summary>
-    /// Debug mode enables extra checks.
-    /// <see cref="ErrorOnRomWrite"/>, <see cref="DisallowedWriteRegions"/>, and <see cref="DisallowedReadRegions"/>
-    /// will be enforced when debug mode is enabled.
-    /// </summary>
-    public const bool DebugMode = false;
-    
     // Time constants
     public const long PicosecondsPerSecond = 1_000_000_000_000L;
     public const long PicosecondsPerTick = 100_000L;
@@ -34,7 +21,7 @@ public class CatVm {
     public const long PicosecondsPerNanosecond = 1_000L;
 
 #region Parameters
-    
+
     /// <summary>
     /// The physical memory of the VM. Indices into this array are *physical* addresses.
     /// Guest accesses go through <see cref="Translate"/> first when Virtual Mode is on; when
@@ -44,24 +31,24 @@ public class CatVm {
     /// <para/>Be careful when modifying this directly — bypasses translation and bounds checks.
     /// </summary>
     public byte[] Memory = null!;
-    
+
     /// <summary>
     /// A copy of the original ROM data. This is used to reset the VM.
     /// </summary>
     public byte[] Rom { get; set; }
-    
+
     /// <summary>
     /// Whether hardware interrupts are enabled. If false, hardware interrupts will
     /// still be added to the queue but will not be handled until this is set to true.
     /// </summary>
     public bool InterruptsEnabled { get; set; } = true;
-    
+
     /// <summary>
     /// Number of picoseconds that pass for each CPU cycle. This is calculated based on the cycles per second
     /// passed in the constructor, but can be modified at runtime if needed.
     /// </summary>
     public long PicosecondsPerCycle { get; set; }
-    
+
     /// <summary>
     /// The number of CPU cycles that occur each second. This is calculated based on the picoseconds per cycle,
     /// if modified at runtime the picoseconds per cycle will be updated accordingly.
@@ -77,44 +64,44 @@ public class CatVm {
     /// In fast this value is always zero.
     /// </summary>
     public long BehindPicos => Fast ? 0 : Runtime.Elapsed.Ticks * PicosecondsPerTick - TicksPassed;
-    
+
     /// <summary>
     /// Whether to throw an error when the program attempts to write to the ROM.
     /// <remarks>This is only enforced in debug mode.</remarks>
     /// </summary>
     public bool ErrorOnRomWrite { get; set; }
-    
+
     /// <summary>
     /// Whether special testing interrupts (0x90-0x9F) are enabled. These interrupts are only
     /// intended for debugging and testing. If disabled they will be treated as normal user defined interrupts.
     /// </summary>
     public bool EnableTestingInterrupts { get; set; }
-    
+
     /// <summary>
     /// Whether to print out exceptions that occur during instruction execution.
     /// This can be useful for debugging, but may have a performance impact.
     /// <remarks>This will print out errors that were handled correctly by the VM.</remarks>
     /// </summary>
     public bool DumpErrors { get; set; }
-    
+
     /// <summary>
     /// Regions of memory that will trigger an error upon being written to.
-    /// <remarks>Only available in <see cref="DebugMode"/>.</remarks>
+    /// <remarks>Only available in debug builds.</remarks>
     /// </summary>
     public (uint start, uint length)[] DisallowedWriteRegions { get; set; } = [];
-    
+
     /// <summary>
     /// Regions of memory that will trigger an error upon being read from.
-    /// <remarks>Only available in <see cref="DebugMode"/>.</remarks>
+    /// <remarks>Only available in debug builds.</remarks>
     /// </summary>
     public (uint start, uint length)[] DisallowedReadRegions { get; set; } = [];
-    
+
     /// <summary>
     /// Low level handle to the memory array.
     /// This can be used for advanced operations like pinning the memory for use with unmanaged code.
     /// </summary>
     public GCHandle? MemoryHandle { get; private set; }
-    
+
     /// <summary>
     /// Queue of pending hardware interrupts. Hardware interrupts can be added to this queue using
     /// <see cref="HardwareInterrupt(byte)"/> or <see cref="HardwareInterrupt(SpecialInterrupts)"/>.
@@ -130,18 +117,18 @@ public class CatVm {
     /// <remarks>This is in 'machine' time, not real world time.</remarks>
     /// </summary>
     public long TicksPassed { get; private set; } // This isn't real time this is virtual time, 1 tick = 1 picosecond
-    
+
     /// <summary>
     /// Real time stopwatch for the VM. This is used to keep track of how much real time has passed,
     /// it gets paused when the VM is paused to prevent time from passing while the VM is not running.
     /// </summary>
     public Stopwatch Runtime { get; } = new();
-    
+
     /// <summary>
     /// Whether to skip the timing and sleep logic in the main loop to run as fast as possible.
     /// </summary>
     public bool Fast { get; init; }
-    
+
     /// <summary>
     /// The virtual CPU state of the VM, including registers and flags.
     /// This is used by instructions to read and modify the CPU state.
@@ -149,7 +136,7 @@ public class CatVm {
     /// Be careful when modifying this directly. It is not recommended.
     /// </summary>
     public CatCpuState Cpu;
-    
+
     /// <summary>
     /// Whether the VM is currently paused. While paused the VM will not execute instructions
     /// and time will not pass.
@@ -474,27 +461,6 @@ public class CatVm {
     /// <param name="cancellationToken">Token to signal to stop executing.</param>
     public void Run(CancellationToken? cancellationToken = null) {
         Runtime.Restart();
-        
-        int instructionsExecuted;
-        if (BenchmarkMode) {
-            Task.Run(() => {
-                Stopwatch sw = Stopwatch.StartNew();
-                int i = 0;
-                while (true) {
-                    i++;
-                    if (i >= 10) {
-                        i = 0;
-                        sw.Restart();
-                        instructionsExecuted = 0;
-                    }
-                    Thread.Sleep(1000);
-                    int instructionsPerSecond = (int)(instructionsExecuted / sw.Elapsed.TotalSeconds);
-                    if (BenchmarkMode) {
-                        Console.WriteLine($"IPS: {instructionsPerSecond}");
-                    }
-                }
-            });
-        }
 
         // Main loop has try catch here to reduce overhead in ExecuteInstruction
         // but if it throws inside we need to continue, so double while loop.
@@ -507,9 +473,6 @@ public class CatVm {
                     }
 
                     ExecuteInstruction(Fast);
-                    if (BenchmarkMode) {
-                        instructionsExecuted++;
-                    }
                 }
             });
         }
@@ -974,11 +937,11 @@ public class CatVm {
 #endregion
 
     public void ValidateMemoryWrite(uint address, uint size) {
+#if DEBUG
         // Bounds checking is not needed here because
         // the array access will error and be caught
         // by upstream try catch.
-        
-        if (DebugMode && DisallowedWriteRegions.Length != 0) {
+        if (DisallowedWriteRegions.Length != 0) {
             if (ErrorOnRomWrite && address < Rom.Length) {
                 throw new MemoryOutOfRange(true, address, size, "ROM writes are disallowed");
             }
@@ -990,14 +953,16 @@ public class CatVm {
                 }
             }
         }
+#endif
     }
     
     public void ValidateMemoryRead(uint address, uint size) {
+#if DEBUG
         // Bounds checking is not needed here because
         // the array access will error and be caught
         // by upstream try catch.
         
-        if (DebugMode && DisallowedReadRegions.Length != 0) {
+        if (DisallowedReadRegions.Length != 0) {
             // disallowed read regions
             foreach ((uint start, uint length) in DisallowedReadRegions) {
                 if (address < start + length && address + size > start) {
@@ -1005,8 +970,9 @@ public class CatVm {
                 }
             }
         }
+#endif
     }
-    
+
     /// <summary>
     /// Function-pointer dispatch table for opcodes. Indexed by opcode byte.
     /// <para/>

@@ -67,13 +67,9 @@ for (int i = 1; i < args.Length; i++) {
         case "--protect-rom":
             errorOnRomWrite = true;
             break;
-        
+
+#if DEBUG
         case "--disallow-write":
-            if (!CatVM.CatVm.DebugMode) {
-                Console.WriteLine("--disallow-write flag requires the VM to be built in debug mode.");
-                return 1;
-            }
-            
             if (i + 2 < args.Length &&
                 uint.TryParse(args[i + 1], out uint writeAddr) &&
                 uint.TryParse(args[i + 2], out uint writeLength)) {
@@ -85,11 +81,6 @@ for (int i = 1; i < args.Length; i++) {
             break;
         
         case "--disallow-read":
-            if (!CatVM.CatVm.DebugMode) {
-                Console.WriteLine("--disallow-read flag requires the VM to be built in debug mode.");
-                return 1;
-            }
-            
             if (i + 2 < args.Length &&
                 uint.TryParse(args[i + 1], out uint readAddr) &&
                 uint.TryParse(args[i + 2], out uint readLength)) {
@@ -99,6 +90,7 @@ for (int i = 1; i < args.Length; i++) {
                 Console.WriteLine("Invalid or missing values for --disallow-read flag.");
             }
             break;
+#endif
         
         case "--timer":
             serialDevices.Add(0x03, new HardwareTimer());
