@@ -70,6 +70,13 @@ public class CatVm {
         get => (uint)(PicosecondsPerSecond / PicosecondsPerCycle);
         set => PicosecondsPerCycle = PicosecondsPerSecond / value;
     }
+
+    /// <summary>
+    /// Gets the number of picoseconds that the VM is running behind what it should be based on
+    /// the <see cref="CyclesPerSecond"/>. If negative then it is not running behind.
+    /// In fast this value is always zero.
+    /// </summary>
+    public long BehindPicos => Fast ? 0 : Runtime.Elapsed.Ticks * PicosecondsPerTick - TicksPassed;
     
     /// <summary>
     /// Whether to throw an error when the program attempts to write to the ROM.
@@ -172,10 +179,6 @@ public class CatVm {
 #endregion
     
     private readonly int _memoryBytes;
-    private DateTime _lastSlowWarning = DateTime.MinValue;
-
-    private List<(long time, Action callback)> _events = [];
-    private long _nextEvent = long.MaxValue;
     
     public CatVm(int memoryBytes, uint cyclesPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
@@ -206,7 +209,16 @@ public class CatVm {
         // get offset for display buffer (it will go at the end of memory)
         Cpu.Sp = (uint)_memoryBytes;  // end of regular memory (non display buffer)
         Cpu.MLen = (uint)_memoryBytes;
-        
+
+        _hasEvent = false;
+        lock (_eventsLock) {
+            _events.Clear();
+            _eventsCts.Cancel();
+            _eventsCts = new CancellationTokenSource();
+        }
+        TicksPassed = 0;
+        Runtime.Reset();
+
         if (Rom.Length > 0) {
             LoadData(Rom);
         }
@@ -520,13 +532,7 @@ public class CatVm {
         }
         catch (MemoryOutOfRange e) {
             DumpError(e);
-            try {
-                Interrupt(SpecialInterrupts.PageFault);
-            }
-            catch (MemoryOutOfRange ex) {
-                DumpError(ex);
-                Interrupt(SpecialInterrupts.PageFault);
-            }
+            Interrupt(SpecialInterrupts.PageFault);
         }
         catch (IndexOutOfRangeException e) {
             DumpError(e);
@@ -559,6 +565,12 @@ public class CatVm {
             Console.WriteLine(e);
         }
     }
+
+    private const int CalculateSleepStartInterval = 1;
+    private const int MaxSleepCalculationInterval = 65536;
+    private const long TooBehindThreshold = PicosecondsPerMillisecond;
+    private long _calculateSleepInterval = CalculateSleepStartInterval;
+    private long _calculateSleepIn = CalculateSleepStartInterval;
     
     /// <summary>
     /// Execute a single instruction at the current instruction pointer.
@@ -573,10 +585,9 @@ public class CatVm {
             Interlocked.Decrement(ref _hardwareInterruptAproxCount);
         }
 
-        // Short-circuit: when no events are scheduled (_nextEvent == long.MaxValue, the
-        // steady state for any pure-throughput run) this avoids the QueryPerformanceCounter
-        // syscall hidden in CurrentPicosecondTime via Stopwatch.Elapsed (~15-30ns/call).
-        if (_nextEvent != long.MaxValue && CurrentPicosecondTime >= _nextEvent) {
+        // use the value managed by the other thread to quickly determine if we
+        // need to run events.
+        if (_hasEvent) {
             FireDueEvents();
         }
         
@@ -591,18 +602,29 @@ public class CatVm {
         executor(this);
         TicksPassed += cycles * PicosecondsPerCycle;
         
-        if (fast) return;  // don't bother calculating anything if fast
+        if (fast || --_calculateSleepIn > 0) return;  // don't bother calculating anything if fast
         
         // wait the required time (sleepNeeded is in picoseconds)
         long sleepNeeded = TicksPassed - Runtime.Elapsed.Ticks * PicosecondsPerTick;
         
         // Thread.Sleep has a minimum time of 1ms
         if (sleepNeeded > PicosecondsPerMillisecond) {
+            // running ahead
             Thread.Sleep((int)(sleepNeeded / PicosecondsPerMillisecond));
-        } else if (sleepNeeded < -100 * PicosecondsPerMillisecond && DateTime.Now - _lastSlowWarning > TimeSpan.FromMilliseconds(1000)) {
-            Console.WriteLine($"VM is running {sleepNeeded / -PicosecondsPerMillisecond}ms behind!");
-            _lastSlowWarning = DateTime.Now;
+            _calculateSleepInterval = Math.Max(1, _calculateSleepInterval / 2);
         }
+        else if (-sleepNeeded > TooBehindThreshold) {
+            // we're running behind by quite a bit
+            // let's increase the skip count to try and improve
+            // instruction rate.
+            _calculateSleepInterval = Math.Min(_calculateSleepInterval * 2, MaxSleepCalculationInterval);
+        }
+        else {
+            // we're running pretty much on time
+            _calculateSleepInterval = Math.Max(1, _calculateSleepInterval - 1);
+        }
+
+        _calculateSleepIn = _calculateSleepInterval;
     }
 
 #region Interrupt Handling
@@ -680,22 +702,40 @@ public class CatVm {
             InterruptHandlers.DefaultHandler(this, id);
             return;
         }
-        
-        // Find the handler. The IT lives in kernel space (a physical address) so bypass
-        // translation so a user-mode interrupt can't redirect IT lookups through MBase.
-        byte entryCount = Read8Physical(Cpu.It);
 
-        uint entryPtr = Cpu.It + 1;
-        for (int i = 0; i < entryCount; i++) {
-            byte code = Read8Physical(entryPtr);
-            uint handlerPtr = ReadWordPhysical(entryPtr + 1);
-            if (code == id) {
-                // found, build the appropriate frame and dispatch
-                BuildInterruptFrameAndDispatch(handlerPtr);
-                return;  // now executing the handler
+        // we need to catch any memory errors, but
+        // we want to avoid the try catch overhead
+        // until we actually need it.
+        try {
+            // Find the handler. The IT lives in kernel space (a physical address) so bypass
+            // translation so a user-mode interrupt can't redirect IT lookups through MBase.
+            byte entryCount = Read8Physical(Cpu.It);
+
+            uint entryPtr = Cpu.It + 1;
+            for (int i = 0; i < entryCount; i++) {
+                byte code = Read8Physical(entryPtr);
+                uint handlerPtr = ReadWordPhysical(entryPtr + 1);
+                if (code == id) {
+                    // found, build the appropriate frame and dispatch
+                    BuildInterruptFrameAndDispatch(handlerPtr);
+                    return;  // now executing the handler
+                }
+
+                entryPtr += 5;
             }
-
-            entryPtr += 5;
+        }
+        catch (Exception) {
+            // give them one chance to handle the IT fault
+            // if that doesn't work then just go to our default
+            // error handler.
+            
+            if (id == (byte)SpecialInterrupts.InterruptFault) {
+                InterruptHandlers.DefaultHandler(this, id);
+                return;
+            }
+            
+            Interrupt(SpecialInterrupts.InterruptFault);
+            return;
         }
         
         // not found, default
@@ -816,32 +856,119 @@ public class CatVm {
 
     private long CurrentPicosecondTime => Fast ? Runtime.Elapsed.Ticks * PicosecondsPerTick : TicksPassed;
 
+    // Sorted descending by `time`, so `_events[^1]` is always the next-due event.
+    // Mutations and reads are serialised by _eventsLock.
+    private readonly List<(long time, Action callback)> _events = [];
+    private readonly Lock _eventsLock = new();
+    private CancellationTokenSource _eventsCts = new();
+    private Task? _schedulerTask;
+    private volatile bool _hasEvent;
+
+    // When the next event is within this many picoseconds, the scheduler stops
+    // sleeping and busy-waits for the precise deadline. Task.Delay granularity
+    // is ~1-15ms on most OSes; this gives reliable sub-ms event delivery.
+    private const long EventSpinThresholdPicos = 2 * PicosecondsPerMillisecond;
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void FireDueEvents() {
-        while (CurrentPicosecondTime >= _nextEvent) {
-            _events[^1].callback();
-            _events.RemoveAt(_events.Count - 1);
-            _nextEvent = _events.Count > 0 ? _events[^1].time : long.MaxValue;
+        lock (_eventsLock) {
+            // Remove-before-invoke: a callback that schedules an earlier event
+            // would otherwise have its new event removed instead of the one we
+            // just fired (the new event sorts to the tail).
+            while (_events.Count > 0 && CurrentPicosecondTime >= _events[^1].time) {
+                var ev = _events[^1];
+                _events.RemoveAt(_events.Count - 1);
+                ev.callback();  // may reenter RunAt/RunIn via the reentrant lock
+            }
+            _hasEvent = false;
         }
     }
 
+    // Must be called under _eventsLock. Resorts the queue, cancels the existing
+    // scheduler wait (so it re-evaluates), and starts the scheduler on first use.
     private void RecalculateEvents() {
-        if (_events.Count == 0) {
-            _nextEvent = long.MaxValue;
-            return;
+        if (_events.Count > 1) {
+            _events.Sort(static (a, b) => b.time.CompareTo(a.time));
         }
-        _events = _events.OrderByDescending(e => e.time).ToList();
-        _nextEvent = _events[^1].time;
+        // If the next event is already due, flag it now
+        // so the very next ExecuteInstruction drains it.
+        // the task may be slightly slow at realising it.
+        if (_events.Count > 0 && _events[^1].time <= CurrentPicosecondTime) {
+            _hasEvent = true;
+        }
+        // Wake the scheduler so it re-reads _events and the new deadline.
+        _eventsCts.Cancel();
+        _eventsCts = new CancellationTokenSource();
+        if (_schedulerTask == null) {
+            _schedulerTask = Task.Run(SchedulerLoop);
+        }
+    }
+
+    // One long-lived loop. Each iteration snapshots the next-event time, sleeps
+    // until close to it, busy-waits for the exact deadline, signals the hot path
+    // (_hasEvent = true), then waits for the hot path to drain. Any RunAt/RunIn/
+    // Reset cancels _eventsCts and forces the loop back to the top.
+    private async Task SchedulerLoop() {
+        while (true) {
+            CancellationToken ct;
+            long nextTime;
+            lock (_eventsLock) {
+                ct = _eventsCts.Token;
+                nextTime = _events.Count > 0 ? _events[^1].time : long.MaxValue;
+            }
+
+            try {
+                if (nextTime == long.MaxValue) {
+                    // No events; sleep until someone schedules one (which cancels ct).
+                    await Task.Delay(Timeout.Infinite, ct);
+                    continue;
+                }
+
+                long picosUntil = nextTime - CurrentPicosecondTime;
+
+                if (picosUntil > EventSpinThresholdPicos) {
+                    long msSleep = (picosUntil - EventSpinThresholdPicos) / PicosecondsPerMillisecond;
+                    int delayMs = (int)Math.Min(msSleep, int.MaxValue);
+                    await Task.Delay(delayMs, ct);
+                    // Fall through to busy-wait for the precise moment.
+                }
+
+                // Final approach: busy-wait. SpinOnce yields to the OS as count grows.
+                SpinWait sw = default;
+                while (CurrentPicosecondTime < nextTime) {
+                    ct.ThrowIfCancellationRequested();
+                    sw.SpinOnce();
+                }
+
+                // Tell the hot path to drain at its next ExecuteInstruction.
+                _hasEvent = true;
+
+                // Wait for the hot path to drain (it'll set _hasEvent = false) or
+                // for a reschedule to interrupt us.
+                sw = default;
+                while (_hasEvent) {
+                    if (ct.IsCancellationRequested) break;
+                    sw.SpinOnce();
+                }
+            }
+            catch (OperationCanceledException) {
+                // Schedule changed; loop and re-read.
+            }
+        }
     }
 
     public void RunAt(long picosecondTime, Action executor) {
-        _events.Add((picosecondTime, executor));
-        RecalculateEvents();
+        lock (_eventsLock) {
+            _events.Add((picosecondTime, executor));
+            RecalculateEvents();
+        }
     }
 
     public void RunIn(long picosecondTime, Action executor) {
-        _events.Add((picosecondTime + CurrentPicosecondTime, executor));
-        RecalculateEvents();
+        lock (_eventsLock) {
+            _events.Add((picosecondTime + CurrentPicosecondTime, executor));
+            RecalculateEvents();
+        }
     }
 
 #endregion

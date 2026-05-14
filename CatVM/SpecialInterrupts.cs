@@ -5,6 +5,7 @@ public enum SpecialInterrupts : byte {
     InvalidInstruction = 0x01,
     DivideByZero = 0x02,
     ProtectionFault = 0x03,
+    InterruptFault = 0x04,
     
     // Everything < 0x10 is reserved for CPU exceptions
     
