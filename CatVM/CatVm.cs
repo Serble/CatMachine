@@ -228,18 +228,22 @@ public class CatVm {
     /// Register a serial device on a specific port.
     /// If the port is already in use, an exception will be thrown.
     /// </summary>
-    /// <param name="port">The port to use.</param>
+    /// <param name="port">The port to use, null to automatically find the lowest port that is unused</param>
     /// <param name="device">The device to register.</param>
     /// <exception cref="Exception">When the requested port is already in use.</exception>
-    public void RegisterSerialDevice(uint port, ISerialDevice device) {
-        if (!SerialDevices.TryAdd(port, device)) {
+    public void RegisterSerialDevice(uint? port, ISerialDevice device) {
+        if (port == null) {
+            RegisterSerialDevice(device);
+            return;
+        }
+        
+        if (!SerialDevices.TryAdd((uint)port, device)) {
             throw new Exception($"Serial port {port} is already in use.");
         }
     }
 
     /// <summary>
-    /// Register a serial device on the next available unreserved port (starting at 16).
-    /// Ports 0-15 are reserved for system use (like display and input).
+    /// Register a serial device on the next available unreserved port.
     /// </summary>
     /// <param name="device"></param>
     public void RegisterSerialDevice(ISerialDevice device) {

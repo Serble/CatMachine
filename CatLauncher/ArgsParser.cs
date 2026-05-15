@@ -4,10 +4,6 @@ using CatLauncher.Args;
 namespace CatLauncher;
 
 public static class ArgsParser {
-    public static T Parse<T>(IEnumerable<string> argsArray) where T : new() {
-        return Parse(new T(), argsArray);
-    }
-    
     public static T Parse<T>(T argContainer, IEnumerable<string> argsArray) {
         Dictionary<string, Argument> arguments = [];
         foreach (FieldInfo field in typeof(T).GetFields()
@@ -18,11 +14,9 @@ public static class ArgsParser {
             }
         }
         
-        using IEnumerator<string> args = argsArray.GetEnumerator();
+        ArgIterator args = new(argsArray.ToArray());
         
-        while (args.MoveNext()) {
-            string arg = args.Current;
-
+        while (args.Next(out string? arg)) {
             if (!arg.StartsWith('-')) {
                 throw new ArgumentException("Arguments must start with - or --");
             }
@@ -67,6 +61,7 @@ public class Arguments {
     public readonly IntArgument Memory = new(["memory", "m"], 1024 * 1024 * 16, 1, int.MaxValue);
     public readonly FlagArgument TestInts = new("test-ints");
     public readonly FlagArgument DumpErrors = new("dump-errors");
+    public readonly FlagArgument DisableHardwareManager = new("disable-hardware-manager");
     public readonly DevicesArgument Devices;
 
 #if DEBUG

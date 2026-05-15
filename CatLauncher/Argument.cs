@@ -6,7 +6,7 @@ public abstract class Argument(bool chainable, bool repeatable, params string[] 
     public readonly string[] Names = names;
     private bool _hasRepeated = false;
 
-    public void DoParse(string name, IEnumerator<string> args) {
+    public void DoParse(string name, ArgIterator args) {
         if (_hasRepeated && !Repeatable) {
             throw new ArgumentException($"Argument {Names[0]} cannot be used more than once!");
         }
@@ -15,5 +15,5 @@ public abstract class Argument(bool chainable, bool repeatable, params string[] 
         Parse(name, args);
     }
     
-    public abstract void Parse(string name, IEnumerator<string> args);
+    public abstract void Parse(string name, ArgIterator args);
 }

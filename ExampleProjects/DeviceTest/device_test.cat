@@ -1,0 +1,25 @@
+main:
+    out 0, 1 ; request devices
+    in r0, 0
+    
+    .discover_loop:
+        in r2, 0
+        in r3, 0
+        
+        cmp r3, -1
+        je .end
+        
+        mov r1, entry_msg
+        int 0x80
+        mov r1, r2
+        int 0x90
+        mov r1, r3
+        int 0x90
+        
+        jmp .discover_loop
+    .end:
+    
+    int 0x81
+
+entry_msg:
+    dstr "\nEntry (port, type)\n\0"

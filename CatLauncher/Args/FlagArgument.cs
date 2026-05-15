@@ -3,7 +3,7 @@ namespace CatLauncher.Args;
 public class FlagArgument(params string[] names) : Argument(true, false, names) {
     public bool Enabled;
     
-    public override void Parse(string name, IEnumerator<string> args) {
+    public override void Parse(string name, ArgIterator args) {
         Enabled = true;
     }
     

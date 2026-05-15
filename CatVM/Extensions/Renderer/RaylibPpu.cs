@@ -73,15 +73,15 @@ public class RaylibPpu {
     /// </summary>
     public uint DisplayBufferAddress { get; set; }
 
-    [CommandLineConstructable("RaylibPpu")]
-    public RaylibPpu(CatVm vm) {
+    [CommandLineConstructable("RaylibPpu", false, ["graphicsPort", "keyboardPort", "mousePort"])]
+    public RaylibPpu(CatVm vm, uint? graphicsPort = null, uint? keyboardPort = null, uint? mousePort = null) {
         Graphics = new GraphicsDevice(this);
         Keyboard = new KeyboardInputDevice();
         Mouse = new MouseInputDevice();
         InputDevices = [Keyboard, Mouse];
-        vm.RegisterSerialDevice(Graphics);
-        vm.RegisterSerialDevice(Keyboard);
-        vm.RegisterSerialDevice(Mouse);
+        vm.RegisterSerialDevice(graphicsPort, Graphics);
+        vm.RegisterSerialDevice(keyboardPort, Keyboard);
+        vm.RegisterSerialDevice(mousePort, Mouse);
         Task.Run(() => Start(vm));
     }
 

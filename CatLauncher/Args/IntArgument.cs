@@ -3,8 +3,8 @@ namespace CatLauncher.Args;
 public class IntArgument(string[] names, long? defaultValue = null, long? minimum = null, long? maximum = null) : Argument(false, false, names) {
     public long? Value { get; private set; } = defaultValue;
     
-    public override void Parse(string name, IEnumerator<string> args) {
-        if (!args.MoveNext() || !long.TryParse(args.Current, out long result)) {
+    public override void Parse(string name, ArgIterator args) {
+        if (!args.Next(out string? resultStr) || !long.TryParse(resultStr, out long result)) {
             throw new ArgumentException($"Must have integer value for {Names[0]} argument");
         }
 
