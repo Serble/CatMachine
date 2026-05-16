@@ -4,7 +4,7 @@ using CatVM.Serial;
 namespace CatVM.Extensions;
 
 public class HardwareTimer : CommandBasedSerialDevice<HardwareTimer.Mode> {
-    public override uint Type => 0x03;
+    public override uint Type => 0xB1F91A0C;
     
     [CommandLineConstructable("Timer")]
     public HardwareTimer() {}

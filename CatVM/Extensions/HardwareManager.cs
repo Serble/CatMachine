@@ -4,7 +4,7 @@ using CatVM.Serial;
 namespace CatVM.Extensions;
 
 public class HardwareManager : CommandBasedSerialDevice<HardwareManager.Mode> {
-    public override uint Type => 0;
+    public override uint Type => 0x296C4EF5;
     
     [CommandLineConstructable("HardwareManager")]
     public HardwareManager() {}

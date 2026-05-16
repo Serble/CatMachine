@@ -6,7 +6,7 @@ namespace CatVM.Extensions;
 
 // TODO: Disk bounds checking
 public class Disk : CommandBasedSerialDevice<Disk.Mode> {
-    public override uint Type => 0x02;
+    public override uint Type => 0x96818B9A;
     
     private const long BlockSize = 512;
     

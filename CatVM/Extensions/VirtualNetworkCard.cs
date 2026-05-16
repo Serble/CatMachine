@@ -7,7 +7,7 @@ using CatVM.Serial;
 namespace CatVM.Extensions;
 
 public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mode> {
-    public override uint Type => 0x04;
+    public override uint Type => 0x29FEF534;
 
     /// <summary>
     /// <p>4 bytes - For the buffer address</p>
