@@ -7,19 +7,6 @@ public static class InterruptHandlers {
         string message = vm.ReadString(vm.Cpu.R1);
         Console.Write(message);
     }
-    
-    public static void HaltInterrupt(CatVm vm) {
-        vm.Paused = true;
-    }
-    
-    public static void ShutdownInterrupt(CatVm vm) {
-        Console.WriteLine("CatVM is shutting down...");
-        Environment.Exit(0);
-    }
-    
-    public static void ResetInterrupt(CatVm vm) {
-        vm.Reset();
-    }
 
     public static void PrintNumInterrupt(CatVm vm) {
         Console.WriteLine($"{vm.Cpu.R1} 0x{vm.Cpu.R1:x8}");

@@ -39,7 +39,7 @@ public class HardwareTimerTest {
         CatVm vm = NewVm();
         HardwareTimer timer = new();
         timer.Output(vm, 0);
-        Assert.That(timer.Input(vm), Is.EqualTo((uint)0x03));
+        Assert.That(timer.Input(vm), Is.EqualTo(0xB1F91A0C));
     }
 
     [Test]

@@ -43,7 +43,7 @@ public class DiskTest {
         using CancellationTokenSource cts = new();
         Disk disk = new(MakeBacking(1), OneCyclePs, token: cts.Token);
         disk.Output(vm, 0);
-        Assert.That(disk.Input(vm), Is.EqualTo((uint)0x02));
+        Assert.That(disk.Input(vm), Is.EqualTo(0x96818B9A));
     }
 
     [Test]

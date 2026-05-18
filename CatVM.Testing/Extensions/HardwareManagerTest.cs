@@ -12,16 +12,16 @@ public class HardwareManagerTest {
     }
 
     [Test]
-    public void Type_IsZero() {
+    public void Type_IsCorrect() {
         HardwareManager hm = new();
-        Assert.That(hm.Type, Is.EqualTo(0u));
+        Assert.That(hm.Type, Is.EqualTo(0x296C4EF5));
     }
 
     [Test]
-    public void AutoDiscovery_ReturnsZero() {
+    public void AutoDiscovery_ReturnsType() {
         HardwareManager hm = new();
         hm.Output(_vm, 0);
-        Assert.That(hm.Input(_vm), Is.EqualTo(0u));
+        Assert.That(hm.Input(_vm), Is.EqualTo(0x296C4EF5));
     }
 
     [Test]
@@ -44,7 +44,7 @@ public class HardwareManagerTest {
         }
 
         Assert.Multiple(() => {
-            Assert.That(pairs[16], Is.EqualTo(0u));    // HardwareManager itself
+            Assert.That(pairs[16], Is.EqualTo(0x296C4EF5));    // HardwareManager itself
             Assert.That(pairs[17], Is.EqualTo(0x99u));
         });
     }

@@ -21,10 +21,10 @@ namespace CatVM.Testing;
 /// What's tested here, branch-by-branch:
 /// <list type="bullet">
 ///   <item>Every <c>case</c> in <c>HandleInterrupt</c>'s switch:
-///         0x81 (Halt), 0x83 (Reset),
+///         0x80 (print, gated by no condition),
 ///         0x90 with <see cref="CatVm.EnableTestingInterrupts"/> on/off.</item>
-///   <item>System-handler precedence — installing an IT entry for 0x81
-///         must NOT override the hard-coded handler.</item>
+///   <item>System-handler precedence — installing an IT entry for 0x90 with
+///         testing interrupts enabled must NOT override the hard-coded handler.</item>
 ///   <item>0x90 fall-through when testing interrupts are disabled (lands in IT
 ///         lookup, then DefaultHandler if still unresolved).</item>
 ///   <item>IT walk: zero entries, single entry, multiple entries matched at the
@@ -48,8 +48,9 @@ namespace CatVM.Testing;
 ///         <c>id == InterruptFault</c> base-case in the catch block.</item>
 /// </list>
 /// <para/>
-/// <see cref="InterruptHandlers.ShutdownInterrupt"/> (id <c>0x82</c>) is the only
-/// reachable handler not exercised — it calls <see cref="Environment.Exit"/>.
+/// The 0x80 print handler is exercised separately in
+/// <see cref="InterruptHandlersTest"/>; here we focus on the switch + dispatch
+/// machinery rather than the handlers themselves.
 /// </summary>
 public class InterruptDispatchTest {
     private const byte OpNop  = 0x4D;
@@ -99,51 +100,22 @@ public class InterruptDispatchTest {
     // =====================================================================
 
     [Test]
-    public void HandleInterrupt_0x81_RunsHaltInterruptFromHandleInterrupt() {
-        uint spBefore = _vm.Cpu.Sp;
-
-        _vm.Interrupt(0x81);
-
-        Assert.Multiple(() => {
-            Assert.That(_vm.Paused, Is.True, "0x81 case should set Paused");
-            Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore),
-                "Halt must not push a frame");
-        });
-    }
-
-    [Test]
-    public void HandleInterrupt_0x83_RunsResetInterruptFromHandleInterrupt() {
-        _vm.Cpu.R0 = 0xDEADBEEF;
-        _vm.Cpu.Ip = 0x123;
-        _vm.Memory[0] = 0xAB;
-
-        _vm.Interrupt(0x83);
-
-        // Reset() rebuilds Cpu and zeroes Memory.
-        Assert.Multiple(() => {
-            Assert.That(_vm.Cpu.R0, Is.EqualTo(0u),
-                "0x83 case should call Reset() which wipes regs");
-            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0u));
-            Assert.That(_vm.Memory[0], Is.EqualTo((byte)0),
-                "Reset wipes memory unless preserveMem");
-        });
-    }
-
-    [Test]
     public void HandleInterrupt_SystemHandler_TakesPrecedenceOverIT() {
-        // 0x81 is a hard-coded case. Even with an IT entry for 0x81 pointing
-        // at a real handler, BuildInterruptFrameAndDispatch must not run —
-        // the switch returns first.
-        _vm.LoadData(MakeIt((0x81, 0x40)), 0x100);
+        // 0x90 (with EnableTestingInterrupts) is a hard-coded case. Even with
+        // an IT entry for 0x90 pointing at a real handler,
+        // BuildInterruptFrameAndDispatch must not run — the switch returns first.
+        _vm.EnableTestingInterrupts = true;
+        _vm.Cpu.R1 = 0xCAFEBABE;
+        _vm.LoadData(MakeIt((0x90, 0x40)), 0x100);
         _vm.LoadData([OpNop], 0x40);
         _vm.Cpu.It = 0x100;
         uint spBefore = _vm.Cpu.Sp;
         uint ipBefore = _vm.Cpu.Ip;
 
-        _vm.Interrupt(0x81);
+        _vm.Interrupt(0x90);
 
         Assert.Multiple(() => {
-            Assert.That(_vm.Paused, Is.True,
+            Assert.That(_captured.ToString(), Does.Contain("0xcafebabe"),
                 "system case must execute even when IT contains an entry");
             Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore),
                 "system case returns before any frame is built");
@@ -653,7 +625,7 @@ public class InterruptDispatchTest {
 
     [Test]
     public void Interrupt_EnumOverload_DispatchesSameAsByteOverload() {
-        // Both should hit the 0x81 system-handler case identically.
+        // Both should hit DefaultHandler identically.
         _vm.Interrupt(SpecialInterrupts.HandleInput);    // 0x70 — >=0x10, default no-op
         Assert.That(_vm.Paused, Is.False);
 

@@ -168,25 +168,6 @@ public class CatVmCoreTest {
     // ---- HandleInterrupt system codes -----------------------------------
 
     [Test]
-    public void HandleInterrupt_0x81_HaltsViaSystemHandler() {
-        CatVm vm = NewVm();
-        vm.HandleInterrupt(0x81);
-        Assert.That(vm.Paused, Is.True);
-    }
-
-    [Test]
-    public void HandleInterrupt_0x83_TriggersReset() {
-        CatVm vm = NewVm();
-        vm.Memory[0] = 0xFF;
-        vm.Cpu.R0 = 0xAA;
-        vm.HandleInterrupt(0x83);
-        Assert.Multiple(() => {
-            Assert.That(vm.Cpu.R0, Is.EqualTo(0u));
-            Assert.That(vm.Memory[0], Is.EqualTo((byte)0));
-        });
-    }
-
-    [Test]
     public void HandleInterrupt_0x90_GatedByEnableTestingInterrupts() {
         // Capture stdout
         TextWriter old = Console.Out;
@@ -229,7 +210,7 @@ public class CatVmCoreTest {
     public void HardwareInterrupt_QueuedAndDeliveredOnNextExecute() {
         CatVm vm = NewVm();
         vm.LoadData([0x4D, 0x4D]); // two NOPs
-        vm.HardwareInterrupt(0x81); // halt code
+        vm.HardwareInterrupt((byte)SpecialInterrupts.ProtectionFault); // CPU fault → DefaultHandler halts
         vm.ExecuteInstruction(true);
         Assert.That(vm.Paused, Is.True);
     }
@@ -239,9 +220,9 @@ public class CatVmCoreTest {
         CatVm vm = NewVm();
         vm.InterruptsEnabled = false;
         vm.LoadData([0x4D]);
-        vm.HardwareInterrupt(0x81);
+        vm.HardwareInterrupt((byte)SpecialInterrupts.ProtectionFault);
         vm.ExecuteInstruction(true);
-        Assert.That(vm.Paused, Is.False, "disabled queue should not fire halt");
+        Assert.That(vm.Paused, Is.False, "disabled queue should not fire fault");
     }
 
     // ---- CyclesPerSecond round-trip -------------------------------------

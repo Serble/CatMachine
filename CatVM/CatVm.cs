@@ -164,7 +164,13 @@ public class CatVm {
     public Dictionary<uint, ISerialDevice> SerialDevices { get; } = [];
     
 #endregion
-    
+
+#region Events
+
+    public event Action? OnShutdown;
+
+#endregion
+
     private readonly int _memoryBytes;
     
     public CatVm(int memoryBytes, uint cyclesPerSecond, byte[]? rom = null) {
@@ -210,7 +216,11 @@ public class CatVm {
             LoadData(Rom);
         }
     }
-    
+
+    public void Shutdown() {
+        OnShutdown?.Invoke();
+    }
+
     /// <summary>
     /// Places the specified data into the VM's memory starting at the specified address.
     /// </summary>
@@ -462,15 +472,22 @@ public class CatVm {
     /// Run the VM until the cancellation token is cancelled.
     /// This will execute instructions in a loop, handling interrupts and timing.
     /// </summary>
-    /// <param name="cancellationToken">Token to signal to stop executing.</param>
-    public void Run(CancellationToken? cancellationToken = null) {
+    /// <param name="userCancellationToken">Token to signal to stop executing.</param>
+    public void Run(CancellationToken userCancellationToken = default) {
+        CancellationTokenSource cts = new();
+        userCancellationToken.Register(cts.Cancel);
+        
+        // now we can cancel it ourselves as well
+        CancellationToken token = cts.Token;
+        OnShutdown += cts.Cancel;
+        
         Runtime.Restart();
 
         // Main loop has try catch here to reduce overhead in ExecuteInstruction
         // but if it throws inside we need to continue, so double while loop.
-        while (cancellationToken is not { IsCancellationRequested: true }) {
+        while (token is not { IsCancellationRequested: true }) {
             ExecuteWithErrorHandling(() => {
-                while (cancellationToken is not { IsCancellationRequested: true }) {
+                while (token is not { IsCancellationRequested: true }) {
                     if (Paused) {
                         Thread.Yield();
                         continue;
@@ -480,6 +497,8 @@ public class CatVm {
                 }
             });
         }
+        
+        OnShutdown -= cts.Cancel;
     }
 
     /// <summary>
@@ -632,31 +651,14 @@ public class CatVm {
     public void HandleInterrupt(byte id) {
         switch (id) {
             // 0x8X SYSTEM INTERRUPTS
-            
+
             case 0x80: {  // print REMOVE
                 InterruptHandlers.PrintInterrupt(this);
                 return;
             }
-            
-            // SYS MANAGEMENT TODO REMOVE
 
-            case 0x81: {  // halt
-                InterruptHandlers.HaltInterrupt(this);
-                return;
-            }
-            
-            case 0x82: {  // shutdown
-                InterruptHandlers.ShutdownInterrupt(this);
-                return;
-            }
-            
-            case 0x83: {  // reset
-                InterruptHandlers.ResetInterrupt(this);
-                return;
-            }
-            
             // 0x9X DEBUG INTERRUPTS
-            
+
             case 0x90 when EnableTestingInterrupts: {  // print number
                 InterruptHandlers.PrintNumInterrupt(this);
                 return;

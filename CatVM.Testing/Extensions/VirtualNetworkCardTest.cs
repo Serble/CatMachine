@@ -85,7 +85,7 @@ public class VirtualNetworkCardTest {
         (VirtualNetworkCard vnic, UdpClient peer) = CreatePair(vm, out _, out _);
         try {
             vnic.Output(vm, 0);
-            Assert.That(vnic.Input(vm), Is.EqualTo((uint)0x04));
+            Assert.That(vnic.Input(vm), Is.EqualTo((uint)0x29FEF534));
         } finally {
             vnic.Down();
             peer.Dispose();

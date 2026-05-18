@@ -12,6 +12,9 @@ public class HardwareManager : CommandBasedSerialDevice<HardwareManager.Mode> {
     protected override int GetArgCount(Mode mode) {
         return mode switch {
             Mode.ListDevices => 0,
+            Mode.HaltSystem => 0,
+            Mode.ShutdownSystem => 0,
+            Mode.ResetSystem => 0,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
         };
     }
@@ -26,13 +29,28 @@ public class HardwareManager : CommandBasedSerialDevice<HardwareManager.Mode> {
                 }
                 break;
             }
-            
+
+            case Mode.HaltSystem:
+                vm.Paused = true;
+                break;
+
+            case Mode.ShutdownSystem:
+                vm.Shutdown();
+                break;
+
+            case Mode.ResetSystem:
+                vm.Reset();
+                break;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
         }
     }
     
     public enum Mode {
-        ListDevices = 1
+        ListDevices = 1,
+        HaltSystem = 2,
+        ShutdownSystem = 3,
+        ResetSystem = 4
     }
 }

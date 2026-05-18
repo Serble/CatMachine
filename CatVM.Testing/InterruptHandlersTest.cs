@@ -1,8 +1,7 @@
 namespace CatVM.Testing;
 
 /// <summary>
-/// Direct tests for <see cref="InterruptHandlers"/>. <c>ShutdownInterrupt</c> is
-/// intentionally not covered as it calls <see cref="Environment.Exit"/>.
+/// Direct tests for <see cref="InterruptHandlers"/>.
 /// </summary>
 public class InterruptHandlersTest {
     private CatVm _vm = null!;
@@ -21,28 +20,6 @@ public class InterruptHandlersTest {
     public void TearDown() {
         Console.SetOut(_origOut);
         _captured.Dispose();
-    }
-
-    [Test]
-    public void HaltInterrupt_SetsPaused() {
-        Assert.That(_vm.Paused, Is.False);
-        InterruptHandlers.HaltInterrupt(_vm);
-        Assert.That(_vm.Paused, Is.True);
-    }
-
-    [Test]
-    public void ResetInterrupt_RestoresInitialState() {
-        _vm.Cpu.R0 = 0xAAAAAAAA;
-        _vm.Cpu.Ip = 0x100;
-        _vm.Memory[0] = 0xFF;
-
-        InterruptHandlers.ResetInterrupt(_vm);
-
-        Assert.Multiple(() => {
-            Assert.That(_vm.Cpu.R0, Is.EqualTo(0u));
-            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0u));
-            Assert.That(_vm.Memory[0], Is.EqualTo((byte)0));
-        });
     }
 
     [Test]
