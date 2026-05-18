@@ -24,7 +24,7 @@ public class DevicesArgument(Arguments argContainer, params string[] names) : Ar
                     a.Type is not (
                         SerialDeviceArgument.ArgumentType.CatVm or
                         SerialDeviceArgument.ArgumentType.CancellationToken
-                    ) && a.DefaultValue == null)) {
+                    ) && !a.HasDefault)) {
                 throw new ArgumentException($"Device {deviceName} requires arguments");
             }
             
