@@ -1,17 +1,18 @@
 namespace CatLauncher;
 
-public abstract class Argument(bool chainable, bool repeatable, params string[] names) {
+public abstract class Argument(bool required, bool chainable, bool repeatable, params string[] names) {
+    public readonly bool Required = required;
     public readonly bool Chainable = chainable;
     public readonly bool Repeatable = repeatable;
     public readonly string[] Names = names;
-    private bool _hasRepeated = false;
+    public bool HasParsed { get; private set; } = false;
 
     public void DoParse(string name, ArgIterator args) {
-        if (_hasRepeated && !Repeatable) {
+        if (HasParsed && !Repeatable) {
             throw new ArgumentException($"Argument {Names[0]} cannot be used more than once!");
         }
         
-        _hasRepeated = true;
+        HasParsed = true;
         Parse(name, args);
     }
     

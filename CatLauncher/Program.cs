@@ -19,14 +19,30 @@ static class Program {
 
         switch (operation) {
             case "run": {
-                (CatVm vm, List<object> devices, CancellationTokenSource cts, _) = SetupVm(args.Skip(1));
+                CatVm vm; List<object> devices; CancellationTokenSource cts;
+                try {
+                    (vm, devices, cts, _) = SetupVm(args.Skip(1));
+                }
+                catch (ArgumentException ex) {
+                    Console.WriteLine(ex.Message);
+                    return 1;
+                }
+                
                 vm.Run(cts.Token);
                 await CleanVm(vm, cts, devices);
                 return 0;
             }
             
             case "debug": {
-                (CatVm vm, List<object> devices, CancellationTokenSource cts, Arguments result) = SetupVm(args.Skip(1));
+                CatVm vm; List<object> devices; CancellationTokenSource cts; Arguments result;
+                try {
+                    (vm, devices, cts, result) = SetupVm(args.Skip(1));
+                }
+                catch (ArgumentException ex) {
+                    Console.WriteLine(ex.Message);
+                    return 1;
+                }
+                
                 Debugger debugger = new(vm, result.Rom.Path!);
                 debugger.StartUserDebugging();
                 await CleanVm(vm, cts, devices);
@@ -40,7 +56,6 @@ static class Program {
     }
 
     private static (CatVm vm, List<object> devices, CancellationTokenSource cts, Arguments args) SetupVm(IEnumerable<string> args) {
-        // TODO: Required args
         Dictionary<string, SerialDeviceArgument> deviceInfos =
             Reflection.GetSerialDevices(Assembly.GetAssembly(typeof(CatVm))!);
         Arguments result = ArgsParser.Parse(new Arguments(deviceInfos), args);

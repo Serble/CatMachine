@@ -3,7 +3,7 @@ using CatVM;
 
 namespace CatLauncher.Args;
 
-public class DevicesArgument(Arguments argContainer, params string[] names) : Argument(false, true, names) {
+public class DevicesArgument(Arguments argContainer, params string[] names) : Argument(false, false, true, names) {
     public List<(SerialDeviceArgument, Dictionary<string, object?>)> DevicesToAdd { get; } = [];
     
     public override void Parse(string name, ArgIterator args) {

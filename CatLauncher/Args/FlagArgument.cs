@@ -1,6 +1,6 @@
 namespace CatLauncher.Args;
 
-public class FlagArgument(params string[] names) : Argument(true, false, names) {
+public class FlagArgument(params string[] names) : Argument(false, true, false, names) {
     public bool Enabled;
     
     public override void Parse(string name, ArgIterator args) {

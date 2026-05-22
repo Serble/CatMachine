@@ -1,6 +1,6 @@
 namespace CatLauncher.Args;
 
-public class IntArgument(string[] names, long? defaultValue = null, long? minimum = null, long? maximum = null) : Argument(false, false, names) {
+public class IntArgument(string[] names, long? defaultValue = null, long? minimum = null, long? maximum = null) : Argument(!defaultValue.HasValue, false, false, names) {
     public long? Value { get; private set; } = defaultValue;
     
     public override void Parse(string name, ArgIterator args) {

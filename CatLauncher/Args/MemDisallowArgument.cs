@@ -1,6 +1,6 @@
 namespace CatLauncher.Args;
 
-public class MemDisallowArgument(params string[] names) : Argument(false, true, names) {
+public class MemDisallowArgument(params string[] names) : Argument(false, false, true, names) {
     public List<(uint start, uint length)> Regions { get; } = [];
     
     public override void Parse(string name, ArgIterator args) {

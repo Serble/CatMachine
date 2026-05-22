@@ -6,9 +6,11 @@ namespace CatLauncher;
 public static class ArgsParser {
     public static T Parse<T>(T argContainer, IEnumerable<string> argsArray) {
         Dictionary<string, Argument> arguments = [];
+        List<Argument> argumentsNoDupes = [];
         foreach (FieldInfo field in typeof(T).GetFields()
                      .Where(f => f.FieldType.IsAssignableTo(typeof(Argument)))) {
             Argument argument = (Argument)field.GetValue(argContainer)!;
+            argumentsNoDupes.Add(argument);
             foreach (string arg in argument.Names) {
                 arguments.Add(arg, argument);
             }
@@ -47,7 +49,12 @@ public static class ArgsParser {
                 nextInvalid = argument.Chainable ? null : argArg;
             }
         }
-
+        
+        List<Argument> neededArgs = argumentsNoDupes.Where(a => a.Required && !a.HasParsed).ToList();
+        if (neededArgs.Count != 0) {
+            throw new ArgumentException($"Missing required arguments: {string.Join(", ", neededArgs.Select(a => a.Names[0]))}");
+        }
+        
         return argContainer;
     }
 }

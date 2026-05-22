@@ -2,7 +2,7 @@ using System.Security;
 
 namespace CatLauncher.Args;
 
-public class RomArgument(params string[] names) : Argument(false, false, names) {
+public class RomArgument(params string[] names) : Argument(true, false, false, names) {
     public string? Path { get; set; }
     public byte[]? Rom { get; set; }
     
