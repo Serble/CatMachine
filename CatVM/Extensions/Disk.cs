@@ -21,9 +21,15 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
     private readonly long _picosPerBlock;
     
     [CommandLineConstructable("Disk")]
-    public Disk(string file, long picosPerBlock, long size, int queueCapacity = 32, CancellationToken token = default) {
-        _stream = new FileStream(file, FileMode.OpenOrCreate, FileAccess.ReadWrite);
-        _stream.SetLength(size);
+    public Disk(string file, long picosPerBlock, long? size = null, int queueCapacity = 32, CancellationToken token = default) {
+        if (size.HasValue) {
+            _stream = new FileStream(file, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+            _stream.SetLength(size.Value);
+        }
+        else {
+            _stream = new FileStream(file, FileMode.Open, FileAccess.ReadWrite);
+        }
+        
         _picosPerBlock = picosPerBlock;
         _queue = new Queue<(bool isRead, uint memAddr, uint startBlock, uint blockCount)>(queueCapacity);
         
