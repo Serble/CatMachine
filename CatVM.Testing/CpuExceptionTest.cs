@@ -254,15 +254,16 @@ public class CpuExceptionTest {
     // ---- Recovery via Ret ------------------------------------------------
 
     [Test]
-    public void DivideByZeroHandler_CanReturnAndResumeNextInstruction() {
-        // End-to-end: DIV by zero → handler runs → RET pops back into the
-        // following NOP. Verifies the saved IP is the *return* IP (i.e.
-        // the instruction after the faulting one).
+    public void DivideByZeroHandler_CanReturnAndResumeFaultingInstruction() {
+        // End-to-end: DIV by zero → handler runs → IRET pops back to the
+        // faulting DIV. Verifies the saved IP is the *faulting* IP (since
+        // Ip is only advanced at the end of a successful instruction, faults
+        // observe the pre-instruction Ip).
         CatVm vm = NewVm();
 
         // Layout:
-        //   0x00: div r4, r5      (3 bytes)
-        //   0x03: nop             (post-fault resume point)
+        //   0x00: div r4, r5      (3 bytes — re-executes after handler fixes divisor)
+        //   0x03: nop             (executes once div completes successfully)
         //   0x80: iret            (handler — pops marker + IP and resumes)
         vm.LoadData([OpDivRR, R4, R5, OpNop]);
         vm.LoadData([0x52], 0x80); // 0x52 = Iret opcode
@@ -274,10 +275,17 @@ public class CpuExceptionTest {
         RunOne(vm);
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x80u), "handler entered");
 
-        // Step through: handler IRET should jump back to 0x03 (the NOP).
+        // Fix the divisor so the re-executed DIV will succeed.
+        vm.Cpu.R5 = 1;
+
+        // Step through: handler IRET should jump back to 0x00 (the DIV).
         vm.ExecuteInstruction(fast: true); // executes IRET
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(0x00u),
+            "IRET in handler should return to the faulting DIV instruction");
+
+        vm.ExecuteInstruction(fast: true); // re-executes DIV, now succeeds
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x03u),
-            "IRET in handler should return to the instruction after DIV");
+            "DIV should advance IP by 3 once it completes without faulting");
 
         vm.ExecuteInstruction(fast: true); // executes the NOP
         Assert.That(vm.Cpu.Ip, Is.EqualTo(0x04u),

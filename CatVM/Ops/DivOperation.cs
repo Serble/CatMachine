@@ -6,23 +6,25 @@ public static class DivOperation {
     // destReg = destReg / remReg
     // remReg = destReg % remReg
     public static void DivRR(CatVm vm) {
-        byte destReg = vm.Read8();
-        byte remReg = vm.Read8();
+        byte destReg = vm.Read8(vm.Cpu.Ip + 1);
+        byte remReg = vm.Read8(vm.Cpu.Ip + 2);
         uint dividend = vm.Cpu.Get(destReg);
         uint divisor = vm.Cpu.Get(remReg);
         (uint quotient, uint remainder) = Divide(dividend, divisor);
         vm.Cpu.Set(destReg, quotient);
         vm.Cpu.Set(remReg, remainder);
+        vm.Cpu.Ip += 3;
     }
     
     public static void IDivRR(CatVm vm) {
-        byte destReg = vm.Read8();
-        byte remReg = vm.Read8();
+        byte destReg = vm.Read8(vm.Cpu.Ip + 1);
+        byte remReg = vm.Read8(vm.Cpu.Ip + 2);
         int dividend = (int)vm.Cpu.Get(destReg);
         int divisor = (int)vm.Cpu.Get(remReg);
         (uint quotient, uint remainder) = Divide(dividend, divisor);
         vm.Cpu.Set(destReg, quotient);
         vm.Cpu.Set(remReg, remainder);
+        vm.Cpu.Ip += 3;
     }
     
     // TODO: Don't return tuples here for performance reasons
