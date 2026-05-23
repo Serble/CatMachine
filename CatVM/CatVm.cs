@@ -577,7 +577,7 @@ public class CatVm {
             FireDueEvents();
         }
         
-        byte opcode = Read8();
+        byte opcode = Read8(Cpu.Ip);
         
         // don't bounds check opcode because the array lookup
         // will do that for us and throw an IndexOutOfRangeException

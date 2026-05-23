@@ -18,10 +18,13 @@ public static class JmpOperation {
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ConditionalJmp(CatVm vm, Func<CatVm, bool> condition) {
-        byte addressReg = vm.Read8();
-        uint offset = vm.ReadWord();
+        byte addressReg = vm.Read8(vm.Cpu.Ip + 1);
+        uint offset = vm.ReadWord(vm.Cpu.Ip + 2);
         if (condition(vm)) {
             Jmp(vm, addressReg, offset);
+        }
+        else {
+            vm.Cpu.Ip += 6;
         }
     }
     
