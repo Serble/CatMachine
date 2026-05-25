@@ -1,0 +1,458 @@
+jmp main
+
+#include display.cat
+
+#const APPLE_COUNT, 3     ; how many apples are there
+#const APPLE_YUMMYNESS, 3 ; amount of5times to grow per apple
+#const TARGET_TIME, 100   ; 100ms per frame
+
+head_pos:
+    d32 0, 0
+
+tail_pos:
+    d32 0, 0
+
+move_dir:
+    d32 1, 0
+
+grow_left:
+    d32 3
+
+last_input:
+    d8 0
+
+last_time:
+    d32 0
+
+graphics_port:
+    d32 -1
+
+keyboard_port:
+    d32 -1
+
+random_number:
+    d16 0
+
+#macro debug, 1
+push r1
+mov r1, $1
+int 0x90
+pop r1
+#endmacro
+
+#macro upds, 0
+push r1
+mov r1, [graphics_port]
+out r1, MODE_UPDATE_SCREEN
+pop r1
+#endmacro
+
+main:
+    ; find the graphics and input device:
+    out 0, 1 ; request devices
+    in r0, 0
+
+    .discover_loop:
+        in r0, 0
+        in r1, 0
+
+        cmp r1, 0xFF64BEF9
+        jne .not_graphics
+            mov [graphics_port], r0
+            jmp .discover_loop
+        .not_graphics:
+
+        cmp r1, 0x2EB3AD76
+        jne .not_input
+            mov [keyboard_port], r0
+            jmp .discover_loop
+        .not_input:
+        
+        cmp r1, -1
+        jne .discover_loop
+
+    ; change display mode because now we are loading into the game
+    mov r1, [graphics_port]
+    out r1, MODE_DISPLAY_MODE
+    out r1, DISPLAY_MODE_TILED
+    out r1, display
+    in r0, r1
+    cmp r0, 0
+    jne panic
+    
+    ; spawn apples
+    mov r5, 0 ; index
+    .apple_spawn_loop:
+    cmp r5, APPLE_COUNT
+    juge .apple_spawn_loop_exit
+    
+    call spawn_apple
+    add r5, 1
+    jmp .apple_spawn_loop
+    .apple_spawn_loop_exit:
+
+main_loop:
+    mov r1, [graphics_port]
+    out r1, MODE_UPDATE_SCREEN
+    
+    ; timing
+    uptms ; we only care about low, which is in r0, but this does override r1
+    
+    mov r2, [last_time]
+    add r2, TARGET_TIME ; r1 is now time to sleep until
+    
+    .sleep_loop:
+        cmp r0, r2
+        jug .exit_sleep_loop
+        
+        uptms
+        jmp .sleep_loop
+    .exit_sleep_loop:
+    
+    ; FRAME START
+    mov [last_time], r0
+
+handle_input:
+    mov r3, [keyboard_port]
+    in r1, r3
+    cmp r1, -1 ; is there any info
+    je .done   ; if not we r done
+    
+    in r2, r3
+    
+    cmp r1, 1 ; is pressed
+    jne handle_input ; try again
+    
+    mov8 r3, [last_input] ; repeated inputs are ignored
+    cmp r3, r2
+    je handle_input  ; try again
+    
+    cmp r2, 'D'
+    jne .skip_d
+        cmp r3, 'A'
+        je handle_input
+    
+        mov8 [last_input], 'D'
+        mov [move_dir], 1
+        mov [move_dir + 4], 0
+        jmp .done
+    .skip_d:
+    
+    cmp r2, 'A'
+    jne .skip_a
+        cmp r3, 'D'
+        je handle_input
+        
+        mov8 [last_input], 'A'
+        mov [move_dir], -1
+        mov [move_dir + 4], 0
+        jmp .done
+    .skip_a:
+    
+    cmp r2, 'W'
+    jne .skip_w
+        cmp r3, 'S'
+        je handle_input
+        
+        mov8 [last_input], 'W'
+        mov [move_dir], 0
+        mov [move_dir + 4], -1
+        jmp .done
+    .skip_w:
+    
+    cmp r2, 'S'
+    jne .skip_s
+        cmp r3, 'W'
+        je handle_input
+        
+        mov8 [last_input], 'S'
+        mov [move_dir], 0
+        mov [move_dir + 4], 1
+    .skip_s:
+    
+    .done:
+    
+new_head:
+    ; get new head postiion (x is r3 y is r4)
+    mov r1, [head_pos]
+    mov r2, [move_dir]
+    add r1, r2
+    mov r2, 31
+    call wrap_signed
+    mov r5, r0
+
+    mov r1, [head_pos + 4]
+    mov r2, [move_dir + 4]
+    add r1, r2
+    mov r2, 23
+    call wrap_signed
+    mov r6, r0
+    
+    ; check collisions at new head position
+    mov r1, r5
+    mov r2, r6
+    call get_tile
+    mov r7, r0 ; put collided pos in r7
+
+    ; if we didn't collide with ourselves we add the new head pos
+    cmp r7, 16
+    jule .skip_new_head
+        ; here we set r3 to tile index for next head dir (only first 2 bits)
+        ; then we set r4 to tile index for prev head dir (only first 2 bits)
+        mov r4, [move_dir]
+        cmp r4, 0
+        je .vert
+            ; we are moving horizontally
+            mov r3, r4
+            not r3
+            shr r3, 31
+            shr r4, 31
+            jmp .done
+        .vert:
+            ; we are moving vertically
+            mov r4, [move_dir + 4]
+            mov r3, r4
+            not r3
+            shr r3, 31
+            or  r3, 0b10
+            shr r4, 31
+            or  r4, 0b10
+        .done:
+        
+        ; change old head tile to connect to new head
+        mov r1, [head_pos]
+        mov r2, [head_pos + 4]
+        call get_tile
+
+        mov r1, [head_pos]
+        mov r2, [head_pos + 4]
+        and r0, 0b1100 ; we keep the last piece dir and replace the next piece dir
+        or  r3, r0
+        call set_tile
+
+        ; set the new head tile to be the new head
+        ; make the prev and next the same for the head so it visually looks correct
+        mov r3, r4
+        shl r4, 2
+        or  r3, r4
+        
+        ; set the new head position
+        mov r1, r5
+        mov r2, r6
+        call set_tile
+        mov [head_pos], r5
+        mov [head_pos + 4], r6
+    .skip_new_head:
+
+shrink_tail:
+    ; shrink tail
+    mov r1, [grow_left]
+    cmp r1, 0
+    je .shrink
+        ; we ate food before, instead of removing tail we just subtract the grow_left count
+        sub r1, 1
+        mov [grow_left], r1
+        jmp .post_shrink
+    .shrink:
+        ; we did not eat before, we now remove tail and update new tail
+        mov r5, [tail_pos]
+        mov r6, [tail_pos + 4]
+        
+        ; get old tail in r0
+        mov r1, r5
+        mov r2, r6
+        call get_tile
+
+        ; remove old tail
+        mov r1, r5
+        mov r2, r6
+        mov r3, -1
+        call set_tile
+
+        and r0, 0b0011
+        cmp r0, 0b10
+        juge .vert
+            shl r0, 1
+            sub r0, 1
+            mov r1, r0
+            add r1, r5
+            mov r2, 31
+            call wrap_signed
+            mov r5, r0
+            jmp .done
+        .vert:
+            and r0, 1
+            shl r0, 1
+            sub r0, 1
+            mov r1, r0
+            add r1, r6
+            mov r2, 23
+            call wrap_signed
+            mov r6, r0
+        .done:
+        
+        ; update new tail to not connect anymore
+        mov r1, r5 ; x of new tail
+        mov r2, r6 ; y of new tail
+        call get_tile
+        and r0, 0b0011 ; keep only next piece
+        mov r3, r0     ; copy next piece to prev piece to make it look like an end piece
+        shl r3, 2
+        or  r3, r0
+        
+        ; set new tail piece
+        mov [tail_pos], r5
+        mov [tail_pos + 4], r6
+
+        mov r1, r5
+        mov r2, r6
+        call set_tile
+    .post_shrink:
+
+check_apple:
+    ; did we collide with an apple
+    cmp r7, APPLE_ID
+    jne .not_apple
+        mov r0, [grow_left]
+        add r0, APPLE_YUMMYNESS
+        mov [grow_left], r0
+        
+        call spawn_apple
+    .not_apple:
+    
+    jmp main_loop
+
+; value in r1, max in r2 (inclusive), result in r0
+; when below 0, result is r2, when above r2 result is 0, otherwise result is r1
+; clobbers r0
+wrap_signed:
+    cmp r1, 0
+    jige .skip_less
+    mov r0, r2
+    ret
+    .skip_less:
+    
+    cmp r1, r2
+    jile .skip_more
+    mov r0, 0
+    ret
+    
+    .skip_more:
+    mov r0, r1
+    ret
+
+; x in r1, y in r2, returns tile at position in r0
+; clobbers r0, r1 and r2
+get_tile:
+    ; get index in r1, which is x + y * 34
+    umul r2, 34
+    add r1, r2
+
+    ; add offset of array
+    mov r2, tile_indexes
+    add r1, r2
+    
+    ; get value
+    mov8 r0, [r1]
+    ret
+
+; x in r1, y in r2, tile id in r3
+; clobbers r1 and r2
+set_tile:
+    ; get index in r1, which is x + y * 34
+    umul r2, 34
+    add r1, r2
+
+    ; add offset of array
+    mov r2, tile_indexes
+    add r1, r2
+    
+    ; set value
+    mov8 [r1], r3
+    ret
+
+; no arguments, clobbers r0, r1, r2, r3 and r4
+spawn_apple:
+    .spawn_apple_loop:
+        call rand_int
+        shr r0, 1 ; without this shr there are a few spots that will never be reached
+        mov r3, r0
+        mov r4, 24
+        udiv r3, r4
+        and r3, 31 ; r4 is x, r5 is y
+        
+        mov r1, r3
+        mov r2, r4
+        call get_tile
+        cmp r0, 255 ; -1 in 8 bit
+    jne .spawn_apple_loop
+    
+    mov r1, r3
+    mov r2, r4
+    mov r3, APPLE_ID
+    call set_tile
+    ret
+
+; Mario 64 RNG method
+; r0 is output random number
+; automatically updates random global
+; clobbers r0, r1, r2, r3 and r4
+rand_int:
+    mov16 r0, [random_number]
+    
+    cmp r0, 0x560A
+    jne .skip_reset_seed
+        mov r0, 0
+    .skip_reset_seed:
+    
+    mov r1, r0
+    shl r1, 8
+    
+    xor r1, r0
+    
+    mov r0, r1
+    and r0, 0x00ff
+    shl r0, 8
+    
+    mov r2, r1
+    and r2, 0xff00
+    shr r2, 8
+    
+    or r0, r2
+    
+    shl r1, 1
+    and r1, 0xffff ; make 16 bit
+    xor r1, r0
+    
+    mov r3, r1
+    shr r3, 1
+    xor r3, 0xff80
+    
+    mov r4, r1
+    and r4, 1
+    cmp r4, 0
+    jne .odd
+    .even:
+        cmp r3, 0xaa55
+        jne .not_equal
+            mov r0, 0
+            jmp .done_odd_even
+        .not_equal:
+            mov r0, r3
+            xor r0, 0x1ff4
+            jmp .done_odd_even
+    .odd:
+        mov r0, r3
+        xor r0, 0x8180
+    .done_odd_even:
+    
+    mov16 [random_number], r0
+    ret
+
+panic_msg:
+    dstr "PANIC!\n\0"
+panic:
+    mov r1, panic_msg
+    int 0x80
+    out 0, 3 ; shutdown
+

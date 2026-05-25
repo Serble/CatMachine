@@ -1,7 +1,7 @@
 #!/bin/sh
 
 MAIN_FILE=main.bin
-ARGUMENTS=""
+ARGUMENTS="-d RaylibPpu"
 
 cd "$(dirname "$0")"
 
