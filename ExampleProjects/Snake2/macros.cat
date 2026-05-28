@@ -1,0 +1,30 @@
+; prints number in arg, no clobbers, requires --test-ints (for debugging, will not be used in production)
+#macro debug, 1
+push r1
+mov r1, $1
+int 0x90
+pop r1
+#endmacro
+
+; updates screen, no clobbers (for debugging, will not be used in production)
+#macro upds, 0
+push r1
+mov r1, [graphics_port]
+out r1, MODE_UPDATE_SCREEN
+pop r1
+#endmacro
+
+; changes display mode
+; arg 1: display mode to switch to
+; arg 2, display buffer location
+; clobbers r0
+#macro displaymode, 2
+    mov r0, [graphics_port]
+    out r0, MODE_DISPLAY_MODE
+    out r0, $1
+    out r0, $2
+    in r0, r0
+    cmp r0, 0
+    jne panic
+#endmacro
+

@@ -1,0 +1,102 @@
+#const MAIN_MENU_WIDTH, 512
+#const MAIN_MENU_HEIGHT, 384
+
+; button underline pos
+#const PLAY_X, 178
+#const PLAY_Y, 326
+#const PLAY_WIDTH, 64
+#const PLAY_OFFSET, PLAY_X * 4 + PLAY_Y * 4 * MAIN_MENU_WIDTH
+
+#const QUIT_X, 298
+#const QUIT_Y, 331
+#const QUIT_WIDTH, 80
+#const QUIT_OFFSET, QUIT_X * 4 + QUIT_Y * 4 * MAIN_MENU_WIDTH
+
+; places with >=80 pixels of color that we can copy
+#const FILL_LINE_X, 189
+#const FILL_LINE_Y, 164
+#const FILL_LINE_OFFSET, FILL_LINE_X * 4 + FILL_LINE_Y * 4 * MAIN_MENU_WIDTH
+
+#const EMPTY_LINE_X, 0
+#const EMPTY_LINE_Y, 0
+#const EMPTY_LINE_OFFSET, EMPTY_LINE_X * 4 + EMPTY_LINE_Y * 4 * MAIN_MENU_WIDTH
+
+#macro sethovergraphic, 2
+mov r0, main_menu_buffer + $1_OFFSET
+cpy main_menu_buffer + EMPTY_LINE_OFFSET, $1_WIDTH * 4
+mov r0, main_menu_buffer + $2_OFFSET
+cpy main_menu_buffer + FILL_LINE_OFFSET, $2_WIDTH * 4
+mov r0, [graphics_port]
+out r0, MODE_UPDATE_SCREEN
+#endmacro
+
+main_menu_buffer:
+    dfile "data/title_screen"
+
+hovered_option:
+    d8 0
+
+main_menu:
+    displaymode DISPLAY_MODE_BUFFER, main_menu_buffer
+    
+    mov r0, main_menu_buffer + PLAY_OFFSET
+    cpy main_menu_buffer + FILL_LINE_OFFSET, PLAY_WIDTH * 4
+    
+    mov r1, [graphics_port]
+    out r1, MODE_UPDATE_SCREEN
+.main_loop:
+    mov r3, [keyboard_port]
+    in r1, r3
+    cmp r1, -1 ; is there any info
+    je .main_loop
+
+    in r2, r3
+    
+    cmp r1, 1 ; is pressed
+    jne .main_loop
+    
+    ; r3 is keyboard_port, r2 is which key was pressed
+    cmp r2, 257       ; Enter
+    je .enter_pressed
+    cmp r2, 32        ; Space
+    je .enter_pressed
+    cmp r2, 'Z'
+    je .enter_pressed
+
+    ; pressing left and right does the same thing, because of wrapping
+    cmp r2, 'D'
+    je .key_pressed
+    cmp r2, 262       ; right arrow
+    je .key_pressed
+    cmp r2, 'A'
+    je .key_pressed
+    cmp r2, 263       ; left arrow
+    jne .main_loop
+    
+    .key_pressed:
+        mov8 r1, [hovered_option]
+        cmp r1, 0
+        jne .on_quit_option
+            ; play is currently hovered, we will change it to quit
+            mov8 [hovered_option], 1
+            sethovergraphic PLAY, QUIT
+            jmp .end_option_if
+        .on_quit_option:
+            ; quit it currently hovered, we will change it to play
+            mov8 [hovered_option], 0
+            sethovergraphic QUIT, PLAY
+        .end_option_if:
+        jmp .main_loop
+    
+    .enter_pressed:
+        mov8 r1, [hovered_option]
+        cmp r1, 0
+        jne .on_quit_selection
+            ; play is currently hovered, we will start the game
+            ret
+        .on_quit_selection:
+            ; quit it currently hovered, we will close the game
+            out 0, 3 ; shutdown
+        .end_selection_if:
+        jmp .main_loop
+

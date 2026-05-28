@@ -1,6 +1,8 @@
 jmp main
 
+#include macros.cat
 #include display.cat
+#include main_menu.cat
 
 #const APPLE_COUNT, 3     ; how many apples are there
 #const APPLE_YUMMYNESS, 3 ; amount of5times to grow per apple
@@ -33,19 +35,6 @@ keyboard_port:
 random_number:
     d16 0
 
-#macro debug, 1
-push r1
-mov r1, $1
-int 0x90
-pop r1
-#endmacro
-
-#macro upds, 0
-push r1
-mov r1, [graphics_port]
-out r1, MODE_UPDATE_SCREEN
-pop r1
-#endmacro
 
 main:
     ; find the graphics and input device:
@@ -70,16 +59,12 @@ main:
         
         cmp r1, -1
         jne .discover_loop
+    
+    call main_menu
 
     ; change display mode because now we are loading into the game
-    mov r1, [graphics_port]
-    out r1, MODE_DISPLAY_MODE
-    out r1, DISPLAY_MODE_TILED
-    out r1, display
-    in r0, r1
-    cmp r0, 0
-    jne panic
-    
+    displaymode DISPLAY_MODE_TILED, display
+
     ; spawn apples
     mov r5, 0 ; index
     .apple_spawn_loop:
