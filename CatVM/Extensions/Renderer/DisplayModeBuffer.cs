@@ -29,8 +29,8 @@ public class DisplayModeBuffer : IDisplayModeRenderer {
         
         Raylib.BeginShaderMode(_textureShader);
         
-        Rectangle source = ppu.GetCenteredBounds();
-        Raylib.DrawTexturePro(_texture, source, new Rectangle(0, 0, ppu.DisplayWidth, ppu.DisplayHeight), Vector2.Zero, 0, Color.White);
+        Rectangle dest = ppu.GetCenteredBounds();
+        Raylib.DrawTexturePro(_texture, new Rectangle(0, 0, ppu.DisplayWidth, ppu.DisplayHeight), dest, Vector2.Zero, 0, Color.White);
         
         Raylib.EndShaderMode();
     }
