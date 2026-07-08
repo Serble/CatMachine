@@ -31,6 +31,39 @@ programming the Cat VM. It compiles into Cat Assembly.
 
 It lives in the `Catnip` folder.
 
+### Catnip Language Server
+A language server for Catnip is available in `Catnip.LanguageServer`.
+It uses stdio and provides diagnostics, hover, go-to-definition,
+document symbols, completion, and semantic tokens.
+
+Run it with:
+
+```
+dotnet run --project Catnip.LanguageServer/Catnip.LanguageServer.csproj
+```
+
+Neovim (`nvim-lspconfig`) example:
+
+```lua
+require('lspconfig').catnip_ls.setup {
+  cmd = { "dotnet", "run", "--project", "/path/to/CatMachine/Catnip.LanguageServer/Catnip.LanguageServer.csproj" },
+  filetypes = { "catnip" },
+}
+```
+
+VS Code (`settings.json`) example:
+
+```json
+{
+  "catnip.languageServer.command": [
+    "dotnet",
+    "run",
+    "--project",
+    "/path/to/CatMachine/Catnip.LanguageServer/Catnip.LanguageServer.csproj"
+  ]
+}
+```
+
 ### CatLLVM
 CatLLVM is an LLVM-IR backend for the Cat VM. It accepts LLVM IR text
 (`.ll`) and emits Cat Assembly, letting you target CatVM from any LLVM

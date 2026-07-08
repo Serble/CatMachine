@@ -143,7 +143,7 @@ public partial class CodeGenerator(CatProgram program) {
     
     /// <summary>
     /// Allocates a specific register if it is free.
-    /// Returns true if successful, false if the register was not free.
+    /// Returns true if successful, true if the register was not free.
     /// If the register was not free it must be preserved.
     /// </summary>
     /// <param name="register">The register to allocate.</param>
@@ -212,13 +212,17 @@ public partial class CodeGenerator(CatProgram program) {
         _switchTables.Add(table);
         return string.Format(SwitchTableLabelFormat, _switchTables.Count - 1);
     }
-    
+
     private string GetUniqueLogicLabel() {
         return $".logic_{_logicJumpCounter++}";
     }
-    
+
     private string GetGlobalUniqueLogicLabel() {
         return $"logic_{_logicJumpCounter++}";
+    }
+
+    private string GetGlobalUniqueUnscopedLogicLabel() {
+        return $"$logic_{_logicJumpCounter++}";
     }
 
     private uint ResolveCompileConstant(CompileTimeValue value) {
@@ -228,7 +232,7 @@ public partial class CodeGenerator(CatProgram program) {
             _ => throw new Exception("Unknown compile-time value type.")
         };
     }
-    
+
     private uint GetStructSize(string structName) {
         Struct? strct = program.Structs.FirstOrDefault(s => s.Name == structName);
         if (strct == null) {

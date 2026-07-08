@@ -18,6 +18,9 @@
 
     <ItemGroup>
       <EmbeddedResource Include="Libraries\std.nip" />
+      <EmbeddedResource Include="Libraries\ppu.nip" />
+      <None Remove="Libraries\hardware.nip" />
+      <EmbeddedResource Include="Libraries\hardware.nip" />
     </ItemGroup>
 
 </Project>

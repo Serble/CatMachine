@@ -18,7 +18,12 @@ public class HardwareManager : CommandBasedSerialDevice<HardwareManager.Mode> {
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
         };
     }
-    
+
+    public override void Output(CatVm vm, uint data) {
+        InputQueue.Clear();
+        base.Output(vm, data);
+    }
+
     protected override void RunMode(CatVm vm, Mode mode, List<uint> args) {
         switch (mode) {
             case Mode.ListDevices: {

@@ -1,3 +1,4 @@
+#include "std"
 
 fun sleep(ms:4) {
     let target_time:4 = get_uptime() + ms:4;

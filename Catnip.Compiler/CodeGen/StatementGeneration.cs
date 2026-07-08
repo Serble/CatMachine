@@ -213,7 +213,17 @@ public partial class CodeGenerator {
             }
 
             case FunctionCall functionCall: {
+                bool preserve = AllocateSpecificRegister(DefaultReturnRegister);
+                if (preserve) {
+                    file.Push(indent, DefaultReturnRegister, "preserve needed temp register");
+                }
                 GenerateFunctionCall(functionCall, DefaultReturnRegister, file, indent);
+                if (!preserve) {
+                    FreeRegister(DefaultReturnRegister);
+                }
+                else {
+                    file.Pop(indent, DefaultReturnRegister, "free function call temp return register");
+                }
                 break;
             }
 
@@ -278,8 +288,9 @@ public partial class CodeGenerator {
                 // let's generate the table lookup
                 AssemblyFileBuilder table = new();
                 string tableLabel = GetSwitchTableLabel(table);
+                string endLabel = GetUniqueLogicLabel();
 
-                file.Comment("Switch jump table lookup (AND hashing)");
+                file.Comment("Switch jump table lookup (AND hashing)", indent);
                 (string scratch, bool preserve) = AllocateRegister();
                 (string exprReg, bool preserveExprReg) = AllocateRegister();
                 if (preserve) file.Push(indent, scratch);
@@ -299,15 +310,14 @@ public partial class CodeGenerator {
                 string[] jumpLabels = new string[uniqueValues];
                 
                 // by default anything that isn't set will jump to default
-                string defaultBranch = GetGlobalUniqueLogicLabel();
-                string endLabel = tableLabel + "_end";
+                string defaultBranch = GetGlobalUniqueUnscopedLogicLabel();
                 for (int i = 0; i < uniqueValues; i++) {
                     jumpLabels[i] = defaultBranch;
                 }
                 
                 Dictionary<string, (Statement, IValueExpression[])> caseStatements = [];
                 foreach ((IValueExpression[] valueExprs, Statement code) in switchStatement.Cases) {
-                    string label = GetGlobalUniqueLogicLabel();
+                    string label = GetGlobalUniqueUnscopedLogicLabel();
                     caseStatements.Add(label, (code, valueExprs));
                     
                     foreach (IValueExpression valExpr in valueExprs) {
@@ -324,27 +334,27 @@ public partial class CodeGenerator {
                     file.Label(label);
                     foreach (IValueExpression expr in exprs) {
                         uint realVal = ResolveCompileConstant(CompileTimeValue.From(expr));
-                        file.Append($"cmp {exprReg}, {realVal}   ; make sure it wasn't just a hash collision");
-                        file.Append($"je {matchesCondLabel}");
+                        file.Append(indent, $"cmp {exprReg}, {realVal}   ; make sure it wasn't just a hash collision");
+                        file.Append(indent, $"je {matchesCondLabel}");
                     }
-                    file.Append($"jmp {defaultBranch}   ; it was a hash collision, go to default");
+                    file.Append(indent, $"jmp {defaultBranch}   ; it was a hash collision, go to default");
                     
                     file.Label(matchesCondLabel);
                     GenerateStatement(code, file, indent);
 
-                    file.Append($"jmp {endLabel}");
+                    file.Append(indent, $"jmp {endLabel}");
                     file.BlankLine();
                 }
                 
                 // write the default case
                 file.Label(defaultBranch);
                 GenerateStatement(switchStatement.DefaultStatements, file, indent);
-                file.Append($"jmp {endLabel}");
+                file.Append(indent, $"jmp {endLabel}");
                 file.BlankLine();
                 
                 // now for the table
                 for (int i = 0; i < uniqueValues; i++) {
-                    table.Append($"d32 {jumpLabels[i]}");
+                    table.Append(indent, $"d32 {jumpLabels[i]}");
                 }
                 
                 // free registers

@@ -1,33 +1,4 @@
-#define SPRITE_VISIBLE, 0b10000000
-#define SPRITE_DRAW_BEHIND, 0b01000000
-#define SPRITE_V_FLIP, 0b00100000
-#define SPRITE_H_FLIP, 0b00010000
-
-struct Pixel {
-    blue:1;
-    green:1;
-    red:1;
-    alpha:1;
-}
-
-struct TileMode {
-    clear_colour:4;
-    palettes:512;
-    images:32768;
-    tile_scroll_x:1;
-    tile_scroll_y:1;
-    tile_indexes:884;
-    tile_palettes:442;
-    sprites:256;
-}
-
-struct Sprite {
-    image_index:1;
-    attributes:1;
-    x_pos:2;
-    y_pos:2;
-    rotation:2;
-}
+#include "ppu"
 
 fun debug_num(n:4) {
     ~~~r1[n:4] | | ;
@@ -41,39 +12,6 @@ fun print(s:4) {
     ~~~
 }
 
-// change the display mode and return
-// 0 for success, non zero for failure.
-fun set_display_mode(mode:4, buff_addr:4) {
-    ~~~r1[mode:4], r2[buff_addr:4] | | ;
-    int 0x87
-    ~~~
-    // r0 is now success or failure
-}
-
-fun update_display() {
-    ~~~ | | ;
-    int 0x86
-    ~~~
-}
-
-fun halt() {
-    ~~~ | | ;
-    int 0x81
-    ~~~
-}
-
-fun shutdown() {
-    ~~~ | | ;
-    int 0x82
-    ~~~
-}
-
-fun reset() {
-    ~~~ | | ;
-    int 0x83
-    ~~~
-}
-
 fun get_uptime() {
     ~~~ | | r1 ;
     uptms
@@ -82,36 +20,21 @@ fun get_uptime() {
     // so we can just return
 }
 
-// Returns -1 if no input is available
-// otherwise returns the keycode that was pressed
-// type should be ptr
-fun poll_input(type:4) {
-    let val:4;
-    ~~~ | r1[val:4] | ;
-    in r1, 0
-    ~~~
-    
-    if (val:4 == -1) {
-        return -1;
-    }
-    
-    // Consume type
-    ~~~ | r1[val:4] | ;
-    in r1, 0
-    ~~~
-    (type:4):4 = val:4;
-    
-    // Consume value
-    ~~~ | r1[val:4] | ;
-    in r1, 0
-    ~~~
-    
-    return val:4;
-}
-
 fun memcpy(dest:4, src:4, len:4) {
     ~~~ r0[dest:4], r1[src:4], r2[len:4] | | ;
     cpy r1, r2
     ~~~
 }
 
+fun serial_in(port:4) {
+     ~~~ r1[port:4] | | r1 ;
+     in r0, r1
+     ~~~
+     // return value in r0
+}
+
+fun serial_out(port:4, data:4) {
+     ~~~ r1[port:4], r2[data:4] | | r1, r2 ;
+     out r1, r2
+     ~~~
+}

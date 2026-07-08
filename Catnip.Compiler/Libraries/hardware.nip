@@ -1,0 +1,53 @@
+#include "std"
+
+#define HM_PORT, 0
+
+#define HM_LIST_DEVICES, 1
+#define HM_HALT, 2
+#define HM_SHUTDOWN, 3
+#define HM_RESET, 4
+
+global target_type:4 = 0;
+global found_port:4 = -1;
+
+/// go through each device and invoke callback
+/// on each one with the args (port:4, type:4)
+fun list_devices(callback:4) {
+    serial_out(${HM_PORT}, ${HM_LIST_DEVICES});
+    let count:4 = serial_in(${HM_PORT});
+    while (count:4 > 0) {
+        (callback:4)(serial_in(${HM_PORT}), serial_in(${HM_PORT}));
+        count:4 = count:4 - 1;
+    }
+}
+
+fun _find_device_callback(port:4, type:4) {
+    if (type:4 != target_type:4) {
+        return;
+    }
+    
+    found_port:4 = port:4;
+}
+
+/// find the first available device with the specified type
+/// and return the port it's on or returns -1 if the device
+/// cannot be found.
+/// type: the device type to look for.
+fun find_device_port(type:4) {
+    target_type:4 = type:4;
+    found_port:4 = -1;
+    list_devices(_find_device_callback);
+    return found_port:4;
+}
+
+fun halt() {
+    serial_out(${HM_PORT}, ${HM_HALT});
+}
+
+fun shutdown() {
+    serial_out(${HM_PORT}, ${HM_SHUTDOWN});
+}
+
+fun reset() {
+    serial_out(${HM_PORT}, ${HM_RESET});
+}

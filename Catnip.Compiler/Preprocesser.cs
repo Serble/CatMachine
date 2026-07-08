@@ -5,61 +5,114 @@ using Catnip.Compiler.Ast;
 namespace Catnip.Compiler;
 
 public record PreprocessedResult(
-    string[] Lines, 
-    (string File, int Line)[] LineMappings, 
-    BinaryGlobal[] BinaryGlobals);
+    string[] Lines,
+    (string File, int Line)[] LineMappings,
+    BinaryGlobal[] BinaryGlobals,
+    string[] FileOrder,
+    Dictionary<string, string[]> VisibleFilesByFile);
 
 public class Preprocesser {
     private const string MacroUseFormat = "${{{0}}}";
 
     private static readonly string[] BuiltinLibs = [
-        "std.nip"
+        "std.nip",
+        "ppu.nip",
+        "hardware.nip"
     ];
-    
+
     private readonly string _mainFileName;
-    private readonly List<string> _lines = [];
-    
+    private readonly string[] _mainLines;
+
     private readonly Dictionary<string, string> _macros = new();
-    private readonly List<string> _processedLines = [];
-    
+
+    // per-file processed output lines with their original (0-based) source line index
+    private readonly Dictionary<string, List<(string Line, int SourceLine)>> _processedLinesByFile =
+        new(StringComparer.OrdinalIgnoreCase);
+
     private readonly List<BinaryGlobal> _binaryGlobals = [];
-    
-    private readonly List<(string File, int Line)> _fileLineMapping = [];
-    private readonly Stack<(string File, int Line)> _inclusionStack = [];
+
+    // set of files already pulled into the compile scope (dedupe of duplicate includes)
+    private readonly HashSet<string> _processedFiles = new(StringComparer.OrdinalIgnoreCase);
+
+    // files in first-encounter order (main -> a -> c -> b)
+    private readonly List<string> _fileOrder = [];
+
+    // direct includes per file, used to build each file's visibility closure
+    private readonly Dictionary<string, List<string>> _directIncludesByFile =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly IReadOnlyDictionary<string, string> _virtualFiles;
 
     public Preprocesser(string mainFileName, string[] lines) {
-        _lines.AddRange(lines);
         _mainFileName = mainFileName;
+        _mainLines = lines;
+        _virtualFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
-    
+
     public Preprocesser(string mainFileName, string text) {
-        _lines.AddRange(text.Split(["\n"], StringSplitOptions.None));
         _mainFileName = mainFileName;
+        _mainLines = text.Split(["\n"], StringSplitOptions.None);
+        _virtualFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public Preprocesser(string mainFileName, string text, IReadOnlyDictionary<string, string> virtualFiles) {
+        _mainFileName = mainFileName;
+        _mainLines = text.Split(["\n"], StringSplitOptions.None);
+        _virtualFiles = virtualFiles;
     }
 
     public PreprocessedResult Process() {
-        // initialize inclusion stack
-        for (int i = _lines.Count - 1; i >= 0; i--) {
-            _inclusionStack.Push((_mainFileName, i + 1));
+        string entryFile = NormalizeMainFileName(_mainFileName);
+        ProcessFile(entryFile, _mainLines);
+
+        // flatten by first-encounter file order, without duplicating any file's code
+        List<string> lines = [];
+        List<(string File, int Line)> lineMappings = [];
+        foreach (string file in _fileOrder) {
+            if (!_processedLinesByFile.TryGetValue(file, out List<(string Line, int SourceLine)>? fileLines)) {
+                continue;
+            }
+
+            foreach ((string line, int sourceLine) in fileLines) {
+                lines.Add(line);
+                lineMappings.Add((file, sourceLine));
+            }
         }
-        
-        for (int i = 0; i < _lines.Count; i++) {
-            string line = _lines[i];
-            
-            // record file/line mapping
-            (string currentFile, int currentLine) = _inclusionStack.Pop();
-            _fileLineMapping.Add((currentFile, currentLine-1));
-            
+
+        Dictionary<string, string[]> visibleFilesByFile = BuildVisibleFilesByFile();
+        return new PreprocessedResult(
+            lines.ToArray(),
+            lineMappings.ToArray(),
+            _binaryGlobals.ToArray(),
+            _fileOrder.ToArray(),
+            visibleFilesByFile);
+    }
+
+    private void ProcessFile(string fileName, IReadOnlyList<string> lines) {
+        // duplicate includes must not duplicate code
+        if (_processedFiles.Contains(fileName)) {
+            return;
+        }
+
+        _processedFiles.Add(fileName);
+        _fileOrder.Add(fileName);
+        _directIncludesByFile.TryAdd(fileName, []);
+        _processedLinesByFile.TryAdd(fileName, []);
+        List<(string Line, int SourceLine)> outputLines = _processedLinesByFile[fileName];
+
+        for (int i = 0; i < lines.Count; i++) {
+            string line = lines[i];
+
             // macros
             foreach (string macro in _macros.Keys) {
                 line = line.Replace(string.Format(MacroUseFormat, macro), _macros[macro]);
             }
-            
+
             if (!line.StartsWith('#')) {
-                _processedLines.Add(line);
+                outputLines.Add((line, i));
                 continue;
             }
-            _processedLines.Add("// preprocessor directive processed");
+
+            outputLines.Add(("// preprocessor directive processed", i));
 
             // okay it's a preprocessor directive
             string directiveData = line[1..].Trim();
@@ -94,7 +147,7 @@ public class Preprocesser {
                         continue;
                     }
                 }
-                
+
                 currentArg.Append(c);
             }
 
@@ -106,46 +159,60 @@ public class Preprocesser {
             switch (directive) {
                 case "define": {
                     if (args.Count != 2) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                        throw new CompilationFailureException(fileName, i,
                             $"Invalid number of arguments for #define directive: {argsStr}");
                     }
 
                     string macroName = args[0];
                     string macroValue = args[1];
-                    for (int j = 0; j < _processedLines.Count; j++) {
-                        _processedLines[j] = _processedLines[j].Replace(string.Format(MacroUseFormat, macroName), macroValue);
+
+                    // apply retroactively to everything already emitted in this compile flow
+                    foreach (string processedFile in _fileOrder) {
+                        if (!_processedLinesByFile.TryGetValue(processedFile,
+                                out List<(string Line, int SourceLine)>? processedFileLines)) {
+                            continue;
+                        }
+
+                        for (int j = 0; j < processedFileLines.Count; j++) {
+                            (string existingLine, int existingSource) = processedFileLines[j];
+                            processedFileLines[j] =
+                                (existingLine.Replace(string.Format(MacroUseFormat, macroName), macroValue), existingSource);
+                        }
                     }
+
                     _macros[macroName] = macroValue;
                     break;
                 }
-                
+
                 case "include": {
                     if (args.Count != 1) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                        throw new CompilationFailureException(fileName, i,
                             $"Invalid number of arguments for #include directive: {argsStr}");
                     }
 
                     string includePath = args[0].Trim('"');
-                    string[] includedLines = GetLibraryFile(includePath);
-                    string fileName = Path.GetFileName(includePath);
-                    _lines.InsertRange(i + 1, includedLines);
-                    for (int j = includedLines.Length - 1; j >= 0; j--) {
-                        _inclusionStack.Push((fileName, j + 1));
+                    (string[] includedLines, string includeSourceName) = GetLibraryFile(includePath, fileName, i);
+
+                    List<string> includes = _directIncludesByFile[fileName];
+                    if (!includes.Contains(includeSourceName, StringComparer.OrdinalIgnoreCase)) {
+                        includes.Add(includeSourceName);
                     }
+
+                    ProcessFile(includeSourceName, includedLines);
                     break;
                 }
 
                 case "binary": {
                     if (args.Count != 2) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                        throw new CompilationFailureException(fileName, i,
                             $"Invalid number of arguments for #binary directive: {argsStr}");
                     }
 
                     string name = args[0];
-                    string includePath = args[1].Trim('"');
+                    string includePath = ResolveRelativePath(args[1].Trim('"'), fileName);
                     if (!Path.Exists(includePath)) {
-                        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
-                            "Included file not found: " + includePath);
+                        throw new CompilationFailureException(fileName, i,
+                            "Included file not found: " + args[1].Trim('"'));
                     }
 
                     _binaryGlobals.Add(new BinaryGlobal(name, includePath));
@@ -153,50 +220,118 @@ public class Preprocesser {
                 }
 
                 default:
-                    throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
+                    throw new CompilationFailureException(fileName, i,
                         "Unknown preprocessor directive: " + directive);
             }
         }
-
-        return new PreprocessedResult(_processedLines.ToArray(), _fileLineMapping.ToArray(), _binaryGlobals.ToArray());
-    }
-    
-    private string GetCurrentLineFile() {
-        return _inclusionStack.Count > 0 ? _inclusionStack.Peek().File : _mainFileName;
-    }
-        
-    private int GetCurrentLineNumber() {
-        return _inclusionStack.Count > 0 ? _inclusionStack.Peek().Line - 1 : 0;
     }
 
-    private string[] GetLibraryFile(string name) {
-        string originalName = name;
-        
-        if (File.Exists(name)) {
-            return File.ReadAllLines(name);
+    private Dictionary<string, string[]> BuildVisibleFilesByFile() {
+        Dictionary<string, string[]> result = new(StringComparer.OrdinalIgnoreCase);
+        foreach (string file in _fileOrder) {
+            HashSet<string> closure = new(StringComparer.OrdinalIgnoreCase);
+            CollectIncludeClosure(file, closure);
+            closure.Add(file);
+            result[file] = closure.ToArray();
         }
 
-        if (BuiltinLibs.Contains(name)) {
-            return ReadBuiltin(name);
-        }
-        
-        name += ".nip";
-        if (File.Exists(name)) {
-            return File.ReadAllLines(name);
-        }
-        
-        if (BuiltinLibs.Contains(name)) {
-            return ReadBuiltin(name);
+        return result;
+    }
+
+    private void CollectIncludeClosure(string fileName, HashSet<string> closure) {
+        if (!_directIncludesByFile.TryGetValue(fileName, out List<string>? directIncludes)) {
+            return;
         }
 
-        throw new CompilationFailureException(GetCurrentLineFile(), GetCurrentLineNumber(), 
-            "Included file not found: " + originalName);
+        foreach (string include in directIncludes) {
+            if (!closure.Add(include)) {
+                continue;
+            }
+
+            CollectIncludeClosure(include, closure);
+        }
+    }
+
+    private static string NormalizeMainFileName(string mainFileName) {
+        return Path.GetFullPath(mainFileName);
+    }
+
+    private string ResolveRelativePath(string path, string includingFile) {
+        if (Path.IsPathRooted(path)) {
+            return Path.GetFullPath(path);
+        }
+
+        if (Path.Exists(path)) {
+            return Path.GetFullPath(path);
+        }
+
+        if (Path.IsPathRooted(includingFile)) {
+            string includingDirectory = Path.GetDirectoryName(includingFile) ?? Directory.GetCurrentDirectory();
+            string candidate = Path.GetFullPath(Path.Combine(includingDirectory, path));
+            if (Path.Exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        return Path.GetFullPath(path);
+    }
+
+    private (string[] Lines, string SourceName) GetLibraryFile(string name, string includingFile, int includingLine) {
+        foreach (string candidate in BuildFileCandidates(name, includingFile)) {
+            string fullCandidate = Path.GetFullPath(candidate);
+            if (_virtualFiles.TryGetValue(fullCandidate, out string? virtualText)) {
+                return (virtualText.Split(["\n"], StringSplitOptions.None), fullCandidate);
+            }
+
+            if (!File.Exists(candidate)) {
+                continue;
+            }
+
+            return (File.ReadAllLines(candidate), Path.GetFullPath(candidate));
+        }
+
+        foreach (string builtinCandidate in BuildBuiltinCandidates(name)) {
+            if (!BuiltinLibs.Contains(builtinCandidate)) {
+                continue;
+            }
+
+            return (ReadBuiltin(builtinCandidate), builtinCandidate);
+        }
+
+        throw new CompilationFailureException(includingFile, includingLine, "Included file not found: " + name);
+    }
+
+    private static List<string> BuildFileCandidates(string name, string includingFile) {
+        List<string> candidates = [];
+
+        AddWithAndWithoutExtension(name);
+        if (!Path.IsPathRooted(name) && Path.IsPathRooted(includingFile)) {
+            string includingDirectory = Path.GetDirectoryName(includingFile) ?? Directory.GetCurrentDirectory();
+            AddWithAndWithoutExtension(Path.Combine(includingDirectory, name));
+        }
+
+        return candidates;
+
+        void AddWithAndWithoutExtension(string basePath) {
+            candidates.Add(basePath);
+            if (!basePath.EndsWith(".nip", StringComparison.OrdinalIgnoreCase)) {
+                candidates.Add(basePath + ".nip");
+            }
+        }
+    }
+
+    private static IEnumerable<string> BuildBuiltinCandidates(string name) {
+        yield return name;
+        if (!name.EndsWith(".nip", StringComparison.OrdinalIgnoreCase)) {
+            yield return name + ".nip";
+        }
     }
 
     private static string[] ReadBuiltin(string name) {
         Assembly assembly = Assembly.GetExecutingAssembly();
 
-        using Stream stream = assembly.GetManifestResourceStream($"Catnip.Compiler.Libraries.{name}")!;
+        using Stream? stream = assembly.GetManifestResourceStream($"Catnip.Compiler.Libraries.{name}")
+            ?? throw new InvalidOperationException($"Embedded builtin library '{name}' was not found.");
         using StreamReader reader = new(stream);
         return reader.ReadToEnd().Split('\n');
     }

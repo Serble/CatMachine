@@ -1,4 +1,4 @@
-
+#include "main"
 
 fun tick_physics() {
     // gravity

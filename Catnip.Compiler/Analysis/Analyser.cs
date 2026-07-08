@@ -2,7 +2,7 @@ using Catnip.Compiler.Ast;
 
 namespace Catnip.Compiler.Analysis;
 
-public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
+public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals, Dictionary<string, string[]>? visibleFilesByFile = null) {
     public static readonly string[] ValidRegisters = [
         "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
         "fl", "sp", "ip"  // probably don't use these
@@ -15,6 +15,10 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
 
     private readonly List<string> _locals = [];
     private readonly List<string> _globals = [];
+    private readonly List<(string Name, string File, Struct Struct)> _structDeclarations = [];
+    private readonly List<(string Name, string File, Function Function)> _functionDeclarations = [];
+    private readonly List<(string Name, string File)> _globalDeclarations = [];
+    private readonly Dictionary<string, HashSet<string>> _visibleFilesByFile = BuildVisibleFileMap(visibleFilesByFile);
     private readonly List<(ParsedElement Element, string Struct, string? Member)> _neededStructs = [];
     private readonly List<(ParsedElement Element, string FunctionName, IValueExpression[] Args)> _functionCalls = [];
     private readonly List<(ParsedElement Element, CompileTimeValue Size)> _mustBeMovCompatible = [];
@@ -85,6 +89,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                 
                 case Struct pse: {
                     _structs.Add(pse);
+                    _structDeclarations.Add((pse.Name, GetElementFile(pse), pse));
                     break;
                 }
 
@@ -94,6 +99,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                         _errors.Add(new CompilationFailureException(element, $"Function '{func.Name}' is already defined."));
                     }
                     _functions.Add(func);
+                    _functionDeclarations.Add((func.Name, GetElementFile(func), func));
                     _globals.Add(func.Name);
                     _locals.Clear();
                     break;
@@ -110,22 +116,44 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
         }
 
         foreach ((ParsedElement element, string functionName, IValueExpression[] args) in _functionCalls) {
-            Function? function = _functions.FirstOrDefault(f => f.Name == functionName);
-            if (function == null) {
+            List<(string Name, string File, Function Function)> matchingFunctions = _functionDeclarations
+                .Where(f => f.Name == functionName)
+                .ToList();
+            if (matchingFunctions.Count == 0) {
                 _errors.Add(new CompilationFailureException(element, $"Function '{functionName}' is not defined."));
                 continue;
             }
 
-            if (function.Parameters.Length != args.Length) {
+            Function? visibleFunction = matchingFunctions
+                .FirstOrDefault(f => IsDeclarationVisibleFrom(f.File, element))
+                .Function;
+            if (visibleFunction == null) {
+                _errors.Add(new CompilationFailureException(element,
+                    $"Function '{functionName}' is not visible from '{GetElementFile(element)}'. Add an explicit include."));
+                continue;
+            }
+
+            if (visibleFunction.Parameters.Length != args.Length) {
                 _errors.Add(new CompilationFailureException(element, 
-                    $"Function '{functionName}' expects {function.Parameters.Length} arguments, but {args.Length} were provided."));
+                    $"Function '{functionName}' expects {visibleFunction.Parameters.Length} arguments, but {args.Length} were provided."));
             }
         }
 
         foreach ((ParsedElement element, string str, string? mem) in _neededStructs) {
-            Struct? structure = _structs.FirstOrDefault(s => s.Name == str);
-            if (structure == null) {
+            List<(string Name, string File, Struct Struct)> matchingStructs = _structDeclarations
+                .Where(s => s.Name == str)
+                .ToList();
+            if (matchingStructs.Count == 0) {
                 _errors.Add(new CompilationFailureException(element, $"Struct '{str}' is not defined."));
+                continue;
+            }
+
+            Struct? structure = matchingStructs
+                .FirstOrDefault(s => IsDeclarationVisibleFrom(s.File, element))
+                .Struct;
+            if (structure == null) {
+                _errors.Add(new CompilationFailureException(element,
+                    $"Struct '{str}' is not visible from '{GetElementFile(element)}'. Add an explicit include."));
                 continue;
             }
 
@@ -145,8 +173,28 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
         }
 
         foreach ((ParsedElement element, string neededGlobal) in _neededGlobals) {
-            if (!_globals.Contains(neededGlobal)) {
+            if (binaryGlobals.Any(bg => bg.Name == neededGlobal)) {
+                continue;
+            }
+
+            // Variable tokens can also refer to function pointers (e.g. passing a callback as an argument).
+            if (_functionDeclarations.Any(f =>
+                    f.Name == neededGlobal &&
+                    IsDeclarationVisibleFrom(f.File, element))) {
+                continue;
+            }
+            
+            List<(string Name, string File)> matchingGlobals = _globalDeclarations
+                .Where(g => g.Name == neededGlobal)
+                .ToList();
+            if (matchingGlobals.Count == 0) {
                 _errors.Add(new CompilationFailureException(element, $"Global variable '{neededGlobal}' is not defined."));
+                continue;
+            }
+
+            if (!matchingGlobals.Any(g => IsDeclarationVisibleFrom(g.File, element))) {
+                _errors.Add(new CompilationFailureException(element,
+                    $"Global variable '{neededGlobal}' is not visible from '{GetElementFile(element)}'. Add an explicit include."));
             }
         }
         
@@ -207,6 +255,7 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
                 }
                 
                 _globals.Add(gd.Name);
+                _globalDeclarations.Add((gd.Name, GetElementFile(gd)));
                 break;
             }
 
@@ -381,5 +430,35 @@ public class Analyser(ParsedElement[] elements, BinaryGlobal[] binaryGlobals) {
 
             break;
         }
+    }
+
+    private static Dictionary<string, HashSet<string>> BuildVisibleFileMap(Dictionary<string, string[]>? visibleFilesByFile) {
+        Dictionary<string, HashSet<string>> result = new(StringComparer.OrdinalIgnoreCase);
+        if (visibleFilesByFile == null) {
+            return result;
+        }
+
+        foreach ((string file, string[] visibleFiles) in visibleFilesByFile) {
+            result[file] = new HashSet<string>(visibleFiles, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return result;
+    }
+
+    private static string GetElementFile(ParsedElement element) {
+        return element.FileInformation?.File ?? "unknown";
+    }
+
+    private bool IsDeclarationVisibleFrom(string declarationFile, ParsedElement usageElement) {
+        string usageFile = GetElementFile(usageElement);
+        if (string.Equals(usageFile, declarationFile, StringComparison.OrdinalIgnoreCase)) {
+            return true;
+        }
+
+        if (!_visibleFilesByFile.TryGetValue(usageFile, out HashSet<string>? visibleFiles)) {
+            return true;
+        }
+
+        return visibleFiles.Contains(declarationFile);
     }
 }

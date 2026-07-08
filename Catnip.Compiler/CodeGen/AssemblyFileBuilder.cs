@@ -46,9 +46,17 @@ public class AssemblyFileBuilder {
     public AssemblyFileBuilder Push(bool indent, string reg) {
         return Append(indent, $"push {reg}");
     }
+
+    public AssemblyFileBuilder Push(bool indent, string reg, string comment) {
+        return Append(indent, $"push {reg}  ; {comment}");
+    }
     
     public AssemblyFileBuilder Pop(bool indent, string reg) {
         return Append(indent, $"pop {reg}");
+    }
+
+    public AssemblyFileBuilder Pop(bool indent, string reg, string comment) {
+        return Append(indent, $"pop {reg}  ; {comment}");
     }
     
     public override string ToString() {

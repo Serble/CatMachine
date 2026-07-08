@@ -8,6 +8,7 @@ namespace CatAssembler.Parser;
 
 public partial class Tokeniser {
     public const string LocalLabelPrefix = "__LOCAL_";
+    public const string UnscopedGlobalLabelPrefix = "__UNSCOPED_";
     
     private readonly string _file;
     private readonly string[] _contents;
@@ -27,8 +28,12 @@ public partial class Tokeniser {
         _lineOffset = lineOffset;
     }
     
-    private string TransformLocalLabel(string localLabel) {
-        return $"{LocalLabelPrefix}{_currentGlobalLabel}__{localLabel}";
+    private string TransformLocalLabel(string label) {
+        return $"{LocalLabelPrefix}{_currentGlobalLabel}__{label}";
+    }
+
+    private string TransformUnscopedGlobalLabel(string label) {
+        return $"{UnscopedGlobalLabelPrefix}__{label}";
     }
     
     private string? ReadLine() {
@@ -68,7 +73,10 @@ public partial class Tokeniser {
             
 
         // ACTUAL TYPES
-            
+        
+        // globalLabel:           ; globally accessible and locals scope to it
+        // .localLabel:           ; only accessible in the same scope
+        // @unscopedGlobalLabel:  ; globally accessible but doesn't create a scope
         if (line.EndsWith(':')) {  // label
             string labelName = line[..^1].Trim();
             if (!LabelMatcher().IsMatch(labelName)) {
@@ -76,6 +84,9 @@ public partial class Tokeniser {
             }
             if (labelName.StartsWith('.')) {
                 labelName = TransformLocalLabel(labelName[1..]);
+            }
+            else if (labelName.StartsWith('$')) {
+                labelName = TransformUnscopedGlobalLabel(labelName[1..]);
             }
             else {
                 _currentGlobalLabel = labelName;
@@ -126,17 +137,17 @@ public partial class Tokeniser {
     private IExpression[] ParseExpressionList(string input) {
         List<IExpression> exprs = [];
         StringBuilder current = new();
-        
+
         int parenDepth = 0;
         int inQuotes = 0;
-        
+
         for (int i = 0; i < input.Length; i++) {
             char c = input[i];
             if (inQuotes != 0) {
                 if ((inQuotes == 1 && c == '"') || (inQuotes == 2 && c == '\'')) {
                     inQuotes = 0;
                 }
-                
+
                 current.Append(c);
                 continue;
             }
@@ -169,7 +180,7 @@ public partial class Tokeniser {
         if (current.Length > 0) {
             exprs.Add(ParseExpression(current.ToString()));
         }
-        
+
         return exprs.ToArray();
     }
 
@@ -208,6 +219,22 @@ public partial class Tokeniser {
             }
             
             return isInString ? match.Groups[0].Value : TransformLocalLabel(match.Groups[0].Value[1..]);
+        });
+        
+        text = UnscopedGlobalLabelMatcher().Replace(text, match => {
+            bool isInString = false;
+            for (int i = 0; i < match.Index; i++) {
+                switch (text[i]) {
+                    case '\\': // skip next character
+                        i++;
+                        continue;
+                    case '"':
+                        isInString = !isInString;
+                        break;
+                }
+            }
+            
+            return isInString ? match.Groups[0].Value : TransformUnscopedGlobalLabel(match.Groups[0].Value[1..]);
         });
 
         if (!pointer && NameMatcher().IsMatch(text)) {
@@ -279,13 +306,16 @@ public partial class Tokeniser {
 
     [GeneratedRegex("""^"((?:(?!.*[^\\]\\[^\\'"0abfnrtvs])(?:[^"]|[^\\]\\")*)(?:[^\\]|\\\\)|)"$""")]
     private static partial Regex StringMatcher();
-    
+
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_.]*$")]
     private static partial Regex NameMatcher();
-    
-    [GeneratedRegex("^.?[A-Za-z_][A-Za-z0-9_]*$")]
+
+    [GeneratedRegex("^[.$]?[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex LabelMatcher();
-    
+
     [GeneratedRegex(@"(?<=\s|,|^)\.[A-Za-z_][A-Za-z0-9_]*")]
     private static partial Regex LocalLabelMatcher();
+
+    [GeneratedRegex(@"(?<=\s|,|^)\$[A-Za-z_][A-Za-z0-9_]*")]
+    private static partial Regex UnscopedGlobalLabelMatcher();
 }

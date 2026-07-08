@@ -1,4 +1,6 @@
 #include "std"
+#include "ppu"
+#include "hardware"
 #include "physics.nip"
 #include "drawing.nip"
 #include "utils.nip"
@@ -6,6 +8,7 @@
 #define BACKGROUND_COLOUR, 0x365235
 
 #define TILE_SIZE, 16
+#define PPU_DEV_TYPE, 0xFF64BEF9
 
 #define PLATFORM_IMG_INDEX, 1
 #define PLAYER_IMG_INDEX, 2
@@ -30,6 +33,8 @@
 // levels
 #binary LEVEL1, "data/levels/level1.bin"
 
+global ppu:$PpuDevice;
+global input_port:4;
 global disp_buff:$TileMode;
 global player_sprite_addr:4;
 
@@ -60,7 +65,11 @@ fun load_img(index:4, img_ptr:4, palette_ptr:4) {
 
 
 fun main() {
-    let changemode_status:4 = set_display_mode(0x11, disp_buff);
+    input_port:4 = find_device_port(0x2EB3AD76);  // keyboard
+    let ppu_port:4 = find_device_port(${PPU_DEV_TYPE});
+    init_ppu_device(ppu_port:4, ppu);
+
+    let changemode_status:4 = set_display_mode(ppu, 0x11, disp_buff);
     if (changemode_status:4 != 0) {
         // error, i be sad
         print("Failed to initialise display buffer!");
@@ -85,7 +94,7 @@ fun main() {
     player_sprite_addr:4 = disp_buff[TileMode#sprites][0, $Sprite];
 
     load_level(1);
-    update_display();
+    update_display(ppu);
 
     // game loop
     let target_time:4 = 0;
@@ -97,12 +106,12 @@ fun main() {
         handle_movement();
         tick_physics();
         update_player_pos();
-        update_display();
+        update_display(ppu);
 
         while (get_uptime() < target_time:4) { }
     }
 
-    update_display();
+    update_display(ppu);
     halt();
 }
 
@@ -114,24 +123,26 @@ fun update_player_pos() {
 
 
 fun handle_inputs() {
-    let type:4;  // will be set to 0 for down, 1 for up (so invert before setting)
+    let type:4;  // 1 for down, 0 for up
     while (1) {
-        let inp:4 = poll_input(type);
-        if (inp:4 == -1) {
-            return;
-        }
-
-        if (inp:4 == 'A') {
-            held_left:1 = !type:4;
-            return;
-        }
-        if (inp:4 == 'D') {
-            held_right:1 = !type:4;
-            return;
-        }
-        if (inp:4 == 'W') {
-            held_up:1 = !type:4;
-            return;
+        let inp:4 = poll_input(input_port:4, type);
+        
+        switch (inp:4) {
+            case ('A') {
+                held_left:1 = type:4;
+            }
+            
+            case ('D') {
+                held_right:1 = type:4;
+            }
+            
+            case ('W') {
+                held_up:1 = type:4;
+            }
+            
+            case (0xFFFFFFFF) {
+                return;
+            }
         }
     }
 }
@@ -158,7 +169,7 @@ fun die() {
     while (index:4 < 884) {
         set_tile(index:4, ${RED_IMG_INDEX});
         if (index:4 % 34 == 0) {
-            update_display();
+            update_display(ppu);
             sleep(32);
         }
         index:4 = index:4 + 1;

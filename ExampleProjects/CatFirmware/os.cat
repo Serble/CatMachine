@@ -1,7 +1,0 @@
-; Test operating system
-mov r1, 6967
-int 0x90
-
-loop:
-jmp loop
-

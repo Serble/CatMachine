@@ -1,11 +1,8 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using CatAssembler.Assembler;
 using CatAssembler.Parser;
-using Catnip.Compiler;
-using Catnip.Compiler.Analysis;
-using Catnip.Compiler.Ast;
 using Catnip.Compiler.CodeGen;
-using Catnip.Compiler.Parser;
+using Catnip.Compiler.Frontend;
 using CatData;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -66,54 +63,26 @@ for (int i = 1; i < args.Length; i++) {
     }
 }
 
-// change current directory to be at the input file's directory
-Directory.SetCurrentDirectory(Path.GetDirectoryName(Path.GetFullPath(inputFilePath))!);
-
-string fileName = Path.GetFileName(inputFilePath);
-Preprocesser preprocesser = new(fileName, File.ReadAllText(inputFilePath));
-PreprocessedResult preprocessedResult = preprocesser.Process();
-if (preprocessedResult.Lines.Length != preprocessedResult.LineMappings.Length) {
-    throw new Exception("Preprocessor returned mismatched line and mapping counts");
+CatnipFrontendService frontendService = new();
+FrontendCompilationResult frontendResult = frontendService.AnalyseFile(inputFilePath);
+if (!frontendResult.Succeeded || frontendResult.Program == null) {
+   foreach (CatnipDiagnostic diagnostic in frontendResult.Diagnostics) {
+       Console.Error.WriteLine("Compilation Error: " + diagnostic.Message);
+       if (diagnostic.Context != null) {
+           Console.Error.WriteLine("-------------------------------------------------");
+           Console.Error.WriteLine(diagnostic.Context);
+           Console.Error.WriteLine("-------------------------------------------------");
+       }
+   }
+   return 1;
 }
 
-void HandleFailure(CompilationFailureException e) {
-    Console.Error.WriteLine("Compilation Error: " + e.Message);
-    if (e.Context != null) {
-        Console.Error.WriteLine("-------------------------------------------------");
-        Console.Error.WriteLine(e.Context);
-        Console.Error.WriteLine("-------------------------------------------------");
-    }
+CodeGenerator gen = new(frontendResult.Program);
+string asm = gen.Generate();
+if (asmOutputFile != null) {
+   File.WriteAllText(asmOutputFile, asm);
 }
-
-string asm;
-try {
-    ParsedElement[] tokens = CodeParser.ParseCode(string.Join('\n', preprocessedResult.Lines), preprocessedResult.LineMappings);
-
-    Analyser analyser = new(tokens, preprocessedResult.BinaryGlobals);
-    CatProgram program = analyser.Analyse();
-
-    CodeGenerator gen = new(program);
-    asm = gen.Generate();
-
-    if (asmOutputFile != null) {
-        File.WriteAllText(asmOutputFile, asm);
-    }
-
-    Console.WriteLine("Generated assembly" + (asmOutputFile != null ? $" to {asmOutputFile}" : ""));
-}
-catch (CompilationFailureException e) {
-    HandleFailure(e);
-    return 1;
-}
-catch (AggregateException e) {
-    foreach (Exception inner in e.InnerExceptions) {
-        if (inner is CompilationFailureException cf) {
-            HandleFailure(cf);
-        }
-    }
-    
-    return 1;
-}
+Console.WriteLine("Generated assembly" + (asmOutputFile != null ? $" to {asmOutputFile}" : ""));
 
 
 // Assembly phase:

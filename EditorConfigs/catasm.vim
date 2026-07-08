@@ -15,9 +15,13 @@ highlight def link asmRegister Statement " Use another group if preferred
 syntax match asmInstruction "^\s*\zs[a-zA-Z][a-zA-Z0-9_]*\ze\>"
 highlight def link asmInstruction Keyword
 
-" 3. Labels: name: at start of a line (or after whitespace)
-syntax match asmLabel "^\s*\zs[a-zA-Z_][a-zA-Z0-9_]*:\ze"
+" 3. Labels: name:, .local:, or $unscoped: at start of a line (or after whitespace)
+syntax match asmLabel "^\s*\zs[.$]\=[a-zA-Z_][a-zA-Z0-9_]*:\ze"
 highlight def link asmLabel Identifier
+
+" 3b. Label references in operands: .local or $unscoped
+syntax match asmLabelRef "\%(^\|\s\|,\)\zs[.$][a-zA-Z_][a-zA-Z0-9_]*\ze\%($\|\s\|,\)"
+highlight def link asmLabelRef Identifier
 
 " 4. Directives: #NAME (at beginning of line or after WS), plus arguments
 syntax match asmDirective "^\s*#\w\+"
@@ -55,7 +59,7 @@ highlight def link asmComma Delimiter
 " Arguments: match identifiers (not registers/labels) after instruction & before ';' or newline
 " -- Exclude registers (use \%(\m\c\V\) if Vim 8.2+, otherwise do manual filter)
 syntax match asmArgument "\<\%(?!r[0-7]\|sp\|ip\|it\|fl\)[a-zA-Z_][a-zA-Z0-9_]*\>"
-    \ containedin=ALLBUT,asmRegister,asmLabel,asmInstruction,asmDirective,asmNumber,asmString,asmComment
+    \ containedin=ALLBUT,asmRegister,asmLabel,asmLabelRef,asmInstruction,asmDirective,asmNumber,asmString,asmComment
 highlight def link asmArgument Type
 
 " --- End of syntax file ---

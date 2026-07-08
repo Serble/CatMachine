@@ -1,0 +1,104 @@
+// Raylib PPU driver
+#include "std"
+
+#define SPRITE_VISIBLE, 0b10000000
+#define SPRITE_DRAW_BEHIND, 0b01000000
+#define SPRITE_V_FLIP, 0b00100000
+#define SPRITE_H_FLIP, 0b00010000
+
+#define DISPLAY_MODE_BUF_512_512, 0x00
+#define DISPLAY_MODE_BUF_512_384, 0x01
+#define DISPLAY_MODE_TILED_512_384, 0x11
+#define DISPLAY_MODE_DUMMY, 0xFF
+
+#define PPU_OP_CHANGE_DISPLAY_MODE, 2
+
+struct Pixel {
+    blue:1;
+    green:1;
+    red:1;
+    alpha:1;
+}
+
+struct TileMode {
+    clear_colour:4;
+    palettes:512;
+    images:32768;
+    tile_scroll_x:1;
+    tile_scroll_y:1;
+    tile_indexes:884;
+    tile_palettes:442;
+    sprites:256;
+}
+
+struct Sprite {
+    image_index:1;
+    attributes:1;
+    x_pos:2;
+    y_pos:2;
+    rotation:2;
+}
+
+struct PpuDevice {
+    port:4;
+    display_mode:4;
+    buffer_addr:4;
+}
+
+/// initialise a new PpuDevice and set all the properties on
+/// the new provided object passed as reference
+fun init_ppu_device(port:4, obj:4) {
+    (obj:4)[PpuDevice#port]:4 = port:4;
+    (obj:4)[PpuDevice#display_mode]:4 = ${DISPLAY_MODE_DUMMY};
+    (obj:4)[PpuDevice#buffer_addr]:4 = 0;
+}
+
+/// change the display mode and return
+/// 0 for success, non zero for failure.
+/// device: pointer to the PpuDevice object
+/// mode: a DISPLAY_MODE to set it to
+/// buff_addr: the address from which to read the display data from
+/// Errors:
+/// 1 - Invalid display mode
+/// 2 - Buffer address is out of bounds
+fun set_display_mode(device:4, mode:4, buff_addr:4) {
+    let port:4 = (device:4)[PpuDevice#port]:4;
+    serial_out(port:4, ${PPU_OP_CHANGE_DISPLAY_MODE});
+    serial_out(port:4, mode:4);
+    serial_out(port:4, buff_addr:4);
+    
+    let status:4 = serial_in(port:4);
+    if (status:4 != 0) {
+        // failure
+        return status:4;
+    }
+    
+    // success
+    // then update the object
+    (device:4)[PpuDevice#display_mode]:4 = mode:4;
+    (device:4)[PpuDevice#buffer_addr]:4 = buff_addr:4;
+    
+    return 0;  // we know it's zero
+}
+
+/// tell the PPU to update the display.
+/// device: pointer to the PPU device object
+fun update_display(device:4) {
+    serial_out((device:4)[PpuDevice#port]:4, 1);
+}
+
+/// Returns -1 if no input is available
+/// otherwise returns the keycode that was pressed
+/// type should be ptr
+fun poll_input(port:4, type:4) {
+    // read type (pressed or released, device defined)
+    let val:4 = serial_in(port:4);
+    if (val:4 == -1) {
+        return -1;
+    }
+    
+    (type:4):4 = val:4;
+    
+    // read value
+    return serial_in(port:4);
+}

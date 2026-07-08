@@ -490,7 +490,7 @@ public partial class CodeGenerator {
 
     private void GenerateFunctionCall(FunctionCall fc, string returnReg, AssemblyFileBuilder file, bool indent) {
         // No more call validation here - done in analysis phase (partially)
-        
+
         Stack<(string Reg, bool Preserve)> borrowedRegisters = [];
 
         // the target reg can be the returnReg (to avoid allocating another register)
@@ -501,41 +501,49 @@ public partial class CodeGenerator {
             // we need to borrow another register for the target
             (targetReg, bool preserve) = AllocateRegister(unavailableRegistersForTarget);
             if (preserve) {
-                file.Push(indent, targetReg);
+                file.Push(indent, targetReg, $"borrow temp register for target because actual target ({returnReg}) is unavailable");
             }
-            
+
             borrowedRegisters.Push((targetReg, preserve));
         }
         
         // place pointer to the function in the return register
         string? constTarget = ResolveExpr(fc.Target, targetReg, file, indent);
         string target = constTarget ?? targetReg;
-        
+
         // We need to evaluate all the args and put them in the right registers
         // according to the calling convention
         // r1-r3 for first 3 args, then stack after that
         // functions always return in r0
         // so we need to make sure we borrow r0-r3 if needed
         (string Reg, bool Preserve)? stackTempReg = null;
-        
+
         // first let's try and borrow all the calling convention registers
         // we need to do this regardless of whether they are used as args
         // because they are caller preserved and may be clobbered anyway.
-        file.Comment("Borrowing calling convention registers", indent);
+        bool hasBorrowedCallConvInFile = false;  // use this so we can comment our borrowing section only if used
         foreach (string reg in CallingConventionArgRegisters.Append(DefaultReturnRegister).Where(r => r != returnReg)) {
             bool preserve = AllocateSpecificRegister(reg);
             borrowedRegisters.Push((reg, preserve));
-            if (preserve) file.Push(indent, reg);
+
+            if (preserve) {
+                if (!hasBorrowedCallConvInFile) {
+                    file.Comment($"Borrowing calling convention registers, intended return is {returnReg}", indent);
+                    hasBorrowedCallConvInFile = true;
+                }
+
+                file.Push(indent, reg, "borrowing calling convention register that is in use");
+            }
         }
-        
+
         // do the stack args first (in reverse order by convention)
         // this is so that we don't have to worry about clobbering the arg
         // registers.
         for (int i = fc.Arguments.Length - 1; i >= CallingConventionArgRegisters.Length; i--) {
             Debug.Assert(i >= CallingConventionArgRegisters.Length);
-            
+
             (string reg, bool preserve) maybeReg = stackTempReg ?? AllocateRegister(returnReg, targetReg);
-                
+
             AssemblyFileBuilder tempFile = new();
             string? constArg = ResolveExpr(fc.Arguments[i], maybeReg.reg, tempFile, indent);
 
@@ -543,14 +551,14 @@ public partial class CodeGenerator {
                 if (!maybeReg.preserve) {
                     FreeRegister(maybeReg.reg);
                 }
-                
+
                 file.Append(indent, $"" +
                                     $"{GetSizedPushInstruction(4)} " +
                                     $"{constArg}  ; Push argument {i + 1} onto stack");
                 file.BlankLine();
                 continue;
             }
-                
+
             // okay it used the register
             if (stackTempReg == null) {
                 stackTempReg = maybeReg;
@@ -559,14 +567,14 @@ public partial class CodeGenerator {
                 }
                 borrowedRegisters.Push(stackTempReg.Value);
             }
-                
+
             file.Append(tempFile);  // it's in the temp reg now
             file.Append(indent, $"" +
                                 $"{GetSizedPushInstruction(4)} " +
                                 $"{stackTempReg.Value.Reg}  ; Push argument {i + 1} onto stack");
             file.BlankLine();
         }
-        
+
         // do the register args
         for (int i = 0; i < Math.Min(fc.Arguments.Length, CallingConventionArgRegisters.Length); i++) {
             // register arg
@@ -576,24 +584,24 @@ public partial class CodeGenerator {
             PlaceExprInReg(fc.Arguments[i], argReg, file, indent);
             file.BlankLine();
         }
-        
+
         // Now call the function
         file.Append(indent, $"call {target}");
-        
+
         // Clean up stack arguments
         int stackArgsCount = Math.Max(0, fc.Arguments.Length - CallingConventionArgRegisters.Length);
         if (stackArgsCount > 0) {
             int stackCleanupSize = 4 * stackArgsCount;  // assuming 4 bytes per argument (we have no way of knowing size)
             file.Append(indent, $"add {StackPointerRegister}, {stackCleanupSize}  ; Clean up stack arguments");
         }
-        
+
         // Move return value to the desired register if needed
         // and before returning registers because the default return
         // register will be returned.
         if (returnReg != DefaultReturnRegister) {
             file.Append(indent, $"mov {returnReg}, {DefaultReturnRegister}  ; Move return value to desired register");
         }
-        
+
         // Free borrowed registers
         while (borrowedRegisters.Count > 0) {
             (string reg, bool preserve) = borrowedRegisters.Pop();
