@@ -1,0 +1,134 @@
+{
+  "name": "CatASM",
+  "scopeName": "source.catasm",
+  "fileTypes": ["cat", "catasm"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#directive" },
+    { "include": "#label" },
+    { "include": "#instruction" },
+    { "include": "#register" },
+    { "include": "#labelRef" },
+    { "include": "#string" },
+    { "include": "#char" },
+    { "include": "#number" },
+    { "include": "#comma" },
+    { "include": "#argument" }
+  ],
+  "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.semicolon.catasm",
+          "match": ";.*$"
+        }
+      ]
+    },
+    "directive": {
+      "patterns": [
+        {
+          "name": "keyword.control.directive.catasm",
+          "match": "^\\s*#\\w+"
+        }
+      ]
+    },
+    "label": {
+      "patterns": [
+        {
+          "name": "entity.name.label.catasm",
+          "match": "^\\s*[.$]?[A-Za-z_][A-Za-z0-9_]*:"
+        }
+      ]
+    },
+    "instruction": {
+      "patterns": [
+        {
+          "name": "keyword.instruction.catasm",
+          "match": "^\\s*([A-Za-z][A-Za-z0-9_]*)\\b"
+        }
+      ]
+    },
+    "register": {
+      "patterns": [
+        {
+          "name": "variable.language.register.catasm",
+          "match": "\\b(?i:r[0-7]|sp|ip|it|fl)\\b"
+        }
+      ]
+    },
+    "labelRef": {
+      "patterns": [
+        {
+          "captures": {
+            "1": {
+              "name": "entity.name.label.reference.catasm"
+            }
+          },
+          "match": "(?:^|[\\s,])([.$][A-Za-z_][A-Za-z0-9_]*)(?=$|[\\s,])"
+        }
+      ]
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.catasm",
+          "match": "\\b0x[0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.catasm",
+          "match": "\\b0b[01]+\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.catasm",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.catasm",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.catasm",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "char": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.catasm",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.catasm",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "comma": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.comma.catasm",
+          "match": ","
+        }
+      ]
+    },
+    "argument": {
+      "patterns": [
+        {
+          "name": "variable.parameter.argument.catasm",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

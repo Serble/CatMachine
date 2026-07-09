@@ -1,20 +1,26 @@
 using System.Data;
 using System.Reflection;
+using System.Runtime.Loader;
 using CatData;
 using CatVM;
 
 namespace CatLauncher;
 
 public static class Reflection {
-    public static Dictionary<string, SerialDeviceArgument> GetSerialDevices(Assembly assembly) {
+    public static Dictionary<string, SerialDeviceArgument> GetSerialDevices() {
         List<Type> validParamTypes = [
             typeof(string), typeof(byte), typeof(sbyte), typeof(ushort), typeof(short), typeof(uint), typeof(int),
             typeof(ulong), typeof(long), typeof(float), typeof(double), typeof(decimal),
             typeof(byte?), typeof(sbyte?), typeof(ushort?), typeof(short?), typeof(uint?), typeof(int?),
             typeof(ulong?), typeof(long?), typeof(float?), typeof(double?), typeof(decimal?)
         ];
-        
-        IEnumerable<(ConstructorInfo, CommandLineConstructableAttribute)> constructors = assembly.GetTypes()
+
+        List<Type> types = [];
+        foreach (Assembly ass in AppDomain.CurrentDomain.GetAssemblies()) {
+            types.AddRange(ass.GetTypes());
+        }
+
+        IEnumerable<(ConstructorInfo, CommandLineConstructableAttribute)> constructors = types
             .SelectMany(type => type.GetConstructors()
                 .Select(x => (x, Att: x.GetCustomAttribute<CommandLineConstructableAttribute>()))
                 .Where(x => x.Att != null))!;
@@ -57,5 +63,19 @@ public static class Reflection {
         }
 
         return arguments;
+    }
+
+    public static void LoadAssemblies(string path) {
+        if (!Directory.Exists(path)) {
+            return;
+        }
+        foreach (string dllPath in Directory.GetFiles(path, "*.dll")) {
+            try {
+                AssemblyLoadContext.Default.LoadFromAssemblyPath(dllPath);
+            }
+            catch (Exception) {
+                // Ignore (mostly native libs)
+            }
+        }
     }
 }

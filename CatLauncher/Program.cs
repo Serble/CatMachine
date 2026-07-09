@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using CatVM;
+﻿using CatVM;
 using CatVM.Debugging;
 using CatVM.Extensions;
 using CatVM.Serial;
@@ -56,8 +55,10 @@ static class Program {
     }
 
     private static (CatVm vm, List<object> devices, CancellationTokenSource cts, Arguments args) SetupVm(IEnumerable<string> args) {
-        Dictionary<string, SerialDeviceArgument> deviceInfos =
-            Reflection.GetSerialDevices(Assembly.GetAssembly(typeof(CatVm))!);
+        Reflection.LoadAssemblies(Directory.GetCurrentDirectory());
+        Reflection.LoadAssemblies(Path.Join(Directory.GetCurrentDirectory(), "hardware"));
+        
+        Dictionary<string, SerialDeviceArgument> deviceInfos = Reflection.GetSerialDevices();
         Arguments result = ArgsParser.Parse(new Arguments(deviceInfos), args);
         
         CatVm vm = new((int)result.Memory!, (uint)result.Ops!, result.Rom.Rom) {
@@ -135,7 +136,7 @@ static class Program {
             }
 
             if (parameters.TryGetValue("port", out object? port)) {
-                vm.RegisterSerialDevice((uint)port, serial);
+                vm.RegisterSerialDevice((uint)port!, serial);
             }
             else {
                 vm.RegisterSerialDevice(serial);

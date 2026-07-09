@@ -155,8 +155,10 @@ CatVM.CatVm vm = new(memorySize, ops, File.ReadAllBytes(romPath)) {
     EnableTestingInterrupts = enableTestInts,
     DumpErrors = dumpErrors,
     ErrorOnRomWrite = errorOnRomWrite,
+#if DEBUG
     DisallowedReadRegions = disallowedRead.ToArray(),
     DisallowedWriteRegions = disallowedWrite.ToArray(),
+#endif
     Fast = fastRun
 };
 

@@ -84,6 +84,7 @@ public class CatVm {
     /// </summary>
     public bool DumpErrors { get; set; }
 
+#if DEBUG
     /// <summary>
     /// Regions of memory that will trigger an error upon being written to.
     /// <remarks>Only available in debug builds.</remarks>
@@ -95,6 +96,7 @@ public class CatVm {
     /// <remarks>Only available in debug builds.</remarks>
     /// </summary>
     public (uint start, uint length)[] DisallowedReadRegions { get; set; } = [];
+#endif
 
     /// <summary>
     /// Low level handle to the memory array.
@@ -158,7 +160,7 @@ public class CatVm {
     /// <p/>
     /// Ports 0-15 are reserved for system use (like display and input), so user devices should start at port 16.
     /// Additionally, directly writing to this dictionary is not recommended,
-    /// please use <see cref="RegisterSerialDevice(uint, ISerialDevice)"/> and
+    /// please use <see cref="RegisterSerialDevice(uint?, ISerialDevice)"/> and
     /// <see cref="RegisterSerialDevice(ISerialDevice)"/> to ensure ports are not accidentally overwritten.
     /// </summary>
     public Dictionary<uint, ISerialDevice> SerialDevices { get; } = [];
