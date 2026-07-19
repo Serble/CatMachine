@@ -6,6 +6,13 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Catnip.Compiler</RootNamespace>
+        <PackageId>CatMachine.Catnip.Compiler</PackageId>
+        <Title>Catnip Compiler</Title>
+        <Authors>Serble</Authors>
+        <Description>Compiler for Catnip, the language that is designed for Cat Machine.</Description>
+        <PackageProjectUrl>https://github.com/Serble/CatMachine</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/Serble/CatMachine/blob/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/Serble/CatMachine</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>

@@ -4,6 +4,13 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackageId>CatMachine.CatAssembler</PackageId>
+        <Title>Cat Assembler</Title>
+        <Authors>Serble</Authors>
+        <Description>Assembler of the Cat Assembly language.</Description>
+        <PackageProjectUrl>https://github.com/Serble/CatMachine</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/Serble/CatMachine/blob/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/Serble/CatMachine</RepositoryUrl>
     </PropertyGroup>
     <ItemGroup>
       <ProjectReference Include="..\CatData\CatData.csproj" />
