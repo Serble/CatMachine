@@ -5,6 +5,8 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>nipcompile</ToolCommandName>
         <RootNamespace>Catnip.Compiler</RootNamespace>
         <PackageId>CatMachine.Catnip.Compiler</PackageId>
         <Title>Catnip Compiler</Title>

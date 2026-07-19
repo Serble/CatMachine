@@ -4,6 +4,8 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>catasm</ToolCommandName>
         <PackageId>CatMachine.CatAssembler</PackageId>
         <Title>Cat Assembler</Title>
         <Authors>Serble</Authors>
