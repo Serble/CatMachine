@@ -11,6 +11,7 @@
         <PackageProjectUrl>https://github.com/Serble/CatMachine</PackageProjectUrl>
         <PackageLicenseUrl>https://github.com/Serble/CatMachine/blob/main/LICENSE</PackageLicenseUrl>
         <RepositoryUrl>https://github.com/Serble/CatMachine</RepositoryUrl>
+        <Version>1.0.0</Version>
     </PropertyGroup>
     <ItemGroup>
       <ProjectReference Include="..\CatData\CatData.csproj" />
