@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace CatLauncher;
+namespace CatArgs;
 
 public class ArgIterator(string[] values) {
     private int _index;
@@ -16,13 +16,13 @@ public class ArgIterator(string[] values) {
         return true;
     }
 
-    public bool Peek([NotNullWhen(true)] out string? value) {
-        if (_index >= values.Length) {
+    public bool Peek([NotNullWhen(true)] out string? value, int amount = 0) {
+        if (_index + amount >= values.Length) {
             value = null;
             return false;
         }
         
-        value = values[_index];
+        value = values[_index + amount];
         return true;
     }
 }

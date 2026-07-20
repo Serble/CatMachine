@@ -1,12 +1,12 @@
-using System.Reflection;
-using CatVM;
+using CatArgs;
+using ArgIterator = CatArgs.ArgIterator;
 
 namespace CatLauncher.Args;
 
-public class DevicesArgument(Arguments argContainer, params string[] names) : Argument(false, false, true, names) {
+public class DevicesArgument(RunArguments argContainer, params string[] names) : Argument(false, false, true, false, names) {
     public List<(SerialDeviceArgument, Dictionary<string, object?>)> DevicesToAdd { get; } = [];
     
-    public override void Parse(string name, ArgIterator args) {
+    public override void Parse(string? name, ArgIterator args) {
         if (!args.Next(out string? deviceName)) {
             throw new ArgumentException("device argument must take arguments");
         }

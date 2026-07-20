@@ -36,6 +36,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Hardware", "Hardware", "{E1
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelloWorldDevice", "HelloWorldDevice\HelloWorldDevice.csproj", "{20362BDF-85C9-4698-9B40-CD3E732B76C2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatArgs", "CatArgs\CatArgs.csproj", "{6AED91F4-5162-4422-A2B5-88FB286C24CE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

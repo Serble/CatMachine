@@ -29,6 +29,7 @@ public static class Reflection {
         
         foreach ((ConstructorInfo constructor, CommandLineConstructableAttribute attribute) in constructors) {
             SerialDeviceArgument arg = new(attribute.Name, attribute.Register, attribute.PortValues, constructor);
+            Console.WriteLine($"Registering device {arg.Name}");
             
             foreach (ParameterInfo parameter in constructor.GetParameters()) {
                 int typeIndex = validParamTypes.IndexOf(parameter.ParameterType);
@@ -47,11 +48,6 @@ public static class Reflection {
                     
                     continue;
                 }
-
-                // if (typeIndex > 11) {
-                //     typeIndex -= 11;
-                // }
-                
                 
                 arg.Arguments.Add(parameter.Name!, new SerialDeviceArgument.Argument(
                     parameter.HasDefaultValue, parameter.DefaultValue, (SerialDeviceArgument.ArgumentType)typeIndex));
@@ -69,8 +65,10 @@ public static class Reflection {
         if (!Directory.Exists(path)) {
             return;
         }
-        foreach (string dllPath in Directory.GetFiles(path, "*.dll")) {
+        
+        foreach (string dllPath in Directory.EnumerateFiles(path, "*.dll", SearchOption.AllDirectories)) {
             try {
+                Console.WriteLine($"Loading {dllPath}");
                 AssemblyLoadContext.Default.LoadFromAssemblyPath(dllPath);
             }
             catch (Exception) {

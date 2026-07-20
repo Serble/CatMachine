@@ -1,16 +1,34 @@
 using System.Reflection;
-using CatLauncher.Args;
 
-namespace CatLauncher;
+namespace CatArgs;
 
 public static class ArgsParser {
+    /// <summary>
+    /// Parses and returns arguments
+    /// </summary>
+    /// <param name="argContainer">An instance of T which defines what arguments exist and is what is used to access the arguments</param>
+    /// <param name="argsArray">The arguments</param>
+    /// <typeparam name="T">The type which defines what arguments exist</typeparam>
+    /// <returns>The parsed arguments in the form of T</returns>
+    /// <exception cref="InvalidOperationException">If the T class is formatted incorrectly</exception>
+    /// <exception cref="ArgumentException">If an invalid argument is parsed (you probably want to catch and print this)</exception>
     public static T Parse<T>(T argContainer, IEnumerable<string> argsArray) {
-        Dictionary<string, Argument> arguments = [];
-        List<Argument> argumentsNoDupes = [];
+        Dictionary<string, Argument> arguments = []; // name to argument (rom -> RomArgument)
+        List<Argument> argumentsNoDupes = [];        // list of all arguments
+        Argument? positionalArgument = null;         // the positional argument
         foreach (FieldInfo field in typeof(T).GetFields()
                      .Where(f => f.FieldType.IsAssignableTo(typeof(Argument)))) {
             Argument argument = (Argument)field.GetValue(argContainer)!;
             argumentsNoDupes.Add(argument);
+            
+            if (argument.Positional) {
+                if (positionalArgument != null) {
+                    throw new InvalidOperationException("There can only be one positional argument");
+                }
+                
+                positionalArgument = argument;
+            }
+            
             foreach (string arg in argument.Names) {
                 arguments.Add(arg, argument);
             }
@@ -18,11 +36,18 @@ public static class ArgsParser {
         
         ArgIterator args = new(argsArray.ToArray());
         
-        while (args.Next(out string? arg)) {
+        // we use peek because we don't want to consume the argument if it is a positional argument
+        while (args.Peek(out string? arg)) {
             if (!arg.StartsWith('-')) {
-                throw new ArgumentException("Arguments must start with - or --");
+                if (positionalArgument == null) {
+                    throw new ArgumentException("Arguments must start with - or --");
+                }
+
+                positionalArgument.DoParse(null, args);
+                continue;
             }
 
+            args.Next(out _); // this is the name, like --rom, we will consume the argument
             string[] argArgs = [];
             if (arg.StartsWith("--")) {
                 if (arg.Length == 3) {
@@ -50,35 +75,12 @@ public static class ArgsParser {
             }
         }
         
+        // check if all arguments that are required are being used and collect them if not being used
         List<Argument> neededArgs = argumentsNoDupes.Where(a => a.Required && !a.HasParsed).ToList();
         if (neededArgs.Count != 0) {
             throw new ArgumentException($"Missing required arguments: {string.Join(", ", neededArgs.Select(a => a.Names[0]))}");
         }
         
         return argContainer;
-    }
-}
-
-public class Arguments {
-    public Dictionary<string, SerialDeviceArgument> DeviceArgs { get; }
-
-    public readonly RomArgument Rom = new("rom", "r");
-    public readonly FlagArgument Fast = new("fast", "f");
-    public readonly IntArgument Ops = new(["ops", "o"], 100_000);
-    public readonly IntArgument Memory = new(["memory", "m"], 1024 * 1024 * 16, 1, int.MaxValue);
-    public readonly FlagArgument TestInts = new("test-ints");
-    public readonly FlagArgument DumpErrors = new("dump-errors");
-    public readonly FlagArgument DisableHardwareManager = new("disable-hardware-manager");
-    public readonly DevicesArgument Devices;
-
-#if DEBUG
-    public readonly FlagArgument ProtectRom = new("protect-rom");
-    public readonly MemDisallowArgument DisallowWrites = new("disallow-write");
-    public readonly MemDisallowArgument DisallowReads = new("disallow-read");
-#endif
-
-    public Arguments(Dictionary<string, SerialDeviceArgument> deviceArgs) {
-        Devices = new DevicesArgument(this, "device", "d");
-        DeviceArgs = deviceArgs;
     }
 }

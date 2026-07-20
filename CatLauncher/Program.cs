@@ -1,4 +1,5 @@
-﻿using CatVM;
+﻿using CatArgs;
+using CatVM;
 using CatVM.Debugging;
 using CatVM.Extensions;
 using CatVM.Serial;
@@ -33,7 +34,7 @@ static class Program {
             }
             
             case "debug": {
-                CatVm vm; List<object> devices; CancellationTokenSource cts; Arguments result;
+                CatVm vm; List<object> devices; CancellationTokenSource cts; RunArguments result;
                 try {
                     (vm, devices, cts, result) = SetupVm(args.Skip(1));
                 }
@@ -54,12 +55,13 @@ static class Program {
         }
     }
 
-    private static (CatVm vm, List<object> devices, CancellationTokenSource cts, Arguments args) SetupVm(IEnumerable<string> args) {
-        Reflection.LoadAssemblies(Directory.GetCurrentDirectory());
+    private static (CatVm vm, List<object> devices, CancellationTokenSource cts, RunArguments args) SetupVm(IEnumerable<string> args) {
         Reflection.LoadAssemblies(Path.Join(Directory.GetCurrentDirectory(), "hardware"));
+        Reflection.LoadAssemblies(Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
+            "catmachine/hardware"));
         
         Dictionary<string, SerialDeviceArgument> deviceInfos = Reflection.GetSerialDevices();
-        Arguments result = ArgsParser.Parse(new Arguments(deviceInfos), args);
+        RunArguments result = ArgsParser.Parse(new RunArguments(deviceInfos), args);
         
         CatVm vm = new((int)result.Memory!, (uint)result.Ops!, result.Rom.Rom) {
             Fast = result.Fast,

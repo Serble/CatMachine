@@ -1,12 +1,14 @@
 using System.Security;
+using CatArgs;
+using ArgIterator = CatArgs.ArgIterator;
 
 namespace CatLauncher.Args;
 
-public class RomArgument(params string[] names) : Argument(true, false, false, names) {
+public class RomArgument(params string[] names) : Argument(true, false, false, false, names) {
     public string? Path { get; set; }
     public byte[]? Rom { get; set; }
     
-    public override void Parse(string name, ArgIterator args) {
+    public override void Parse(string? name, ArgIterator args) {
         if (!args.Next(out string? path)) {
             throw new ArgumentException($"File path is required for {Names[0]}");
         }
