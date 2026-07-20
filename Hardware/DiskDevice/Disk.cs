@@ -1,8 +1,9 @@
 using System.Threading.Channels;
 using CatData;
+using CatVM;
 using CatVM.Serial;
 
-namespace CatVM.Extensions;
+namespace DiskDevice;
 
 // TODO: Disk bounds checking
 public class Disk : CommandBasedSerialDevice<Disk.Mode> {

@@ -3,10 +3,11 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using CatData;
+using CatVM;
 using CatVM.Serial;
 using Raylib_cs;
 
-namespace CatVM.Extensions.Renderer;
+namespace RaylibPpuDevice;
 
 public class RaylibPpu {
     public bool DrawFps { get; set; }

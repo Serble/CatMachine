@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using CatVM.Extensions;
+using VirtualNetworkCardDevice;
 
 namespace CatVM.Testing.Extensions;
 

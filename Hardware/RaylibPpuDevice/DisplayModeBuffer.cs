@@ -1,7 +1,8 @@
 using System.Numerics;
+using CatVM;
 using Raylib_cs;
 
-namespace CatVM.Extensions.Renderer;
+namespace RaylibPpuDevice;
 
 public class DisplayModeBuffer : IDisplayModeRenderer {
     private readonly Texture2D _texture;

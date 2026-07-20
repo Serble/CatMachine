@@ -1,4 +1,4 @@
-using CatVM.Extensions;
+using DiskDevice;
 
 namespace CatVM.Testing.Extensions;
 

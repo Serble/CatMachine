@@ -1,7 +1,6 @@
 ﻿using CatArgs;
 using CatVM;
 using CatVM.Debugging;
-using CatVM.Extensions;
 using CatVM.Serial;
 
 namespace CatLauncher;
@@ -79,13 +78,16 @@ static class Program {
 
         // Now register the serial devices, we will do the devices with a chosen port first, then let the
         // other devices with any port choose what is left.
-        if (!result.DisableHardwareManager) {
-            vm.RegisterSerialDevice(0, new HardwareManager());
-        }
-        
-        // get which ones have a chosen port
         List<(SerialDeviceArgument, Dictionary<string, object?>)> portSelectedDevices = [];
         List<(SerialDeviceArgument, Dictionary<string, object?>)> otherDevices = [];
+        
+        if (!result.DisableHardwareManager) {
+            if (!deviceInfos.TryGetValue("HardwareManager", out SerialDeviceArgument? hardwareManager)) {
+                throw new ArgumentException("");
+            }
+            
+            portSelectedDevices.Add((hardwareManager, new Dictionary<string, object?> {{"port", (uint)0}}));
+        }
         
         foreach ((SerialDeviceArgument deviceDef, Dictionary<string, object?> parameters) in
                  result.Devices.DevicesToAdd) {

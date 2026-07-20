@@ -22,6 +22,10 @@
 
     <ItemGroup>
       <ProjectReference Include="..\CatVM\CatVM.csproj" />
+      <ProjectReference Include="..\Hardware\DiskDevice\DiskDevice.csproj" />
+      <ProjectReference Include="..\Hardware\HardwareManagerDevice\HardwareManagerDevice.csproj" />
+      <ProjectReference Include="..\Hardware\HardwareTimerDevice\HardwareTimerDevice.csproj" />
+      <ProjectReference Include="..\Hardware\VirtualNetworkCardDevice\VirtualNetworkCardDevice.csproj" />
     </ItemGroup>
 
 </Project>

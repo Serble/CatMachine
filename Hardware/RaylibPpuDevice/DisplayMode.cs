@@ -1,4 +1,4 @@
-namespace CatVM.Extensions.Renderer;
+namespace RaylibPpuDevice;
 
 public enum DisplayMode {
     Raw512X512   = 0x00,

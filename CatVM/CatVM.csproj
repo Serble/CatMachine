@@ -1,19 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Version>1.0.0</Version>
     </PropertyGroup>
-
-    <ItemGroup>
-      <PackageReference Include="Raylib-cs" Version="7.0.2" />
-      <PackageReference Include="Silk.NET.OpenGL" Version="2.23.0" />
-      <PackageReference Include="Silk.NET.Windowing" Version="2.23.0" />
-      <PackageReference Include="Silk.NET.Windowing.Sdl" Version="2.23.0" />
-    </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\CatData\CatData.csproj" />
@@ -21,15 +14,10 @@
 
     <ItemGroup>
       <None Remove="Extensions\RealityCoProcessor\Shaders\default.frag" />
-      <EmbeddedResource Include="Extensions\RealityCoProcessor\Shaders\rcp_default.frag" />
       <None Remove="Extensions\RealityCoProcessor\Shaders\default.vert" />
-      <EmbeddedResource Include="Extensions\RealityCoProcessor\Shaders\rcp_default.vert" />
       <None Remove="Extensions\Renderer\Shaders\SpriteFragment.frag" />
-      <EmbeddedResource Include="Extensions\Renderer\Shaders\SpriteFragment.frag" />
       <None Remove="Extensions\Renderer\Shaders\TileFragment.frag" />
-      <EmbeddedResource Include="Extensions\Renderer\Shaders\TileFragment.frag" />
       <None Remove="Extensions\Renderer\Shaders\TileVertex.vert" />
-      <EmbeddedResource Include="Extensions\Renderer\Shaders\TileVertex.vert" />
     </ItemGroup>
 
 </Project>

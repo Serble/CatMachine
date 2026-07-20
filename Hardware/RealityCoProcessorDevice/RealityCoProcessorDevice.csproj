@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <RootNamespace>RealityCoProcessorDevice</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="Shaders\rcp_default.frag" />
+      <EmbeddedResource Include="Shaders\rcp_default.vert" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Silk.NET.OpenGL" Version="2.23.0" />
+      <PackageReference Include="Silk.NET.Windowing" Version="2.23.0" />
+      <PackageReference Include="Silk.NET.Windowing.Sdl" Version="2.23.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\CatVM\CatVM.csproj" />
+    </ItemGroup>
+
+</Project>

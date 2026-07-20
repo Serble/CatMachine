@@ -7,7 +7,7 @@ namespace HelloWorldDevice;
 public class HelloWorldSerialDevice : ISerialDevice {
     public uint Type => 0xC0D370A1;
 
-    [CommandLineConstructable("helloworld")]
+    [CommandLineConstructable("HelloWorld")]
     public HelloWorldSerialDevice(CatVm vm) {
         // woohoo, let's register normally, and also at 122
         vm.RegisterSerialDevice(122, this);

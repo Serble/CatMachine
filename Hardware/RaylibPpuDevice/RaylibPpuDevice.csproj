@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <RootNamespace>RaylibPpuDevice</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="Shaders\SpriteFragment.frag" />
+      <EmbeddedResource Include="Shaders\TileFragment.frag" />
+      <EmbeddedResource Include="Shaders\TileVertex.vert" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Raylib-cs" Version="7.0.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\CatData\CatData.csproj" />
+      <ProjectReference Include="..\..\CatVM\CatVM.csproj" />
+    </ItemGroup>
+
+</Project>

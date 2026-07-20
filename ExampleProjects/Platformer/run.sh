@@ -1,20 +1,19 @@
 #!/bin/sh
 
-# Constants
-MAIN_FILE=main.cat
+ROM_PATH="./bin/main.bin"
+ARGUMENTS="-d RaylibPpu"
 
-echo "Assembling..."
-dotnet run --project ../../CatAssembler/CatAssembler.csproj $MAIN_FILE -o a.out
-status=$?
-if [ $status -ne 0 ]; then
-  echo "Assemble failed: exit $status"
-  exit $status
+# Navigate to the script's directory
+cd "$(dirname "$0")"
+
+./build.sh || exit $?
+
+if [[ -z "${CAT_LAUNCHER_COMMAND}" ]]; then
+  CAT_LAUNCHER_COMMAND=catlaunch
 fi
 
 echo "Running..."
-
-# Requires raylib rendering
-dotnet run -c Release --project ../../CatVM/CatVM.csproj a.out --renderer raylib $*
-
+$CAT_LAUNCHER_COMMAND run --rom "$ROM_PATH" $ARGUMENTS $*
 status=$?
 echo "Application exited with status code $status"
+exit $status

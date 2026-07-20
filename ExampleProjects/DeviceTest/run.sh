@@ -1,11 +1,19 @@
 #!/bin/sh
 
+ROM_PATH=./bin/device_test.bin
+ARGUMENTS=--test-ints
+
 # Navigate to the script's directory
 cd "$(dirname "$0")"
 
 ./build.sh || exit $?
 
+if [[ -z "${CAT_LAUNCHER_COMMAND}" ]]; then
+  CAT_LAUNCHER_COMMAND=catlaunch
+fi
+
 echo "Running..."
-dotnet run --project ../../CatLauncher/CatLauncher.csproj run --rom ./bin/device_test.bin --test-ints $*
+$CAT_LAUNCHER_COMMAND run --rom "$ROM_PATH" $ARGUMENTS $*
 status=$?
 echo "Application exited with status code $status"
+exit $status

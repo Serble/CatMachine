@@ -3,13 +3,14 @@ using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using CatData;
+using CatVM;
 using CatVM.Serial;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silk.NET.Windowing.Sdl;
 
-namespace CatVM.Extensions;
+namespace RealityCoProcessorDevice;
 
 [StructLayout(LayoutKind.Sequential)]
 public struct Vertex {

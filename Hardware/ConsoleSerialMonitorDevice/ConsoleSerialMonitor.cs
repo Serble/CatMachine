@@ -1,15 +1,16 @@
 using System.Collections.Concurrent;
 using CatData;
+using CatVM;
 using CatVM.Serial;
 
-namespace CatVM.Extensions;
+namespace ConsoleSerialMonitorDevice;
 
 public class ConsoleSerialMonitor : ISerialDevice {
     public uint Type => 0xBBAC8C8C;
 
     private readonly ConcurrentQueue<char> _output = new();
 
-    [CommandLineConstructable("serialmonitor")]
+    [CommandLineConstructable("SerialMonitor")]
     public ConsoleSerialMonitor(CancellationToken token = default) {
         Task.Run(() => {
             while (!token.IsCancellationRequested) {

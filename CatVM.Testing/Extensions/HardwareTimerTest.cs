@@ -1,4 +1,4 @@
-using CatVM.Extensions;
+using HardwareTimerDevice;
 
 namespace CatVM.Testing.Extensions;
 

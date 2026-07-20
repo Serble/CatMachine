@@ -1,7 +1,7 @@
 #!/bin/bash
 
-MAIN_FILE=device_test.cat
-OUTPUT_FILE=device_test.bin
+MAIN_FILE=disktest.cat
+OUTPUT_FILE=disktest.bin
 
 cd $(dirname $0)
 

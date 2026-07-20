@@ -2,9 +2,10 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using CatData;
+using CatVM;
 using CatVM.Serial;
 
-namespace CatVM.Extensions;
+namespace VirtualNetworkCardDevice;
 
 public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mode> {
     public override uint Type => 0x29FEF534;

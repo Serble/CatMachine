@@ -1,5 +1,5 @@
-using CatVM.Extensions;
 using CatVM.Serial;
+using HardwareManagerDevice;
 
 namespace CatVM.Testing.Extensions;
 

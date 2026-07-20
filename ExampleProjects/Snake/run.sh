@@ -1,6 +1,19 @@
 #!/bin/sh
 
+ROM_PATH="./bin/snake.bin"
+ARGUMENTS="-d RaylibPpu"
+
+# Navigate to the script's directory
 cd "$(dirname "$0")"
 
 ./build.sh || exit $?
-../tools/run.sh snake.bin -d RaylibPpu
+
+if [[ -z "${CAT_LAUNCHER_COMMAND}" ]]; then
+  CAT_LAUNCHER_COMMAND=catlaunch
+fi
+
+echo "Running..."
+$CAT_LAUNCHER_COMMAND run --rom "$ROM_PATH" $ARGUMENTS $*
+status=$?
+echo "Application exited with status code $status"
+exit $status

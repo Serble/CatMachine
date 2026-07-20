@@ -1,4 +1,6 @@
-namespace CatVM.Extensions.Renderer;
+using CatVM;
+
+namespace RaylibPpuDevice;
 
 public interface IDisplayModeRenderer {
     public void ReadScreenData(RaylibPpu ppu, CatVm vm);

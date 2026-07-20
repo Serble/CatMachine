@@ -1,7 +1,7 @@
 #!/bin/bash
 
-MAIN_FILE="main.cat"
-NAME="main"
+MAIN_FILE="main.nip"
+OUTPUT_NAME="main"
 
 cd $(dirname $0)
 
@@ -12,7 +12,7 @@ fi
 mkdir -p bin
 
 echo "Compiling..."
-$CAT_NIP_COMPILER_COMMAND $MAIN_FILE -o "./bin/$NAME.bin" -s "./bin/$NAME.asm" -d "./bin/$NAME.asm.debug"
+$CAT_NIP_COMPILER_COMMAND $MAIN_FILE -o "./bin/$OUTPUT_NAME.bin" -s "./bin/$OUTPUT_NAME.asm" -d "./bin/$OUTPUT_NAME.asm.debug"
 status=$?
 if [ $status -ne 0 ]; then
   echo "Compile failed: exit $status"

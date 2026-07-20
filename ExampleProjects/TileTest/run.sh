@@ -1,7 +1,7 @@
 #!/bin/sh
 
-ROM_PATH="./bin/main.bin"
-ARGUMENTS=""
+ROM_PATH=./bin/tiletest.bin
+ARGUMENTS="--test-ints -d RaylibPpu"
 
 # Navigate to the script's directory
 cd "$(dirname "$0")"

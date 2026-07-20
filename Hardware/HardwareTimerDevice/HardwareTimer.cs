@@ -1,7 +1,8 @@
 using CatData;
+using CatVM;
 using CatVM.Serial;
 
-namespace CatVM.Extensions;
+namespace HardwareTimerDevice;
 
 public class HardwareTimer : CommandBasedSerialDevice<HardwareTimer.Mode> {
     public override uint Type => 0xB1F91A0C;

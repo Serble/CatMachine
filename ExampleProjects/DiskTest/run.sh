@@ -1,18 +1,19 @@
 #!/bin/sh
 
-# Constants
-echo "Assembling..."
-dotnet run --project ../../CatAssembler/CatAssembler.csproj disktest.cat -o a.out
-status=$?
-if [ $status -ne 0 ]; then
-  echo "Assemble failed: exit $status"
-  exit $status
+ROM_PATH=./bin/disktest.bin
+ARGUMENTS=--test-ints
+
+# Navigate to the script's directory
+cd "$(dirname "$0")"
+
+./build.sh || exit $?
+
+if [[ -z "${CAT_LAUNCHER_COMMAND}" ]]; then
+  CAT_LAUNCHER_COMMAND=catlaunch
 fi
 
 echo "Running..."
-
-# Requires raylib rendering
-dotnet run -c Release --project ../../CatVM/CatVM.csproj a.out --test-ints --disk "disk.catdisk" 16 0 --dump-errors $*
-
+$CAT_LAUNCHER_COMMAND run --rom "$ROM_PATH" $ARGUMENTS $*
 status=$?
 echo "Application exited with status code $status"
+exit $status

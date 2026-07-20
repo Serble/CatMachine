@@ -1,7 +1,8 @@
 using CatData;
+using CatVM;
 using CatVM.Serial;
 
-namespace CatVM.Extensions;
+namespace HardwareManagerDevice;
 
 public class HardwareManager : CommandBasedSerialDevice<HardwareManager.Mode> {
     public override uint Type => 0x296C4EF5;

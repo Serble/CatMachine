@@ -1,0 +1,25 @@
+<Project>
+    <Target Name="CopyToHardwareFolder" AfterTargets="Build" Condition="'$(CopyToHardwareFolder)' == 'true'">
+        <Message Text="Copying build files" Importance="High" />
+
+        <PropertyGroup>
+            <HardwareFolder>$([System.Environment]::GetFolderPath(System.Environment+SpecialFolder.LocalApplicationData))/catmachine/hardware/$(AssemblyName)</HardwareFolder>
+        </PropertyGroup>
+
+        <ItemGroup>
+            <FilesToCopy Include="@(RuntimeCopyLocalItems);$(TargetPath)" />
+        </ItemGroup>
+
+        <MakeDir Directories="$(HardwareFolder)" />
+
+        <Message Text="TargetPath=@(FilesToCopy)" Importance="High" />
+        <Message Text="HardwareFolder=$(HardwareFolder)" Importance="High" />
+
+        <Copy
+                SourceFiles="@(FilesToCopy)"
+                DestinationFolder="$(HardwareFolder)"
+                SkipUnchangedFiles="true" />
+
+        <Message Text="Copied build files" Importance="High" />
+    </Target>
+</Project>

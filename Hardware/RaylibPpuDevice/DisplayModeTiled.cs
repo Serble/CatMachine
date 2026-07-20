@@ -1,7 +1,8 @@
 using System.Numerics;
+using CatVM;
 using Raylib_cs;
 
-namespace CatVM.Extensions.Renderer;
+namespace RaylibPpuDevice;
 
 public class DisplayModeTiled : IDisplayModeRenderer {
     private const int PaletteLocation = 4;

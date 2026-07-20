@@ -1,7 +1,7 @@
 #!/bin/bash
 
-MAIN_FILE=device_test.cat
-OUTPUT_FILE=device_test.bin
+MAIN_FILE="rcptest.cat"
+OUTPUT_FILE="rcptest.bin"
 
 cd $(dirname $0)
 
