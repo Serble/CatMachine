@@ -36,6 +36,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Hardware", "Hardware", "{E1
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelloWorldDevice", "HelloWorldDevice\HelloWorldDevice.csproj", "{20362BDF-85C9-4698-9B40-CD3E732B76C2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RaylibPpu", "RaylibPpu\RaylibPpu.csproj", "{9552C585-BCA2-42BC-8F50-F0F356004647}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatBuild", "CatBuild\CatBuild.csproj", "{FEA90D34-AEE3-4275-B251-84DD1672836E}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CatArgs", "CatArgs\CatArgs.csproj", "{6AED91F4-5162-4422-A2B5-88FB286C24CE}"
 EndProject
 Global
@@ -204,6 +208,18 @@ Global
 		{20362BDF-85C9-4698-9B40-CD3E732B76C2}.Release|x64.Build.0 = Release|Any CPU
 		{20362BDF-85C9-4698-9B40-CD3E732B76C2}.Release|x86.ActiveCfg = Release|Any CPU
 		{20362BDF-85C9-4698-9B40-CD3E732B76C2}.Release|x86.Build.0 = Release|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Debug|x64.Build.0 = Debug|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Debug|x86.Build.0 = Debug|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Release|x64.ActiveCfg = Release|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Release|x64.Build.0 = Release|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Release|x86.ActiveCfg = Release|Any CPU
+		{6AED91F4-5162-4422-A2B5-88FB286C24CE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
