@@ -5,6 +5,8 @@ dist/
 
 # dependencies
 node_modules/
+.playground-publish/
+public/playground-runtime/_framework/
 
 # logs
 npm-debug.log*

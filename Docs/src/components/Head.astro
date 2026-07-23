@@ -1,0 +1,84 @@
+---
+const { head } = Astro.locals.starlightRoute;
+---
+
+{head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+
+<script>
+	const storageKey = 'catmachine.playground.source';
+	const playgroundUrl = `${import.meta.env.BASE_URL}playground/`;
+
+	function addPlaygroundActions() {
+		document.querySelectorAll<HTMLPreElement>('pre[data-language="cat"]').forEach((pre) => {
+			const frame = pre.closest<HTMLElement>('.expressive-code figure');
+			const header = frame?.querySelector<HTMLElement>('figcaption.header');
+			if (!frame || !header || header.querySelector('[data-open-playground]')) return;
+			frame.classList.add('is-terminal', 'has-playground-action');
+
+			const button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'open-playground';
+			button.dataset.openPlayground = '';
+			button.innerHTML = `
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path d="m8.7 16.6-4.6-4.6 4.6-4.6 1.4 1.4L6.9 12l3.2 3.2-1.4 1.4Zm6.6 0-1.4-1.4 3.2-3.2-3.2-3.2 1.4-1.4 4.6 4.6-4.6 4.6Z"/>
+				</svg>
+				Open in Playground
+			`;
+			button.addEventListener('click', () => {
+				const lines = pre.querySelectorAll<HTMLElement>('.ec-line .code');
+				const code = Array.from(lines, (line) => line.textContent ?? '').join('\n');
+				let destination = playgroundUrl;
+
+				try {
+					sessionStorage.setItem(storageKey, code);
+				}
+				catch {
+					destination += `?code=${encodeURIComponent(code)}`;
+				}
+
+				window.location.assign(destination);
+			});
+			header.append(button);
+		});
+	}
+
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', addPlaygroundActions, { once: true });
+	}
+	else {
+		addPlaygroundActions();
+	}
+</script>
+
+<style is:global>
+	.expressive-code .open-playground {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.1rem 0.45rem;
+		border: 0;
+		color: var(--ec-frm-trmTtbFg);
+		background: transparent;
+		font: inherit;
+		font-size: 0.75rem;
+		font-weight: 650;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	.expressive-code .open-playground:hover {
+		color: var(--sl-color-text-accent);
+	}
+
+	.expressive-code .open-playground:focus-visible {
+		outline: 2px solid var(--sl-color-accent-high);
+		outline-offset: 2px;
+	}
+
+	.expressive-code .open-playground svg {
+		width: 1rem;
+		height: 1rem;
+		fill: currentColor;
+	}
+</style>

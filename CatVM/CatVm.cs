@@ -174,6 +174,7 @@ public class CatVm {
 #endregion
 
     private readonly int _memoryBytes;
+    private bool _disposed;
     
     public CatVm(int memoryBytes, uint cyclesPerSecond, byte[]? rom = null) {
         _memoryBytes = memoryBytes;
@@ -185,6 +186,36 @@ public class CatVm {
         }
         
         Reset();
+    }
+
+    ~CatVm() {
+        ReleaseMemory();
+    }
+
+    /// <summary>
+    /// Stops scheduled work and releases the VM's pinned memory.
+    /// </summary>
+    public void ReleaseResources() {
+        lock (_eventsLock) {
+            if (_disposed) {
+                return;
+            }
+
+            _disposed = true;
+            _eventsCts.Cancel();
+        }
+
+        ReleaseMemory();
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseMemory() {
+        if (MemoryHandle is not { IsAllocated: true } handle) {
+            return;
+        }
+
+        handle.Free();
+        MemoryHandle = null;
     }
 
     /// <summary>
@@ -884,6 +915,10 @@ public class CatVm {
             CancellationToken ct;
             long nextTime;
             lock (_eventsLock) {
+                if (_disposed) {
+                    return;
+                }
+
                 ct = _eventsCts.Token;
                 nextTime = _events.Count > 0 ? _events[^1].time : long.MaxValue;
             }

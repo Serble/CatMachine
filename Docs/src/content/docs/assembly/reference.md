@@ -13,6 +13,8 @@ catasm <input.cat> [-o output.bin]
 
 The assembler always writes a sibling `<output>.debug` file containing JSON debug symbols (see [Debug Symbols](#debug-symbols) below). The reference VM picks these up automatically when launched with `--debug`.
 
+You can also try the assembler and VM directly in the browser using the [Assembly Playground](/playground/). It uses the same CatAssembler and CatVM implementations compiled to WebAssembly.
+
 ## Labels
 Labels just define absolute memory addresses that can then be used as constants throughout the code.
 A label is defined by writing the label name followed by a colon (`:`) at the beginning of a line. For example:

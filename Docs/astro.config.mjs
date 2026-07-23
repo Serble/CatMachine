@@ -20,6 +20,10 @@ export default defineConfig({
 				alt: 'Cat Machine logo',
 			},
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Serble/CatMachine' }],
+			components: {
+				Head: './src/components/Head.astro',
+				SocialIcons: './src/components/SocialIcons.astro',
+			},
 			expressiveCode: {
 				shiki: {
 					langs: [

@@ -1,0 +1,1141 @@
+---
+const starterProgram = `#const INT_PRINT, 0x80
+#const HARDWARE_MANAGER, 0
+#const SHUTDOWN, 3
+
+start:
+    mov r1, message
+    int INT_PRINT
+    out HARDWARE_MANAGER, SHUTDOWN
+
+message:
+    dstr "Hello from Cat Machine!\\n\\0"
+`;
+---
+
+<main class="playground" data-playground>
+	<header class="topbar">
+		<a class="brand" href={import.meta.env.BASE_URL} aria-label="Back to Cat Machine documentation">
+			<img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
+			<span>Cat Machine</span>
+			<strong>Playground</strong>
+		</a>
+		<div class="actions">
+			<span class="privacy">Stored and executed in this browser</span>
+			<button class="secondary" type="button" data-save>Save</button>
+			<button class="secondary" type="button" data-revert>Revert</button>
+			<button class="stop" type="button" data-stop hidden>Stop</button>
+			<button class="run" type="button" data-run>
+				<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 3.8 9.5 6.2L6 16.2V3.8Z" /></svg>
+				Run
+			</button>
+		</div>
+	</header>
+
+	<section class="workspace">
+		<aside class="sidebar">
+			<div class="workspace-picker">
+				<label for="workspace-select">Workspace</label>
+				<div class="workspace-controls">
+					<select id="workspace-select" data-workspace-select aria-label="Active workspace"></select>
+					<button type="button" data-new-workspace title="New workspace" aria-label="New workspace">
+						<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
+					</button>
+					<button type="button" data-rename-workspace title="Rename workspace" aria-label="Rename workspace">
+						<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 11.5-.5 2 2-.5 7.8-7.8-1.5-1.5zM9.8 4.7l1.5 1.5" /></svg>
+					</button>
+					<button class="danger" type="button" data-delete-workspace title="Delete workspace" aria-label="Delete workspace">
+						<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 4.5h9M6 4.5v-2h4v2m1.5 0-.5 9H5l-.5-9M7 7v4m2-4v4" /></svg>
+					</button>
+				</div>
+			</div>
+			<div class="sidebar-header files-header">
+				<strong>Files</strong>
+				<div>
+					<button type="button" data-new-folder title="New folder">+ Folder</button>
+					<button type="button" data-new-file title="New .cat file">+ File</button>
+				</div>
+			</div>
+			<div class="file-tree" data-file-tree></div>
+			<div class="sidebar-actions">
+				<button type="button" data-rename>Rename</button>
+				<button class="danger" type="button" data-delete>Delete</button>
+			</div>
+			<p class="storage-note">Files are stored locally in this browser. <code>#include</code> resolves against files in the active workspace.</p>
+			<p class="storage-status" data-storage-status aria-live="polite">Local workspace ready.</p>
+		</aside>
+		<div class="pane editor-pane">
+			<div class="pane-header">
+				<div class="file-name">
+					<span class="status-dot" data-dirty-dot></span>
+					<span data-active-file>main.cat</span>
+				</div>
+				<span>Cat Assembly</span>
+			</div>
+			<div class="editor-host" data-editor></div>
+			<textarea data-source hidden>{starterProgram}</textarea>
+		</div>
+
+		<div class="pane output-pane">
+			<div class="pane-header">
+				<span>Output</span>
+				<span class="runner-status" data-status>Ready</span>
+			</div>
+			<pre data-output><span class="placeholder">Run the program to see its output.</span></pre>
+			<footer>
+				<span>.NET, CatAssembler, and CatVM load on first run.</span>
+				<span>Use Hardware Manager port 0 to halt or shut down.</span>
+			</footer>
+		</div>
+	</section>
+</main>
+
+<script>
+	import { basicSetup } from 'codemirror';
+	import { EditorState } from '@codemirror/state';
+	import { EditorView, keymap } from '@codemirror/view';
+	import { defaultKeymap, indentWithTab } from '@codemirror/commands';
+	import { HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
+	import { tags } from '@lezer/highlight';
+
+	const instructions = /^(?:nop|mov|cpy|push|pop|add|sub|mul|div|idiv|mod|imod|and|or|xor|not|shl|shr|sar|cmp|jmp|jz|je|jnz|jne|jul|jule|jug|juge|jil|jile|jig|jige|call|ret|int|in|out|syscall|iret|vmret|ksp|d8|d16|d32|dstr|dfile|res8|res16|res32)\b/i;
+	const registers = /^(?:r[0-7]|sp|ip|it|fl)\b/i;
+
+	const catAssembly = StreamLanguage.define({
+		token(stream) {
+			if (stream.eatSpace()) return null;
+			if (stream.match(/^;.*/)) return 'comment';
+			if (stream.match(/^"(?:[^"\\]|\\.)*"?/)) return 'string';
+			if (stream.match(/^'(?:[^'\\]|\\.)*'?/)) return 'string';
+			if (stream.match(/^#\w+/)) return 'meta';
+			if (stream.match(/^[.$]?[A-Za-z_]\w*(?=:)/)) return 'labelName';
+			if (stream.match(registers)) return 'variableName.special';
+			if (stream.match(/^(?:0x[\da-f]+|0b[01]+|\d+)\b/i)) return 'number';
+			if (stream.match(instructions)) return 'keyword';
+			if (stream.match(/^[.$]?[A-Za-z_]\w*/)) return 'variableName';
+			stream.next();
+			return null;
+		},
+	});
+
+	const highlightStyle = HighlightStyle.define([
+		{ tag: tags.keyword, color: '#c084fc', fontWeight: '700' },
+		{ tag: tags.meta, color: '#f472b6' },
+		{ tag: tags.labelName, color: '#38bdf8', fontWeight: '700' },
+		{ tag: tags.special(tags.variableName), color: '#fbbf24' },
+		{ tag: tags.variableName, color: '#93c5fd' },
+		{ tag: tags.number, color: '#fb923c' },
+		{ tag: tags.string, color: '#86efac' },
+		{ tag: tags.comment, color: '#64748b', fontStyle: 'italic' },
+	]);
+
+	const editorTheme = EditorView.theme({
+		'&': {
+			height: '100%',
+			backgroundColor: '#0b1019',
+			color: '#dbe7f5',
+		},
+		'.cm-scroller': {
+			overflow: 'auto',
+			fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+			fontSize: '14px',
+			fontVariantLigatures: 'none',
+			lineHeight: '22px',
+		},
+		'.cm-content': {
+			minHeight: '100%',
+			padding: '16px 0',
+			caretColor: '#7dd3fc',
+		},
+		'.cm-line': {
+			padding: '0 12px',
+		},
+		'.cm-gutters': {
+			borderRight: '1px solid #1d2939',
+			backgroundColor: '#080c13',
+			color: '#526176',
+		},
+		'.cm-gutterElement': {
+			padding: '0 10px 0 8px',
+		},
+		'.cm-activeLine, .cm-activeLineGutter': {
+			backgroundColor: '#111a28',
+		},
+		'&.cm-focused': {
+			outline: 'none',
+		},
+		'&.cm-focused .cm-cursor': {
+			borderLeftColor: '#7dd3fc',
+			borderLeftWidth: '2px',
+		},
+		'&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
+			backgroundColor: '#1e4d6d !important',
+		},
+	});
+
+	const workerUrl = `${import.meta.env.BASE_URL}playground-runtime/playground.worker.js`;
+	const storageKey = 'catmachine.playground.workspace.v1';
+	type Project = {
+		id: string;
+		name: string;
+		files: Record<string, string>;
+		folders: string[];
+		activeFile: string;
+	};
+	type Workspace = { version: 1; projects: Project[]; activeProjectId: string };
+	type Selection = { type: 'folder' | 'file'; path: string };
+	const root = document.querySelector<HTMLElement>('[data-playground]');
+
+	if (root) {
+		const source = root.querySelector<HTMLTextAreaElement>('[data-source]')!;
+		const runButton = root.querySelector<HTMLButtonElement>('[data-run]')!;
+		const stopButton = root.querySelector<HTMLButtonElement>('[data-stop]')!;
+		const saveButton = root.querySelector<HTMLButtonElement>('[data-save]')!;
+		const revertButton = root.querySelector<HTMLButtonElement>('[data-revert]')!;
+		const output = root.querySelector<HTMLElement>('[data-output]')!;
+		const status = root.querySelector<HTMLElement>('[data-status]')!;
+		const storageStatus = root.querySelector<HTMLElement>('[data-storage-status]')!;
+		const workspaceSelect = root.querySelector<HTMLSelectElement>('[data-workspace-select]')!;
+		const fileTree = root.querySelector<HTMLElement>('[data-file-tree]')!;
+		const activeFileLabel = root.querySelector<HTMLElement>('[data-active-file]')!;
+		const dirtyDot = root.querySelector<HTMLElement>('[data-dirty-dot]')!;
+		const starterProgram = source.value;
+		const queryProgram = new URLSearchParams(window.location.search).get('code');
+		let transferredProgram: string | null = null;
+		try {
+			transferredProgram = sessionStorage.getItem('catmachine.playground.source');
+			sessionStorage.removeItem('catmachine.playground.source');
+		}
+		catch {
+			// The query-string fallback is used when browser storage is unavailable.
+		}
+		const initialProgram = queryProgram ?? transferredProgram;
+		let worker: Worker | undefined;
+		let requestId = 0;
+		let running = false;
+		let streamedOutput = '';
+		let dirty = false;
+		let replacingDocument = false;
+		let selection: Selection = { type: 'file', path: 'main.cat' };
+		const collapsedFolders = new Set<string>();
+
+		const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+		const normalizePath = (input: string) => {
+			const path = input.replaceAll('\\', '/').replace(/^\/+|\/+$/g, '');
+			const segments = path.split('/');
+			if (!path || segments.some((part) => !part || part === '.' || part === '..')) return null;
+			return segments.join('/');
+		};
+		const defaultProject = (program: string, name = 'My Workspace'): Project => ({
+			id: makeId(),
+			name,
+			files: { 'main.cat': program },
+			folders: [],
+			activeFile: 'main.cat',
+		});
+		const setStorageMessage = (message: string, isError = false) => {
+			storageStatus.textContent = message;
+			storageStatus.classList.toggle('error', isError);
+		};
+		const validProject = (value: unknown): value is Project => {
+			if (!value || typeof value !== 'object') return false;
+			const item = value as Partial<Project>;
+			const filePaths = item.files && typeof item.files === 'object' ? Object.keys(item.files) : [];
+			const folderPaths = Array.isArray(item.folders) ? item.folders : [];
+			return typeof item.id === 'string' && typeof item.name === 'string'
+				&& !!item.files && typeof item.files === 'object'
+				&& filePaths.length > 0
+				&& filePaths.every((path) => normalizePath(path) === path && path.toLowerCase().endsWith('.cat'))
+				&& Object.values(item.files).every((text) => typeof text === 'string')
+				&& Array.isArray(item.folders) && folderPaths.every((path) => typeof path === 'string' && normalizePath(path) === path)
+				&& new Set(folderPaths).size === folderPaths.length
+				&& !folderPaths.some((path) => filePaths.includes(path))
+				&& typeof item.activeFile === 'string' && typeof item.files[item.activeFile] === 'string';
+		};
+		let workspace: Workspace;
+		let hadStoredWorkspace = false;
+		let loadError: string | null = null;
+		try {
+			const stored = localStorage.getItem(storageKey);
+			if (stored) {
+				const parsed = JSON.parse(stored) as Partial<Workspace>;
+				if (parsed.version !== 1 || !Array.isArray(parsed.projects) || !parsed.projects.length
+					|| !parsed.projects.every(validProject)
+					|| !parsed.projects.some((project) => project.id === parsed.activeProjectId)) {
+					throw new Error('The saved workspace has an invalid format.');
+				}
+				workspace = parsed as Workspace;
+				hadStoredWorkspace = true;
+			} else {
+				const project = defaultProject(initialProgram ?? starterProgram);
+				workspace = { version: 1, projects: [project], activeProjectId: project.id };
+			}
+		} catch (error) {
+			const project = defaultProject(initialProgram ?? starterProgram);
+			workspace = { version: 1, projects: [project], activeProjectId: project.id };
+			loadError = error instanceof Error ? error.message : String(error);
+		}
+		if (hadStoredWorkspace && initialProgram !== null) {
+			const existingNames = new Set(workspace.projects.map((project) => project.name));
+			let name = 'Imported Example';
+			for (let suffix = 2; existingNames.has(name); suffix++) name = `Imported Example ${suffix}`;
+			const imported = defaultProject(initialProgram, name);
+			workspace.projects.push(imported);
+			workspace.activeProjectId = imported.id;
+		}
+		const activeProject = () => workspace.projects.find((project) => project.id === workspace.activeProjectId)!;
+		const persist = (successMessage = 'Workspace saved locally.') => {
+			try {
+				localStorage.setItem(storageKey, JSON.stringify(workspace));
+				setStorageMessage(successMessage);
+				return true;
+			} catch (error) {
+				setStorageMessage(`Local save failed: ${error instanceof Error ? error.message : String(error)}`, true);
+				return false;
+			}
+		};
+		if (!hadStoredWorkspace || initialProgram !== null) {
+			const persisted = persist(initialProgram !== null && hadStoredWorkspace ? 'Imported example saved locally.' : 'Local workspace ready.');
+			if (persisted && loadError) setStorageMessage(`Could not load local workspace: ${loadError} Started a new workspace instead.`, true);
+		}
+
+		const folderPaths = (project: Project) => {
+			const folders = new Set(project.folders);
+			for (const path of Object.keys(project.files)) {
+				const parts = path.split('/');
+				for (let index = 1; index < parts.length; index++) folders.add(parts.slice(0, index).join('/'));
+			}
+			return folders;
+		};
+		const pathAvailable = (project: Project, path: string, ignoredPrefix?: string) => {
+			const occupied = [...Object.keys(project.files), ...folderPaths(project)]
+				.filter((item) => !ignoredPrefix || (item !== ignoredPrefix && !item.startsWith(`${ignoredPrefix}/`)));
+			return !occupied.some((item) => item === path || item.startsWith(`${path}/`) || path.startsWith(`${item}/`) && item in project.files);
+		};
+
+		const editor = new EditorView({
+			parent: root.querySelector<HTMLElement>('[data-editor]')!,
+			state: EditorState.create({
+				doc: activeProject().files[activeProject().activeFile],
+				extensions: [
+					basicSetup,
+					keymap.of([{ key: 'Mod-s', preventDefault: true, run: () => { saveCurrent(); return true; } }, ...defaultKeymap, indentWithTab]),
+					catAssembly,
+					syntaxHighlighting(highlightStyle),
+					editorTheme,
+					EditorView.updateListener.of((update) => {
+						if (update.docChanged && !replacingDocument) {
+							dirty = true;
+							renderHeading();
+						}
+					}),
+					EditorView.contentAttributes.of({
+						'aria-label': 'Cat Assembly source code',
+						'autocapitalize': 'off',
+						'autocomplete': 'off',
+						'spellcheck': 'false',
+					}),
+				],
+			}),
+		});
+
+		function renderHeading() {
+			activeFileLabel.textContent = activeProject().activeFile;
+			dirtyDot.classList.toggle('dirty', dirty);
+			activeFileLabel.title = `${activeProject().name}/${activeProject().activeFile}${dirty ? ' (unsaved)' : ''}`;
+		}
+		function replaceDocument(text: string) {
+			replacingDocument = true;
+			editor.dispatch({
+				changes: { from: 0, to: editor.state.doc.length, insert: text },
+				selection: { anchor: 0 },
+				scrollIntoView: true,
+			});
+			replacingDocument = false;
+			dirty = false;
+			renderHeading();
+		}
+		function guardDirty() {
+			return !dirty || confirm(`Discard unsaved changes to ${activeProject().activeFile}?`);
+		}
+		function saveCurrent() {
+			activeProject().files[activeProject().activeFile] = editor.state.doc.toString();
+			if (persist()) dirty = false;
+			renderHeading();
+		}
+		function switchProject(id: string) {
+			if (id === workspace.activeProjectId) return true;
+			if (!guardDirty()) return false;
+			workspace.activeProjectId = id;
+			selection = { type: 'file', path: activeProject().activeFile };
+			replaceDocument(activeProject().files[activeProject().activeFile]);
+			persist('Active workspace saved.');
+			renderWorkspace();
+			return true;
+		}
+		function openFile(path: string) {
+			const project = activeProject();
+			if (path === project.activeFile) {
+				selection = { type: 'file', path };
+				renderWorkspace();
+				return;
+			}
+			if (!guardDirty()) return;
+			project.activeFile = path;
+			selection = { type: 'file', path };
+			replaceDocument(project.files[path]);
+			persist('Active file saved.');
+			renderWorkspace();
+			editor.focus();
+		}
+		function renderWorkspace() {
+			workspaceSelect.replaceChildren(...workspace.projects.map((project) => {
+				const option = document.createElement('option');
+				option.value = project.id;
+				option.textContent = project.name;
+				option.selected = project.id === workspace.activeProjectId;
+				return option;
+			}));
+			const project = activeProject();
+			type Node = { folders: Map<string, Node>; files: string[]; path: string };
+			const tree: Node = { folders: new Map(), files: [], path: '' };
+			const ensureFolder = (path: string) => {
+				let node = tree;
+				let current = '';
+				for (const part of path.split('/')) {
+					current = current ? `${current}/${part}` : part;
+					if (!node.folders.has(part)) node.folders.set(part, { folders: new Map(), files: [], path: current });
+					node = node.folders.get(part)!;
+				}
+			};
+			for (const folder of folderPaths(project)) ensureFolder(folder);
+			for (const path of Object.keys(project.files)) {
+				const parts = path.split('/');
+				const name = parts.pop()!;
+				let node = tree;
+				for (const part of parts) node = node.folders.get(part)!;
+				node.files.push(name);
+			}
+			const renderNode = (node: Node): HTMLUListElement => {
+				const list = document.createElement('ul');
+				for (const [name, child] of [...node.folders].sort(([a], [b]) => a.localeCompare(b))) {
+					const item = document.createElement('li');
+					const button = document.createElement('button');
+					button.type = 'button';
+					const collapsed = collapsedFolders.has(`${project.id}:${child.path}`);
+					button.className = `tree-row folder-row${selection.type === 'folder' && selection.path === child.path ? ' selected' : ''}`;
+					button.innerHTML = `<svg class="chevron${collapsed ? '' : ' expanded'}" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg><svg class="tree-icon folder-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5h5l1.2 1.5h6.8v7.5h-13z" /></svg><span></span>`;
+					button.lastElementChild!.textContent = name;
+					button.title = child.path;
+					button.addEventListener('click', () => {
+						selection = { type: 'folder', path: child.path };
+						const key = `${project.id}:${child.path}`;
+						if (collapsedFolders.has(key)) collapsedFolders.delete(key);
+						else collapsedFolders.add(key);
+						renderWorkspace();
+					});
+					item.append(button);
+					if (!collapsed) item.append(renderNode(child));
+					list.append(item);
+				}
+				for (const name of node.files.sort((a, b) => a.localeCompare(b))) {
+					const path = node.path ? `${node.path}/${name}` : name;
+					const item = document.createElement('li');
+					const button = document.createElement('button');
+					button.type = 'button';
+					button.className = `tree-row file-row${project.activeFile === path ? ' active' : ''}${selection.type === 'file' && selection.path === path ? ' selected' : ''}`;
+					button.innerHTML = `<span class="chevron-spacer"></span><svg class="tree-icon file-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.5h6l4 4v9H3z"/><path d="M9 1.5v4h4"/></svg><span></span>`;
+					button.lastElementChild!.textContent = name;
+					button.title = path;
+					button.addEventListener('click', () => openFile(path));
+					item.append(button);
+					list.append(item);
+				}
+				return list;
+			};
+			fileTree.replaceChildren(renderNode(tree));
+			renderHeading();
+		}
+
+		function setRunning(value: boolean) {
+			running = value;
+			runButton.disabled = value;
+			revertButton.disabled = value;
+			stopButton.hidden = !value;
+		}
+
+		function setOutput(text: string, isError = false) {
+			output.textContent = text || '(Program produced no output)';
+			output.classList.toggle('error', isError);
+		}
+
+		function createWorker() {
+			const nextWorker = new Worker(workerUrl, { type: 'module' });
+			nextWorker.addEventListener('message', (event) => {
+				if (event.data?.type === 'status') {
+					status.textContent = event.data.status === 'loading' ? 'Loading .NET…' : 'Running…';
+					return;
+				}
+
+				if (event.data?.id !== requestId) return;
+
+				if (event.data.type === 'output') {
+					streamedOutput += event.data.output;
+					setOutput(streamedOutput);
+					return;
+				}
+
+				setRunning(false);
+
+				if (event.data.type === 'error') {
+					status.textContent = 'Runner error';
+					setOutput(event.data.message, true);
+					return;
+				}
+
+				const result = event.data.result;
+				const details = result.Message ? `\n\n${result.Message}` : '';
+				setOutput(`${streamedOutput}${details}`.trim(), !result.Success);
+				status.textContent = result.Success
+					? `${result.Instructions.toLocaleString()} instructions`
+					: 'Failed';
+			});
+			nextWorker.addEventListener('error', (event) => {
+				if (!running) return;
+				nextWorker.terminate();
+				if (worker === nextWorker) {
+					worker = undefined;
+				}
+				setRunning(false);
+				status.textContent = 'Runner error';
+				setOutput(event.message || 'The playground worker failed to start.', true);
+			});
+			return nextWorker;
+		}
+
+		runButton.addEventListener('click', () => {
+			requestId++;
+			setRunning(true);
+			streamedOutput = '';
+			status.textContent = worker ? 'Running…' : 'Loading .NET…';
+			setOutput('Preparing the browser runner…');
+			worker ??= createWorker();
+			worker.postMessage({
+				type: 'run',
+				id: requestId,
+				entryFile: activeProject().activeFile,
+				files: { ...activeProject().files, [activeProject().activeFile]: editor.state.doc.toString() },
+			});
+		});
+
+		stopButton.addEventListener('click', () => {
+			requestId++;
+			worker?.terminate();
+			worker = undefined;
+			setRunning(false);
+			status.textContent = 'Stopped';
+			setOutput(`${streamedOutput}\n\nExecution stopped by user.`.trim());
+		});
+
+		saveButton.addEventListener('click', saveCurrent);
+		revertButton.addEventListener('click', () => {
+			if (dirty && !confirm(`Revert unsaved changes to ${activeProject().activeFile}?`)) return;
+			replaceDocument(activeProject().files[activeProject().activeFile]);
+			editor.focus();
+			status.textContent = 'Ready';
+			setOutput('Run the program to see its output.');
+		});
+		workspaceSelect.addEventListener('change', () => {
+			if (!switchProject(workspaceSelect.value)) workspaceSelect.value = workspace.activeProjectId;
+		});
+		root.querySelector<HTMLButtonElement>('[data-new-workspace]')!.addEventListener('click', () => {
+			if (!guardDirty()) return;
+			const value = prompt('Workspace name:', 'New Workspace')?.trim();
+			if (!value) return;
+			const project = defaultProject(starterProgram, value);
+			workspace.projects.push(project);
+			workspace.activeProjectId = project.id;
+			selection = { type: 'file', path: project.activeFile };
+			replaceDocument(project.files[project.activeFile]);
+			persist('Workspace created locally.');
+			renderWorkspace();
+		});
+		root.querySelector<HTMLButtonElement>('[data-rename-workspace]')!.addEventListener('click', () => {
+			const project = activeProject();
+			const name = prompt('Workspace name:', project.name)?.trim();
+			if (!name || name === project.name) return;
+			project.name = name;
+			persist('Workspace renamed locally.');
+			renderWorkspace();
+		});
+		root.querySelector<HTMLButtonElement>('[data-delete-workspace]')!.addEventListener('click', () => {
+			const project = activeProject();
+			if (workspace.projects.length === 1) return void setStorageMessage('The final workspace cannot be deleted.', true);
+			if (!guardDirty() || !confirm(`Delete workspace "${project.name}" and all its files?`)) return;
+			workspace.projects = workspace.projects.filter((item) => item.id !== project.id);
+			workspace.activeProjectId = workspace.projects[0].id;
+			selection = { type: 'file', path: activeProject().activeFile };
+			replaceDocument(activeProject().files[activeProject().activeFile]);
+			persist('Workspace deleted locally.');
+			renderWorkspace();
+		});
+		root.querySelector<HTMLButtonElement>('[data-new-folder]')!.addEventListener('click', () => {
+			const path = normalizePath(prompt('Folder path (nested paths are accepted):') ?? '');
+			if (!path) return void setStorageMessage('Invalid path. Empty, "." and ".." segments are not allowed.', true);
+			const project = activeProject();
+			if (!pathAvailable(project, path)) return void setStorageMessage('That path already exists or conflicts with a file.', true);
+			project.folders.push(path);
+			selection = { type: 'folder', path };
+			persist('Folder created locally.');
+			renderWorkspace();
+		});
+		root.querySelector<HTMLButtonElement>('[data-new-file]')!.addEventListener('click', () => {
+			const path = normalizePath(prompt('New .cat file path (nested paths are accepted):', 'new.cat') ?? '');
+			if (!path) return void setStorageMessage('Invalid path. Empty, "." and ".." segments are not allowed.', true);
+			if (!path.toLowerCase().endsWith('.cat')) return void setStorageMessage('File names must end in .cat.', true);
+			const project = activeProject();
+			if (!pathAvailable(project, path)) return void setStorageMessage('That path already exists or conflicts with another path.', true);
+			if (!guardDirty()) return;
+			project.files[path] = '';
+			project.activeFile = path;
+			selection = { type: 'file', path };
+			replaceDocument('');
+			persist('File created locally.');
+			renderWorkspace();
+			editor.focus();
+		});
+		root.querySelector<HTMLButtonElement>('[data-delete]')!.addEventListener('click', () => {
+			const project = activeProject();
+			let reloadEditor = false;
+			const path = selection.path;
+			const affected = selection.type === 'file' ? [path] : Object.keys(project.files).filter((file) => file.startsWith(`${path}/`));
+			if (Object.keys(project.files).length - affected.length < 1) return void setStorageMessage('A workspace must keep at least one file.', true);
+			if (affected.includes(project.activeFile) && !guardDirty()) return;
+			if (!confirm(`Delete ${selection.type} "${path}"${selection.type === 'folder' ? ' and its contents' : ''}?`)) return;
+			for (const file of affected) delete project.files[file];
+			if (selection.type === 'folder') project.folders = project.folders.filter((folder) => folder !== path && !folder.startsWith(`${path}/`));
+			if (!project.files[project.activeFile]) {
+				project.activeFile = Object.keys(project.files).sort()[0];
+				reloadEditor = true;
+			}
+			selection = { type: 'file', path: project.activeFile };
+			if (reloadEditor) replaceDocument(activeProject().files[activeProject().activeFile]);
+			persist('Deletion saved locally.');
+			renderWorkspace();
+		});
+		root.querySelector<HTMLButtonElement>('[data-rename]')!.addEventListener('click', () => {
+			const project = activeProject();
+			const oldPath = selection.path;
+			const nextPath = normalizePath(prompt(`Rename ${selection.type}:`, oldPath) ?? '');
+			if (!nextPath || nextPath === oldPath) return;
+			if (selection.type === 'file' && !nextPath.toLowerCase().endsWith('.cat')) return void setStorageMessage('File names must end in .cat.', true);
+			if (selection.type === 'folder' && nextPath.startsWith(`${oldPath}/`)) return void setStorageMessage('A folder cannot be moved inside itself.', true);
+			if (!pathAvailable(project, nextPath, oldPath)) return void setStorageMessage('That path already exists or conflicts with another path.', true);
+			const activeAffected = selection.type === 'file' && oldPath === project.activeFile
+				|| selection.type === 'folder' && project.activeFile.startsWith(`${oldPath}/`);
+			if (activeAffected && !guardDirty()) return;
+			const renamedFiles: Record<string, string> = {};
+			for (const [path, text] of Object.entries(project.files)) {
+				const renamed = path === oldPath || path.startsWith(`${oldPath}/`) ? `${nextPath}${path.slice(oldPath.length)}` : path;
+				renamedFiles[renamed] = text;
+			}
+			project.files = renamedFiles;
+			project.folders = project.folders.map((path) => path === oldPath || path.startsWith(`${oldPath}/`) ? `${nextPath}${path.slice(oldPath.length)}` : path);
+			if (project.activeFile === oldPath || project.activeFile.startsWith(`${oldPath}/`)) project.activeFile = `${nextPath}${project.activeFile.slice(oldPath.length)}`;
+			selection = { type: selection.type, path: nextPath };
+			if (activeAffected) replaceDocument(project.files[project.activeFile]);
+			persist('Rename saved locally.');
+			renderWorkspace();
+		});
+		renderWorkspace();
+	}
+</script>
+
+<style>
+	.playground,
+	.playground * {
+		box-sizing: border-box;
+	}
+
+	.playground {
+		display: grid;
+		height: 100dvh;
+		min-height: 32rem;
+		grid-template-rows: 3.75rem minmax(0, 1fr);
+		color: #dbe7f5;
+		background: #080c13;
+	}
+
+	.topbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 1rem;
+		border-bottom: 1px solid #1d2939;
+		background: #0d131d;
+	}
+
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+		color: #f8fafc;
+		text-decoration: none;
+		font-size: 0.9rem;
+		font-weight: 700;
+	}
+
+	.brand img {
+		width: 1.9rem;
+		height: 1.9rem;
+	}
+
+	.brand strong {
+		padding: 0.2rem 0.5rem;
+		border: 1px solid #334155;
+		border-radius: 999px;
+		color: #7dd3fc;
+		font-size: 0.7rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.privacy {
+		margin-right: 0.5rem;
+		color: #718096;
+		font-size: 0.75rem;
+	}
+
+	button {
+		display: inline-flex;
+		height: 2.25rem;
+		align-items: center;
+		justify-content: center;
+		gap: 0.35rem;
+		padding: 0 0.8rem;
+		border: 1px solid #334155;
+		border-radius: 0.4rem;
+		color: #dbe7f5;
+		background: #151e2c;
+		font: inherit;
+		font-size: 0.8rem;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	button[hidden] {
+		display: none;
+	}
+
+	button:hover:not(:disabled) {
+		border-color: #64748b;
+		background: #1d2939;
+	}
+
+	button:focus-visible,
+	.brand:focus-visible {
+		outline: 2px solid #38bdf8;
+		outline-offset: 2px;
+	}
+
+	button:disabled {
+		cursor: wait;
+		opacity: 0.55;
+	}
+
+	button.run {
+		border-color: #38bdf8;
+		color: #041018;
+		background: #38bdf8;
+	}
+
+	button.run:hover:not(:disabled) {
+		background: #7dd3fc;
+	}
+
+	button.run svg {
+		width: 0.9rem;
+		fill: currentColor;
+	}
+
+	button.stop {
+		border-color: #ef4444;
+		color: #fecaca;
+		background: #3b1318;
+	}
+
+	.workspace {
+		display: grid;
+		min-height: 0;
+		grid-template-columns: 16.5rem minmax(0, 3fr) minmax(20rem, 2fr);
+	}
+
+	.sidebar {
+		display: grid;
+		min-width: 0;
+		min-height: 0;
+		grid-template-rows: auto auto minmax(6rem, 1fr) auto auto auto;
+		border-right: 1px solid #1d2939;
+		background: #0a0f17;
+	}
+
+	.workspace-picker {
+		padding: 0.75rem 0.65rem;
+		border-bottom: 1px solid #1d2939;
+		background: #0d131d;
+	}
+
+	.workspace-picker label {
+		display: block;
+		margin-bottom: 0.45rem;
+		color: #94a3b8;
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	.workspace-controls {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) repeat(3, 1.8rem);
+		gap: 0.3rem;
+	}
+
+	.workspace-controls select {
+		width: 100%;
+		min-width: 0;
+		height: 1.9rem;
+		padding: 0 1.8rem 0 0.55rem;
+		border: 1px solid #334155;
+		border-radius: 0.3rem;
+		color: #e2e8f0;
+		background: #111a27;
+		font: inherit;
+		font-size: 0.75rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.workspace-controls select:focus-visible {
+		outline: 2px solid #38bdf8;
+		outline-offset: 1px;
+	}
+
+	.workspace-controls button {
+		width: 1.8rem;
+		padding: 0;
+	}
+
+	.workspace-controls button svg {
+		width: 0.9rem;
+		height: 0.9rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		stroke-width: 1.4;
+	}
+
+	.sidebar-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.35rem;
+		padding: 0.55rem 0.65rem;
+		border-bottom: 1px solid #1d2939;
+		color: #94a3b8;
+		font-size: 0.68rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	.sidebar-header > div,
+	.sidebar-actions {
+		display: flex;
+		gap: 0.3rem;
+	}
+
+	.sidebar button {
+		height: 1.8rem;
+		padding: 0 0.45rem;
+		font-size: 0.68rem;
+	}
+
+	.file-tree {
+		min-height: 0;
+		padding: 0.35rem 0.25rem;
+		overflow: auto;
+	}
+
+	.file-tree :global(ul) {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.file-tree :global(ul ul) {
+		margin-left: 0.7rem;
+		padding-left: 0.55rem;
+		border-left: 1px solid #1e293b;
+	}
+
+	.file-tree :global(li) {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.file-tree :global(.tree-row) {
+		display: flex;
+		width: 100%;
+		height: 1.75rem;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 0.35rem;
+		padding: 0 0.4rem;
+		border: 0;
+		border-radius: 0.25rem;
+		color: #aebdce;
+		background: transparent;
+		font-size: 0.75rem;
+		font-weight: 500;
+		text-align: left;
+	}
+
+	.file-tree :global(.tree-row:hover) {
+		color: #e2e8f0;
+		background: #121c2a;
+	}
+
+	.file-tree :global(.tree-row.active) {
+		color: #d7f1ff;
+	}
+
+	.file-tree :global(.tree-row.selected) {
+		color: #e0f2fe;
+		background: #12304a;
+	}
+
+	.file-tree :global(.tree-row:focus-visible) {
+		outline: 1px solid #38bdf8;
+		outline-offset: -1px;
+	}
+
+	.file-tree :global(.tree-row span:last-child) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.file-tree :global(.chevron),
+	.file-tree :global(.chevron-spacer) {
+		width: 0.7rem;
+		min-width: 0.7rem;
+		height: 0.7rem;
+	}
+
+	.file-tree :global(.chevron) {
+		fill: none;
+		stroke: #64748b;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		stroke-width: 1.8;
+		transition: transform 120ms ease;
+	}
+
+	.file-tree :global(.chevron.expanded) {
+		transform: rotate(90deg);
+	}
+
+	.file-tree :global(.tree-icon) {
+		width: 0.9rem;
+		min-width: 0.9rem;
+		height: 0.9rem;
+	}
+
+	.file-tree :global(.folder-icon) {
+		fill: #d5a849;
+	}
+
+	.file-tree :global(.file-icon) {
+		fill: #26384c;
+		stroke: #8aa2bc;
+		stroke-linejoin: round;
+		stroke-width: 1;
+	}
+
+	.sidebar-actions {
+		padding: 0.45rem 0.65rem;
+		border-top: 1px solid #1d2939;
+	}
+
+	button.danger {
+		color: #fca5a5;
+	}
+
+	.storage-note,
+	.storage-status {
+		margin: 0;
+		padding: 0.5rem 0.65rem;
+		color: #64748b;
+		font-size: 0.65rem;
+		line-height: 1.4;
+	}
+
+	.storage-note code {
+		color: #94a3b8;
+	}
+
+	.storage-status {
+		border-top: 1px solid #1d2939;
+		color: #86efac;
+	}
+
+	.storage-status.error {
+		color: #fca5a5;
+	}
+
+	.pane {
+		display: grid;
+		min-width: 0;
+		min-height: 0;
+		grid-template-rows: 2.5rem minmax(0, 1fr);
+	}
+
+	.editor-pane {
+		border-right: 1px solid #1d2939;
+	}
+
+	.pane-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 0.85rem;
+		border-bottom: 1px solid #1d2939;
+		color: #718096;
+		background: #0d131d;
+		font-size: 0.72rem;
+		font-weight: 650;
+		letter-spacing: 0.035em;
+		text-transform: uppercase;
+	}
+
+	.file-name {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: #cbd5e1;
+		letter-spacing: normal;
+		text-transform: none;
+	}
+
+	.status-dot {
+		width: 0.45rem;
+		height: 0.45rem;
+		border-radius: 50%;
+		background: #64748b;
+	}
+
+	.status-dot.dirty {
+		background: #fbbf24;
+		box-shadow: 0 0 0.6rem #fbbf2480;
+	}
+
+	.editor-host {
+		min-height: 0;
+		overflow: hidden;
+		background: #0b1019;
+	}
+
+	.output-pane {
+		grid-template-rows: 2.5rem minmax(0, 1fr) auto;
+		background: #080c13;
+	}
+
+	.runner-status {
+		color: #7dd3fc;
+		letter-spacing: normal;
+		text-transform: none;
+	}
+
+	pre {
+		min-height: 0;
+		margin: 0;
+		padding: 1rem;
+		overflow: auto;
+		color: #dbe7f5;
+		background: transparent;
+		font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+		font-size: 0.82rem;
+		line-height: 1.6;
+		white-space: pre-wrap;
+	}
+
+	pre.error {
+		color: #fca5a5;
+	}
+
+	.placeholder {
+		color: #526176;
+	}
+
+	footer {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.65rem 0.85rem;
+		border-top: 1px solid #1d2939;
+		color: #526176;
+		font-size: 0.68rem;
+	}
+
+	@media (max-width: 52rem) {
+		.playground {
+			height: auto;
+			min-height: 100dvh;
+		}
+
+		.workspace {
+			grid-template-columns: 1fr;
+			grid-template-rows: minmax(14rem, auto) minmax(30rem, 62dvh) minmax(18rem, 38dvh);
+		}
+
+		.sidebar {
+			max-height: 42dvh;
+			border-right: 0;
+			border-bottom: 1px solid #1d2939;
+			grid-template-columns: 1fr;
+		}
+
+		.editor-pane {
+			border-right: 0;
+			border-bottom: 1px solid #1d2939;
+		}
+
+		.privacy {
+			display: none;
+		}
+	}
+
+	@media (max-width: 34rem) {
+		.topbar {
+			padding: 0 0.65rem;
+		}
+
+		.brand span,
+		.brand strong,
+		footer span:last-child {
+			display: none;
+		}
+
+		button {
+			padding: 0 0.65rem;
+		}
+	}
+</style>

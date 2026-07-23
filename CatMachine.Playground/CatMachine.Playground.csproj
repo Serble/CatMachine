@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\CatAssembler\Analysis\**\*.cs" Link="CatAssembler\Analysis\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\CatAssembler\Assembler\**\*.cs" Link="CatAssembler\Assembler\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\CatAssembler\Exceptions\**\*.cs" Link="CatAssembler\Exceptions\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\CatAssembler\Parser\**\*.cs" Link="CatAssembler\Parser\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\CatAssembler\Spec.cs" Link="CatAssembler\Spec.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CatData\CatData.csproj" />
+    <ProjectReference Include="..\CatVM\CatVM.csproj" />
+    <ProjectReference Include="..\Hardware\HardwareManagerDevice\HardwareManagerDevice.csproj" />
+    <ProjectReference Include="..\IntegerMaths\IntegerMaths.csproj" />
+  </ItemGroup>
+</Project>

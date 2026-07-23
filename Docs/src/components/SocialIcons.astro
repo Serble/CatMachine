@@ -1,0 +1,46 @@
+---
+import config from 'virtual:starlight/user-config';
+import { Icon } from '@astrojs/starlight/components';
+
+const playgroundHref = `${import.meta.env.BASE_URL}playground/`;
+const links = config.social || [];
+---
+
+{
+	links.map(({ label, href, icon }) => (
+		<a href={href} rel="me" class="header-icon">
+			<span class="sr-only">{label}</span>
+			<Icon name={icon} />
+		</a>
+	))
+}
+<a href={playgroundHref} class="header-icon" aria-label="Assembly Playground">
+	<svg viewBox="0 0 24 24" aria-hidden="true">
+		<path d="m8.7 16.6-4.6-4.6 4.6-4.6 1.4 1.4L6.9 12l3.2 3.2-1.4 1.4Zm6.6 0-1.4-1.4 3.2-3.2-3.2-3.2 1.4-1.4 4.6 4.6-4.6 4.6Z" />
+	</svg>
+</a>
+
+<style>
+	@layer starlight.core {
+		.header-icon {
+			display: inline-flex;
+			width: 2rem;
+			height: 2rem;
+			align-items: center;
+			justify-content: center;
+			margin: -0.5rem;
+			padding: 0.5rem;
+			color: var(--sl-color-text-accent);
+		}
+
+		.header-icon:hover {
+			color: var(--sl-color-white);
+		}
+
+		svg {
+			width: 1.25rem;
+			height: 1.25rem;
+			fill: currentColor;
+		}
+	}
+</style>
