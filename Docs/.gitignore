@@ -6,6 +6,7 @@ dist/
 # dependencies
 node_modules/
 .playground-publish/
+.dotnet/
 public/playground-runtime/_framework/
 
 # logs
