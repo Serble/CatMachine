@@ -3,12 +3,12 @@ title: Cat Assembly Reference
 slug: assembly/catasm-reference
 ---
 
-The Cat assembler (`CatAssembler`) takes one or more `.cat` source files and emits a flat ROM binary alongside an optional debug-symbol file. Source is line-oriented and case-insensitive for mnemonics and register names.
+The Cat assembler (`catasm`) takes one or more `.cat` source files and emits a flat ROM binary alongside an optional debug-symbol file. Source is line-oriented and case-insensitive for mnemonics and register names.
 
 Invocation:
 
 ```sh
-CatAssembler <input.cat> [-o output.bin]
+catasm <input.cat> [-o output.bin]
 ```
 
 The assembler always writes a sibling `<output>.debug` file containing JSON debug symbols (see [Debug Symbols](#debug-symbols) below). The reference VM picks these up automatically when launched with `--debug`.
@@ -251,6 +251,6 @@ Whenever the assembler produces an output file it also writes a sibling `<output
 - `Symbols` records, for every assembled instruction, the byte offset in the output (`FilePos`), the original source line number, and the un-tokenised text of the line that produced it.
 - `Labels` is a flat map from label name to its assembled address. It contains both global and local labels (with their fully-qualified names).
 
-The file is JSON for ease of consumption by external tooling. The reference VM loads it automatically when launched as `CatVM <rom> --debug`, enabling source-line lookup, symbolic breakpoints (`break symbol main`, `break line 42`), and stack traces that show function names instead of bare addresses.
+The file is JSON for ease of consumption by external tooling. The reference VM loads it automatically when launched as `catlaunch debug --rom <rom>`, enabling source-line lookup, symbolic breakpoints (`break symbol main`, `break line 42`), and stack traces that show function names instead of bare addresses.
 
 The same record types live in the `CatData` project so that any other tool (Catnip compiler, future debuggers, IDE plugins) can produce or consume `.debug` files without depending on the assembler.

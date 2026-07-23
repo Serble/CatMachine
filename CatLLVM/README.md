@@ -6,8 +6,8 @@ An LLVM-IR → CatVM compiler. Reads a `.ll` text file (e.g. produced by
 ```
 clang -S -emit-llvm --target=... source.c    # source.ll
 dotnet run --project CatLLVM -- source.ll -o source.cat
-dotnet run --project CatAssembler -- source.cat -o source.bin
-dotnet run --project CatVM -- source.bin
+catasm source.cat -o source.bin
+catlaunch run --rom source.bin
 ```
 
 ## Supported subset

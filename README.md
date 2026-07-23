@@ -12,6 +12,22 @@ You can read more about this project on the [GitHub Wiki Page](https://github.co
 
 ## Toolset
 
+### Installing CLI tools (NuGet global tools)
+
+The Catnip compiler, Cat assembler, and launcher are currently distributed as .NET global tools:
+
+```sh
+dotnet tool install --global CatMachine.Catnip.Compiler
+dotnet tool install --global CatMachine.CatAssembler
+dotnet tool install --global CatMachine.Launcher
+```
+
+After install, use:
+
+- `nipcompile` for Catnip compilation
+- `catasm` for Cat assembly
+- `catlaunch` to run/debug ROMs
+
 ### Cat VM
 The Cat VM is where you'll be running your applications.
 It simulates the architecture and provides debugging tools.
@@ -73,8 +89,8 @@ frontend (clang, rustc, etc.):
 clang -S -emit-llvm -O0 -m32 -ffreestanding -nostdlib \
       -target i386-unknown-none source.c -o source.ll
 dotnet run --project CatLLVM    -- source.ll -o source.cat
-dotnet run --project CatAssembler -- source.cat -o source.bin
-dotnet run --project CatVM      -- source.bin
+catasm source.cat -o source.bin
+catlaunch run --rom source.bin
 ```
 
 It lives in the `CatLLVM` folder. See `CatLLVM/README.md` for the supported

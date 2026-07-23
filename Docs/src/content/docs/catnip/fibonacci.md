@@ -43,8 +43,8 @@ fun main() {
 Because this tutorial uses debug interrupt `0x90`, you must pass `--test-ints`.
 
 ```sh
-./Catnip.Compiler fibonacci.nip -o fibonacci.bin
-./CatLauncher run --rom fibonacci.bin --test-ints
+nipcompile fibonacci.nip -o fibonacci.bin
+catlaunch run --rom fibonacci.bin --test-ints
 ```
 
 Expected style of output (decimal + hex per line):

@@ -2,8 +2,6 @@
 title: Hello World Tutorial
 ---
 
-# Hello World in Cat Assembly (Explained)
-
 This is the smallest useful Cat Assembly program: load a pointer to a null-terminated string into `r1`, then call interrupt `0x80` to print it.
 
 ```cat
@@ -31,8 +29,8 @@ hello_msg:
 ## Build and run (CatLauncher)
 
 ```sh
-./CatAssembler hello.cat -o hello.bin
-./CatLauncher run --rom hello.bin
+catasm hello.cat -o hello.bin
+catlaunch run --rom hello.bin
 ```
 
 Expected output:

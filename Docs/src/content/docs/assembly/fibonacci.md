@@ -44,8 +44,8 @@ halt:
 Because this tutorial uses the debug print interrupt (`0x90`), you must pass `--test-ints`.
 
 ```sh
-./CatAssembler fibonacci.cat -o fibonacci.bin
-./CatLauncher run --rom fibonacci.bin --test-ints
+catasm fibonacci.cat -o fibonacci.bin
+catlaunch run --rom fibonacci.bin --test-ints
 ```
 
 Expected style of output (decimal + hex per line):

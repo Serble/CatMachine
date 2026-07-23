@@ -3,8 +3,6 @@ title: Hello World Tutorial
 slug: catnip/hello-world
 ---
 
-# Hello World in Catnip (Explained)
-
 This is the Catnip equivalent of the Assembly hello world tutorial.  
 It uses the Catnip std library `print()` helper.
 
@@ -21,6 +19,20 @@ fun main() {
 }
 ```
 
+or you can simplify this all down to:
+```nip
+#include "std"
+
+main();
+
+fun main() {
+    // strings can be passed inline
+    print("Hello, World!\n\0");
+
+    while (1) { }
+}
+```
+
 ## How it works
 
 1. `#include "std"` imports std helpers, including `print`.
@@ -31,8 +43,8 @@ fun main() {
 ## Build and run (Catnip + CatLauncher)
 
 ```sh
-./Catnip.Compiler hello-world.nip -o hello-world.bin
-./CatLauncher run --rom hello-world.bin
+nipcompile hello-world.nip -o hello-world.bin
+catlaunch run --rom hello-world.bin
 ```
 
 Expected output:
