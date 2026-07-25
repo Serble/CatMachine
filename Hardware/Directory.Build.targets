@@ -7,7 +7,11 @@
         </PropertyGroup>
 
         <ItemGroup>
-            <FilesToCopy Include="@(RuntimeCopyLocalItems);$(TargetPath)" />
+            <!-- Managed deps, RID-specific native/runtime assets (e.g. libraylib.so),
+                 and the device assembly itself. Without the RuntimeTargets/Native
+                 items a plain library build drops the native libraries, so devices
+                 that P/Invoke (the Raylib PPU) fail to load their .so at runtime. -->
+            <FilesToCopy Include="@(RuntimeCopyLocalItems);@(RuntimeTargetsCopyLocalItems);@(NativeCopyLocalItems);$(TargetPath)" />
         </ItemGroup>
 
         <MakeDir Directories="$(HardwareFolder)" />
