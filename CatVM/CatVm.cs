@@ -339,7 +339,7 @@ public class CatVm {
     /// <param name="size">Access width in bytes — used only for the upper-bound check.</param>
     /// <returns>Physical address that should be used to index <see cref="Memory"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private uint Translate(uint addr, uint size) {
+    public uint Translate(uint addr, uint size) {
         if ((Cpu.Mode & 1u) == 0u) {
             return addr;
         }
@@ -402,6 +402,33 @@ public class CatVm {
         uint p = Translate(ptr, 4);
         ValidateMemoryRead(p, 4);
         return Unsafe.ReadUnaligned<uint>(ref Memory[p]);
+    }
+
+    /// <summary>
+    /// Write a byte to guest memory, honouring virtual-mode translation (the
+    /// mirror of <see cref="Read8(uint)"/>). Used by the memory-operand mov ops
+    /// so that guest data writes go through the MMU like instruction fetches and
+    /// stack accesses already do.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Write8(uint ptr, byte value) {
+        uint p = Translate(ptr, 1);
+        ValidateMemoryWrite(p, 1);
+        Memory[p] = value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Write16(uint ptr, ushort value) {
+        uint p = Translate(ptr, 2);
+        ValidateMemoryWrite(p, 2);
+        Unsafe.WriteUnaligned(ref Memory[p], value);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void WriteWord(uint ptr, uint value) {
+        uint p = Translate(ptr, 4);
+        ValidateMemoryWrite(p, 4);
+        Unsafe.WriteUnaligned(ref Memory[p], value);
     }
 
     /// <summary>

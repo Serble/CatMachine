@@ -42,9 +42,11 @@ public static class CpyOperation {
     }
     
     private static void Cpy(CatVm vm, uint sourceAddr, uint length) {  // dest is always in R0
-        vm.ValidateMemoryRead(sourceAddr, length);
-        vm.ValidateMemoryWrite(vm.Cpu.R0, length);
-        
-        Buffer.BlockCopy(vm.Memory, (int)sourceAddr, vm.Memory, (int)vm.Cpu.R0, (int)length);
+        uint srcPhys = vm.Translate(sourceAddr, length);
+        uint dstPhys = vm.Translate(vm.Cpu.R0, length);
+        vm.ValidateMemoryRead(srcPhys, length);
+        vm.ValidateMemoryWrite(dstPhys, length);
+
+        Buffer.BlockCopy(vm.Memory, (int)srcPhys, vm.Memory, (int)dstPhys, (int)length);
     }
 }
