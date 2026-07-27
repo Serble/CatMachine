@@ -61,7 +61,7 @@ public class VirtualNetworkCard : CommandBasedSerialDevice<VirtualNetworkCard.Mo
 
     private readonly UdpClient _transportClient;
 
-    [CommandLineConstructable("VNic")]
+    [CommandLineConstructable("Vnic")]
     public VirtualNetworkCard(CatVm vm, string ip, int listenPort = -1)
         : this(vm,
             IPEndPoint.TryParse(ip, out IPEndPoint? endpoint)

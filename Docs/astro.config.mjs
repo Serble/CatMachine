@@ -65,6 +65,9 @@ export default defineConfig({
 						{ label: 'Hardware Manager', slug: 'hardware/hardwareman' },
 						{ label: 'Raylib PPU', slug: 'hardware/raylibppu' },
 						{ label: 'Hardware Timer', slug: 'hardware/hardwaretimer' },
+						{ label: 'Disk Device', slug: 'hardware/diskdevice' },
+						{ label: 'Virtual Network Card', slug: 'hardware/vnic' },
+						{ label: 'Hello World Device', slug: 'hardware/helloworlddevice' },
 					],
 				},
 				{

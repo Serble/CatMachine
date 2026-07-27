@@ -3,6 +3,10 @@ title: Hardware Timer
 slug: hardware/hardwaretimer
 ---
 
+> Device Type: `0xB1F91A0C`  
+> CLI Name: `Timer`  
+> Callback Interrupt: `0x71`
+
 The hardware timer is designed so that programs can asyncronously schedule timers that will emit an interrupt
 upon completion. This can be used to avoid repeatedly polling `UPTMS` or for situations where this isn't possible
 like interrupting running code after a certain amount of time (which allows for task switching mechanisms).

@@ -3,7 +3,8 @@ title: Hardware Manager
 slug: hardware/hardwareman
 ---
 
-> Device Type: `0x296C4EF5`
+> Device Type: `0x296C4EF5`  
+> CLI Name: `HardwareManager`
 
 The hardware manager is the generic serial device that can describe the other serial devices added to the VM
 to the running application.
@@ -35,6 +36,7 @@ for example:
 ```cat
 #define HARDWARE_MAN_PORT, 0
 #define LIST_DEVICES, 1
+#define HALT, 2
 
 out HARDWARE_MAN_PORT, LIST_DEVICES
 
@@ -56,6 +58,7 @@ loop:
 ; done!
 ; we successfully looped through and debug printed the information for every
 ; available device.
+out HARDWARE_MAN_PORT, HALT
 ```
 
 #### Halt System
