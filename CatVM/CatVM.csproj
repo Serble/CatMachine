@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Version>1.0.0</Version>
+        <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,6 +19,10 @@
       <None Remove="Extensions\Renderer\Shaders\SpriteFragment.frag" />
       <None Remove="Extensions\Renderer\Shaders\TileFragment.frag" />
       <None Remove="Extensions\Renderer\Shaders\TileVertex.vert" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Debugging\" />
     </ItemGroup>
 
 </Project>

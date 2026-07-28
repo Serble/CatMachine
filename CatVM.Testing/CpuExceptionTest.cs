@@ -144,11 +144,8 @@ public class CpuExceptionTest {
 
     [Test]
     public void InvalidInstruction_PathDistinguishedFromGenericIndexOutOfRange() {
-        // The catch chain inspects the stack trace of an IndexOutOfRangeException
-        // and only routes it to InvalidInstruction when frame[1] is
-        // ExecuteInstruction (i.e. the bad index was the Operations table
-        // lookup). Any other IndexOutOfRangeException must fall through to
-        // PageFault. We exercise the "lookup failed" branch here.
+        // Invalid opcodes use a dedicated exception so dispatch-table failures cannot
+        // be confused with memory IndexOutOfRangeExceptions.
         CatVm vm = NewVm();
         const uint invalidHandler = 0x80;
         const uint pageFaultHandler = 0xC0;
@@ -182,8 +179,7 @@ public class CpuExceptionTest {
         CatVm vm = NewVm(memory: 64);
         const uint handlerAddr = 32;
         // mov [0xFFFFFF00], 0x12345678 — the inner Memory[..] indexer throws
-        // IndexOutOfRangeException, which the catch chain converts to a
-        // PageFault interrupt (frame[1] is MovOperation, not ExecuteInstruction).
+        // IndexOutOfRangeException, which the catch chain converts to PageFault.
         const uint badAddr = 0xFFFFFF00u;
         const uint value   = 0x12345678u;
         byte[] code = [

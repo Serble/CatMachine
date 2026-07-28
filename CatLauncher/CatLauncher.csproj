@@ -24,6 +24,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\CatArgs\CatArgs.csproj" />
+      <ProjectReference Include="..\CatVM.Debugger\CatVM.Debugger.csproj" />
       <ProjectReference Include="..\CatVM\CatVM.csproj" />
     </ItemGroup>
 

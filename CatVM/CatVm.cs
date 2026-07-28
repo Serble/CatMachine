@@ -580,21 +580,13 @@ public class CatVm {
             DumpError(e);
             Interrupt(SpecialInterrupts.PageFault);
         }
+        catch (InvalidOpcodeException e) {
+            DumpError(e);
+            Interrupt(SpecialInterrupts.InvalidInstruction);
+        }
         catch (IndexOutOfRangeException e) {
             DumpError(e);
-            
-            // we need to check if this was due to an invalid opcode
-            // check if the last stack frame was in ExecuteInstruction
-            StackTrace trace = new(e);
-            StackFrame[] frames = trace.GetFrames();
-            if (frames.Length > 1 && frames[1].GetMethod()?.Name == nameof(ExecuteInstruction)) {
-                // invalid opcode
-                Interrupt(SpecialInterrupts.InvalidInstruction);
-            }
-            else {
-                // some other index out of range (we'll assume with memory)
-                Interrupt(SpecialInterrupts.PageFault);
-            }
+            Interrupt(SpecialInterrupts.PageFault);
         }
         catch (ArgumentException e) {
             DumpError(e);
@@ -636,16 +628,16 @@ public class CatVm {
         if (_hasEvent) {
             FireDueEvents();
         }
-        
+
         byte opcode = Read8(Cpu.Ip);
-        
-        // don't bounds check opcode because the array lookup
-        // will do that for us and throw an IndexOutOfRangeException
-        // (CpuExceptionTest.InvalidInstruction_PathDistinguishedFromGenericIndexOutOfRange
-        //  relies on the IOOR throwing from inside this method).
-        delegate*<CatVm, void> executor = OperationExecutors[opcode];
-        int cycles = OperationCycles[opcode];
+
+        // Both tables have one entry for every byte value, so unchecked by-ref
+        // indexing is safe and guarantees dispatch has no array bounds checks.
+        ref byte executorData = ref MemoryMarshal.GetArrayDataReference(OperationExecutors);
+        ref nint executorBase = ref Unsafe.As<byte, nint>(ref executorData);
+        delegate*<CatVm, void> executor = (delegate*<CatVm, void>)Unsafe.Add(ref executorBase, opcode);
         executor(this);
+        int cycles = Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(OperationCycles), opcode);
         TicksPassed += cycles * PicosecondsPerCycle;
         
         if (fast || --_calculateSleepIn > 0) return;  // don't bother calculating anything if fast
@@ -672,6 +664,16 @@ public class CatVm {
 
         _calculateSleepIn = _calculateSleepInterval;
     }
+
+    private static void BadOpcodeExecutor(CatVm _) => ThrowInvalidOpcode();
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowInvalidOpcode() {
+        throw new InvalidOpcodeException();
+    }
+
+    private sealed class InvalidOpcodeException()
+        : Exception("Invalid opcode.");
 
 #region Interrupt Handling
 
@@ -1160,12 +1162,19 @@ public class CatVm {
             ("UptNs", 8, TimingOperation.UptNs),
         ];
 
+        const int opcodeCount = byte.MaxValue + 1;
         int n = table.Length;
         OperationNames  = new string[n];
-        OperationCycles = new int[n];
+        OperationCycles = new int[opcodeCount];
         Operations      = new (Action<CatVm>, int)[n];
         unsafe {
-            OperationExecutors = new delegate*<CatVm, void>[n];
+            OperationExecutors = new delegate*<CatVm, void>[opcodeCount];
+        }
+
+        unsafe {
+            for (int i = n; i < opcodeCount; i++) {
+                OperationExecutors[i] = &BadOpcodeExecutor;
+            }
         }
 
         for (int i = 0; i < n; i++) {

@@ -2,13 +2,14 @@ using System.Globalization;
 using System.Text.Json;
 using CatData;
 
-namespace CatVM.Debugging;
+namespace CatVM.Debugger;
 
-public class Debugger {
+// TODO: Account for virtual addresses
+public class CatVmDebugger {
     private readonly CatVm _vm;
     private readonly DebugTable _table;
 
-    public Debugger(CatVm vm, string romPath) {
+    public CatVmDebugger(CatVm vm, string romPath) {
         _vm = vm;
 
         _table = new DebugTable([], []);

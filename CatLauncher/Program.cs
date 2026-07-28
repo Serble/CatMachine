@@ -1,6 +1,6 @@
 ﻿using CatArgs;
 using CatVM;
-using CatVM.Debugging;
+using CatVM.Debugger;
 using CatVM.Serial;
 
 namespace CatLauncher;
@@ -28,7 +28,7 @@ static class Program {
                 }
                 
                 vm.Run(cts.Token);
-                await CleanVm(vm, cts, devices);
+                await CleanVm(cts, devices);
                 return 0;
             }
             
@@ -42,9 +42,9 @@ static class Program {
                     return 1;
                 }
                 
-                Debugger debugger = new(vm, result.Rom.Path!);
+                CatVmDebugger debugger = new(vm, result.Rom.Path!);
                 debugger.StartUserDebugging();
-                await CleanVm(vm, cts, devices);
+                await CleanVm(cts, devices);
                 return 0;
             }
             
@@ -150,7 +150,7 @@ static class Program {
         return (vm, devices, cts, result);
     }
     
-    private static async Task CleanVm(CatVm vm, CancellationTokenSource cts, List<object> devices) {
+    private static async Task CleanVm(CancellationTokenSource cts, List<object> devices) {
         if (!cts.IsCancellationRequested) {
             await cts.CancelAsync();
         }
