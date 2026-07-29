@@ -58,6 +58,7 @@ public class ArithmeticFlagPropertyTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag,     Is.EqualTo(s), $"ADD S a=0x{a:X8} b=0x{b:X8}");
             Assert.That(_vm.Cpu.OverflowFlag, Is.EqualTo(o), $"ADD O a=0x{a:X8} b=0x{b:X8}");
             Assert.That(_vm.Cpu.Fl & 0xFFFFFFF0u, Is.EqualTo(expectedHigh), "ADD upper Fl bits clobbered");
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u), $"ADD IP a=0x{a:X8} b=0x{b:X8}");
         });
     }
 
@@ -75,6 +76,7 @@ public class ArithmeticFlagPropertyTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag,     Is.EqualTo(s), $"SUB S a=0x{a:X8} b=0x{b:X8}");
             Assert.That(_vm.Cpu.OverflowFlag, Is.EqualTo(o), $"SUB O a=0x{a:X8} b=0x{b:X8}");
             Assert.That(_vm.Cpu.Fl & 0xFFFFFFF0u, Is.EqualTo(expectedHigh), "SUB upper Fl bits clobbered");
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u), $"SUB IP a=0x{a:X8} b=0x{b:X8}");
         });
     }
 
@@ -92,6 +94,7 @@ public class ArithmeticFlagPropertyTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag,     Is.EqualTo(s), $"CMP S a=0x{a:X8} b=0x{b:X8}");
             Assert.That(_vm.Cpu.OverflowFlag, Is.EqualTo(o), $"CMP O a=0x{a:X8} b=0x{b:X8}");
             Assert.That(_vm.Cpu.Fl & 0xFFFFFFF0u, Is.EqualTo(expectedHigh), "CMP upper Fl bits clobbered");
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u), $"CMP IP a=0x{a:X8} b=0x{b:X8}");
         });
     }
 

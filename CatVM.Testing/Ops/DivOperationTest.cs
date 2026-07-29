@@ -8,6 +8,7 @@ public class DivOperationTest : OperationTestBase {
         _vm.Cpu.R5 = 5;
         Execute(0x1c, 0x04, 0x05);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(2));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -16,6 +17,7 @@ public class DivOperationTest : OperationTestBase {
         _vm.Cpu.R5 = uint.MaxValue - 4;  // -5 in two's complement
         Execute(0x1d, 0x04, 0x05);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(uint.MaxValue - 1));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
 
     [Test]
@@ -26,6 +28,7 @@ public class DivOperationTest : OperationTestBase {
         Assert.Multiple(() => {
             Assert.That(_vm.Cpu.R4, Is.EqualTo(3u));   // quotient
             Assert.That(_vm.Cpu.R5, Is.EqualTo(2u));   // remainder
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -37,6 +40,7 @@ public class DivOperationTest : OperationTestBase {
         Assert.Multiple(() => {
             Assert.That(_vm.Cpu.R4, Is.EqualTo(unchecked((uint)-3)));
             Assert.That(_vm.Cpu.R5, Is.EqualTo(unchecked((uint)-2)));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -62,6 +66,7 @@ public class DivOperationTest : OperationTestBase {
             Assert.That(_vm.Paused, Is.False);
             Assert.That(_vm.Cpu.R4, Is.EqualTo(0u));
             Assert.That(_vm.Cpu.R5, Is.EqualTo(0u));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -73,6 +78,23 @@ public class DivOperationTest : OperationTestBase {
         _vm.Cpu.R5 = 0;
         _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
         Assert.That(_vm.Paused, Is.True);
+    }
+
+    [Test]
+    public void TestIDivByZero_ZeroDividend_NoException() {
+        // Signed 0 / 0 must be short-circuited to (0,0) exactly like the unsigned path,
+        // otherwise the int division would throw DivideByZero.
+        _vm.LoadData([0x1d, 0x04, 0x05]);
+        _vm.Cpu.Ip = 0;
+        _vm.Cpu.R4 = 0;
+        _vm.Cpu.R5 = 0;
+        _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
+        Assert.Multiple(() => {
+            Assert.That(_vm.Paused, Is.False);
+            Assert.That(_vm.Cpu.R4, Is.EqualTo(0u));
+            Assert.That(_vm.Cpu.R5, Is.EqualTo(0u));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
+        });
     }
 
     [Test]
@@ -97,6 +119,7 @@ public class DivOperationTest : OperationTestBase {
         Assert.Multiple(() => {
             Assert.That(_vm.Cpu.R4, Is.EqualTo(4u));
             Assert.That(_vm.Cpu.R5, Is.EqualTo(0u));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 }

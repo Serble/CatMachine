@@ -8,6 +8,7 @@ public class SubOperationTest : OperationTestBase {
         _vm.Cpu.R5 = 5;
         Execute(0x16, 0x04, 0x05);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(10));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -15,6 +16,7 @@ public class SubOperationTest : OperationTestBase {
         _vm.Cpu.R4 = 15;
         Execute(0x17, 0x04, 0x0A, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(5));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -28,6 +30,7 @@ public class SubOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.CarryFlag, Is.False);
             Assert.That(_vm.Cpu.SignFlag, Is.False);
             Assert.That(_vm.Cpu.OverflowFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -43,6 +46,7 @@ public class SubOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag, Is.True);
             Assert.That(_vm.Cpu.OverflowFlag, Is.False);
             Assert.That(_vm.Cpu.ZeroFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -57,6 +61,7 @@ public class SubOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag, Is.False);
             Assert.That(_vm.Cpu.CarryFlag, Is.False);
             Assert.That(_vm.Cpu.ZeroFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 
@@ -72,6 +77,7 @@ public class SubOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag, Is.True);
             Assert.That(_vm.Cpu.CarryFlag, Is.True);
             Assert.That(_vm.Cpu.ZeroFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 }

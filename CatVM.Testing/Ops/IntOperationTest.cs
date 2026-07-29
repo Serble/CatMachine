@@ -56,6 +56,7 @@ public class IntOperationTest : OperationTestBase {
         _vm.InterruptsEnabled = true;
         Execute(OpDi);
         Assert.That(_vm.InterruptsEnabled, Is.False);
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(1u));
     }
 
     [Test]
@@ -63,6 +64,7 @@ public class IntOperationTest : OperationTestBase {
         _vm.InterruptsEnabled = false;
         Execute(OpEi);
         Assert.That(_vm.InterruptsEnabled, Is.True);
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(1u));
     }
 
     [Test]
@@ -80,7 +82,10 @@ public class IntOperationTest : OperationTestBase {
         _vm.ExecuteInstruction();
 
         // ProtectionFault → default handler (no IT) halts.
-        Assert.That(_vm.Paused, Is.True);
+        Assert.Multiple(() => {
+            Assert.That(_vm.Paused, Is.True);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0u), "faulting int must not advance Ip");
+        });
     }
 
     [Test]
@@ -98,7 +103,10 @@ public class IntOperationTest : OperationTestBase {
 
         _vm.ExecuteInstruction();
 
-        Assert.That(_vm.Paused, Is.True);
+        Assert.Multiple(() => {
+            Assert.That(_vm.Paused, Is.True);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0u), "faulting int must not advance Ip");
+        });
     }
 
     [Test]
@@ -160,6 +168,7 @@ public class IntOperationTest : OperationTestBase {
         Assert.Multiple(() => {
             Assert.That(_vm.Paused, Is.False);
             Assert.That(_vm.InterruptsEnabled, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(1u));
         });
     }
 }

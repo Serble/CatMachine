@@ -7,12 +7,14 @@ public class StackOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0x12345678;
         Execute(0x20, 0x01);
         Assert.That(_vm.StackPop(), Is.EqualTo(0x12345678));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
     
     [Test]
     public void TestPushI() {
         Execute(0x21, 0x78, 0x56, 0x34, 0x12);
         Assert.That(_vm.StackPop(), Is.EqualTo(0x12345678));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(5u));
     }
     
     [Test]
@@ -20,12 +22,14 @@ public class StackOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0x12345678;
         Execute(0x22, 0x01);
         Assert.That(_vm.StackPop16(), Is.EqualTo(0x5678));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
     public void TestPush16I() {
         Execute(0x23, 0x78, 0x56);
         Assert.That(_vm.StackPop16(), Is.EqualTo(0x5678));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -33,12 +37,14 @@ public class StackOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0x12345678;
         Execute(0x24, 0x01);
         Assert.That(_vm.StackPop8(), Is.EqualTo(0x78));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
     public void TestPush8I() {
         Execute(0x25, 0x78);
         Assert.That(_vm.StackPop8(), Is.EqualTo(0x78));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
     
     [Test]
@@ -46,6 +52,7 @@ public class StackOperationTest : OperationTestBase {
         _vm.StackPush(0x12345678);
         Execute(0x26, 0x01);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0x12345678));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
@@ -53,6 +60,7 @@ public class StackOperationTest : OperationTestBase {
         _vm.StackPush((ushort)0x5678);
         Execute(0x27, 0x01);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0x5678));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
@@ -60,6 +68,7 @@ public class StackOperationTest : OperationTestBase {
         _vm.StackPush((byte)0x78);
         Execute(0x28, 0x01);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0x78));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
     
     [Test]
@@ -85,6 +94,7 @@ public class StackOperationTest : OperationTestBase {
         _vm.ExecuteInstruction();
         _vm.ExecuteInstruction();
         Assert.That(_vm.Cpu.R2, Is.EqualTo(0xDEADBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(4u));
     }
 
     [Test]
@@ -95,6 +105,7 @@ public class StackOperationTest : OperationTestBase {
         _vm.ExecuteInstruction();
         _vm.ExecuteInstruction();
         Assert.That(_vm.Cpu.R2, Is.EqualTo(0xBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(4u));
     }
 
     [Test]
@@ -105,6 +116,7 @@ public class StackOperationTest : OperationTestBase {
         _vm.ExecuteInstruction();
         _vm.ExecuteInstruction();
         Assert.That(_vm.Cpu.R2, Is.EqualTo(0xEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(4u));
     }
 
     [Test]
@@ -124,21 +136,30 @@ public class StackOperationTest : OperationTestBase {
     public void TestPushDecrementsSpByCorrectWidth() {
         uint spBefore = _vm.Cpu.Sp;
         Execute(0x21, 0x78, 0x56, 0x34, 0x12);  // PUSH 0x12345678
-        Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore - 4));
+        Assert.Multiple(() => {
+            Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore - 4));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(5u));
+        });
     }
 
     [Test]
     public void TestPush8DecrementsSpByOne() {
         uint spBefore = _vm.Cpu.Sp;
         Execute(0x25, 0x78);  // PUSH8 0x78
-        Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore - 1));
+        Assert.Multiple(() => {
+            Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore - 1));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
+        });
     }
 
     [Test]
     public void TestPush16DecrementsSpByTwo() {
         uint spBefore = _vm.Cpu.Sp;
         Execute(0x23, 0x78, 0x56);
-        Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore - 2));
+        Assert.Multiple(() => {
+            Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore - 2));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
+        });
     }
 
     [Test]
@@ -149,6 +170,7 @@ public class StackOperationTest : OperationTestBase {
         _vm.ExecuteInstruction();
         _vm.ExecuteInstruction();
         Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(7u));
     }
 
     [Test]
@@ -167,5 +189,6 @@ public class StackOperationTest : OperationTestBase {
         _vm.Cpu.Fl = 0x0F;
         Execute(0x20, 0x0A);  // PUSH Fl (register index 10)
         Assert.That(_vm.StackPop(), Is.EqualTo(0x0Fu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 }

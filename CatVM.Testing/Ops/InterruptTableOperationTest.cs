@@ -29,6 +29,7 @@ public class InterruptTableOperationTest {
         vm.ExecuteInstruction(fast: true);
 
         Assert.That(vm.Cpu.It, Is.EqualTo(0x1234_5678u));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
@@ -40,6 +41,7 @@ public class InterruptTableOperationTest {
         vm.ExecuteInstruction(fast: true);
 
         Assert.That(vm.Cpu.It, Is.EqualTo(0xDEADBEEFu));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(5u));
     }
 
     [Test]
@@ -52,6 +54,7 @@ public class InterruptTableOperationTest {
         vm.ExecuteInstruction(fast: true);
 
         Assert.That(vm.Cpu.R1, Is.EqualTo(0xCAFEBABEu));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
@@ -69,6 +72,32 @@ public class InterruptTableOperationTest {
         Assert.Multiple(() => {
             Assert.That(vm.Cpu.It, Is.EqualTo(0x100u));
             Assert.That(vm.Cpu.R0, Is.EqualTo(0x100u));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(7u));
+        });
+    }
+
+    [Test]
+    public void SetItR_InUserMode_FaultsAndDoesNotWrite() {
+        CatVm vm = NewVm();
+        const uint mbase = 0x1000;
+        const uint mlen  = 0x100;
+        vm.LoadData([OpSetItR, R0], mbase);
+
+        vm.Cpu.MBase = mbase;
+        vm.Cpu.MLen  = mlen;
+        vm.Cpu.Sp    = mlen;
+        vm.Cpu.Ip    = 0;
+        vm.Cpu.It    = 0xFFFFFFFF;
+        vm.Cpu.R0    = 0xDEAD_BEEF;
+        vm.Cpu.Mode  = 0b01;
+
+        vm.ExecuteInstruction(fast: true);
+
+        Assert.Multiple(() => {
+            Assert.That(vm.Paused, Is.True,
+                "user-mode setit should ProtectionFault → halt via default handler");
+            Assert.That(vm.Cpu.It, Is.EqualTo(0xFFFFFFFFu),
+                "It must not have been written");
         });
     }
 
@@ -140,6 +169,7 @@ public class InterruptTableOperationTest {
             Assert.That(vm.Cpu.It, Is.EqualTo(0x200u));
             Assert.That(vm.Cpu.Mode, Is.EqualTo((byte)0b11),
                 "Mode unchanged after non-trapping op");
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(5u));
         });
     }
 }

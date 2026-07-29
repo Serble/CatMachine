@@ -21,8 +21,4 @@
       <None Remove="Extensions\Renderer\Shaders\TileVertex.vert" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Debugging\" />
-    </ItemGroup>
-
 </Project>

@@ -46,24 +46,28 @@ public class CpyOperationTest : OperationTestBase {
         _vm.Cpu.R1 = src;
         _vm.Cpu.R2 = length;
         Execute(0x41, 0x01, 0x02);
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     private void RunCpyRI(uint src, uint length, uint dest) {
         _vm.Cpu.R0 = dest;
         _vm.Cpu.R1 = src;
         Execute(0x42, 0x01, (byte)(length & 0xFF), (byte)((length >> 8) & 0xFF), (byte)((length >> 16) & 0xFF), (byte)((length >> 24) & 0xFF));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
     
     private void RunCpyIR(uint src, uint length, uint dest) {
         _vm.Cpu.R0 = dest;
         _vm.Cpu.R2 = length;
         Execute(0x43, (byte)(src & 0xFF), (byte)((src >> 8) & 0xFF), (byte)((src >> 16) & 0xFF), (byte)((src >> 24) & 0xFF), 0x02);
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
     
     private void RunCpyII(uint src, uint length, uint dest) {
         _vm.Cpu.R0 = dest;
         Execute(0x44, (byte)(src & 0xFF), (byte)((src >> 8) & 0xFF), (byte)((src >> 16) & 0xFF), (byte)((src >> 24) & 0xFF),
             (byte)(length & 0xFF), (byte)((length >> 8) & 0xFF), (byte)((length >> 16) & 0xFF), (byte)((length >> 24) & 0xFF));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(9u));
     }
 
     [Test]
@@ -75,6 +79,7 @@ public class CpyOperationTest : OperationTestBase {
         // Note: instruction bytes were written to memory[0..6] by Execute(); restore.
         for (int i = 0; i < 6; i++) before[i] = _vm.Memory[i];
         Assert.That(_vm.Memory, Is.EqualTo(before));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -89,6 +94,7 @@ public class CpyOperationTest : OperationTestBase {
         Assert.Multiple(() => {
             Assert.That(_vm.Memory[0x44], Is.EqualTo((byte)0));
             Assert.That(_vm.Memory[0x4B], Is.EqualTo((byte)7));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(9u));
         });
     }
 
@@ -101,6 +107,7 @@ public class CpyOperationTest : OperationTestBase {
         for (int i = 0; i < 8; i++) {
             Assert.That(_vm.Memory[0x40 + i], Is.EqualTo((byte)(i + 4)));
         }
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(9u));
     }
 
     [Test]
@@ -120,4 +127,30 @@ public class CpyOperationTest : OperationTestBase {
         _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
         Assert.That(_vm.Paused, Is.True);
     }
+
+#if DEBUG
+    [Test]
+    public void TestCpyDisallowedReadRegion_Faults() {
+        // Source overlaps a disallowed-read region while staying within physical bounds,
+        // so only ValidateMemoryRead can catch it (BlockCopy itself would succeed).
+        _vm.DisallowedReadRegions = [(0xF0, 0x0F)];
+        _vm.Cpu.R0 = 0x10;
+        _vm.LoadData([0x44, 0xF0, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00]); // CPY [0xF0] -> R0, len 0x0F
+        _vm.Cpu.Ip = 0;
+        _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
+        Assert.That(_vm.Paused, Is.True);
+    }
+
+    [Test]
+    public void TestCpyDisallowedWriteRegion_Faults() {
+        // Dest overlaps a disallowed-write region while staying within physical bounds,
+        // so only ValidateMemoryWrite can catch it (BlockCopy itself would succeed).
+        _vm.DisallowedWriteRegions = [(0x10, 0x0F)];
+        _vm.Cpu.R0 = 0x10;
+        _vm.LoadData([0x44, 0xF0, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00]); // CPY [0xF0] -> R0, len 0x0F
+        _vm.Cpu.Ip = 0;
+        _vm.ExecuteWithErrorHandling(() => _vm.ExecuteInstruction(fast: true));
+        Assert.That(_vm.Paused, Is.True);
+    }
+#endif
 }

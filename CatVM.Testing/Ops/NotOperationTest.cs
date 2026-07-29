@@ -7,6 +7,7 @@ public class NotOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0b11111111_11111111_11111111_10101010;
         Execute(0x2f, 0x01);  // NOT R1
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0b01010101));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
@@ -14,6 +15,7 @@ public class NotOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0;
         Execute(0x2f, 0x01);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0xFFFFFFFFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 
     [Test]
@@ -29,6 +31,7 @@ public class NotOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.CarryFlag, Is.True);
             Assert.That(_vm.Cpu.SignFlag, Is.False);
             Assert.That(_vm.Cpu.OverflowFlag, Is.True);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
         });
     }
 
@@ -37,7 +40,9 @@ public class NotOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0xDEADBEEF;
         Execute(0x2f, 0x01);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(~0xDEADBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
         Execute(0x2f, 0x01);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0xDEADBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(2u));
     }
 }

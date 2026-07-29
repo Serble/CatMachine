@@ -8,6 +8,7 @@ public class AndOperationTest : OperationTestBase {
         _vm.Cpu.R5 = 0b0111;
         Execute(0x2b, 0x04, 0x05);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(0b0010));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -15,6 +16,7 @@ public class AndOperationTest : OperationTestBase {
         _vm.Cpu.R4 = 0b1010;
         Execute(0x2c, 0x04, 0b0111, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(0b0010));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -34,6 +36,7 @@ public class AndOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.CarryFlag, Is.True);
             Assert.That(_vm.Cpu.SignFlag, Is.True);
             Assert.That(_vm.Cpu.OverflowFlag, Is.True);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -42,5 +45,6 @@ public class AndOperationTest : OperationTestBase {
         _vm.Cpu.R4 = 0xDEADBEEF;
         Execute(0x2c, 0x04, 0xFF, 0xFF, 0xFF, 0xFF);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(0xDEADBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 }

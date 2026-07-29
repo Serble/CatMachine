@@ -8,6 +8,7 @@ public class AddOperationTest : OperationTestBase {
         _vm.Cpu.R5 = 10;
         Execute(0x14, 0x04, 0x05);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(15));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -15,6 +16,7 @@ public class AddOperationTest : OperationTestBase {
         _vm.Cpu.R4 = 5;
         Execute(0x15, 0x04, 0x0A, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R4, Is.EqualTo(15));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -28,6 +30,7 @@ public class AddOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag, Is.False);
             Assert.That(_vm.Cpu.CarryFlag, Is.False);
             Assert.That(_vm.Cpu.OverflowFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -43,6 +46,7 @@ public class AddOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.OverflowFlag, Is.True);
             Assert.That(_vm.Cpu.ZeroFlag, Is.False);
             Assert.That(_vm.Cpu.CarryFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -58,6 +62,7 @@ public class AddOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.ZeroFlag, Is.True);
             Assert.That(_vm.Cpu.SignFlag, Is.False);
             Assert.That(_vm.Cpu.OverflowFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -72,6 +77,7 @@ public class AddOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.SignFlag, Is.True);
             Assert.That(_vm.Cpu.CarryFlag, Is.False);
             Assert.That(_vm.Cpu.ZeroFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 
@@ -87,6 +93,7 @@ public class AddOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.CarryFlag, Is.True);
             Assert.That(_vm.Cpu.OverflowFlag, Is.False);
             Assert.That(_vm.Cpu.ZeroFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 }

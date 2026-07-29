@@ -21,6 +21,7 @@ public class SerialOperationTest : OperationTestBase {
         _vm.Cpu.R2 = 18;
         Execute(0x47, 0x01, 0x02);  // IN R1, R2
         Assert.That(_vm.Cpu.R1, Is.EqualTo(123));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -28,6 +29,7 @@ public class SerialOperationTest : OperationTestBase {
         _serialInput.Enqueue(123);
         Execute(0x48, 0x01, 18, 0x00, 0x00, 0x00);  // IN R1, 18
         Assert.That(_vm.Cpu.R1, Is.EqualTo(123));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -37,6 +39,7 @@ public class SerialOperationTest : OperationTestBase {
         _serialOutput.Clear();
         Execute(0x49, 0x01, 0x02);  // OUT R1, R2
         Assert.That(_serialOutput, Is.EqualTo([123]));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
 
     [Test]
@@ -45,6 +48,7 @@ public class SerialOperationTest : OperationTestBase {
         _serialOutput.Clear();
         Execute(0x4a, 0x01, 123, 0x00, 0x00, 0x00); // OUT R1, 18
         Assert.That(_serialOutput, Is.EqualTo([123]));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
     
     [Test]
@@ -53,6 +57,7 @@ public class SerialOperationTest : OperationTestBase {
         _serialOutput.Clear();
         Execute(0x4b, 18, 0x00, 0x00, 0x00, 0x01); // OUT 18, R1
         Assert.That(_serialOutput, Is.EqualTo([123]));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
     
     [Test]
@@ -60,6 +65,7 @@ public class SerialOperationTest : OperationTestBase {
         _serialOutput.Clear();
         Execute(0x4c, 18, 0x00, 0x00, 0x00, 123, 0x00, 0x00, 0x00); // OUT 18, 18
         Assert.That(_serialOutput, Is.EqualTo([123]));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(9u));
     }
 
     // ---- Privilege gates ----
@@ -142,6 +148,38 @@ public class SerialOperationTest : OperationTestBase {
     }
 
     [Test]
+    public void OutRI_InUserMode_FaultsAndDoesNotEmit() {
+        _vm.Cpu.R1 = 18;
+        _vm.LoadData([0x4a, 0x01, 123, 0x00, 0x00, 0x00], 0x100);
+        SetupUserMode();
+        _vm.Cpu.Ip = 0;
+
+        _vm.ExecuteInstruction();
+
+        Assert.Multiple(() => {
+            Assert.That(_vm.Paused, Is.True);
+            Assert.That(_serialOutput, Is.Empty);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0u));
+        });
+    }
+
+    [Test]
+    public void OutIR_InUserMode_FaultsAndDoesNotEmit() {
+        _vm.Cpu.R1 = 123;
+        _vm.LoadData([0x4b, 18, 0x00, 0x00, 0x00, 0x01], 0x100);
+        SetupUserMode();
+        _vm.Cpu.Ip = 0;
+
+        _vm.ExecuteInstruction();
+
+        Assert.Multiple(() => {
+            Assert.That(_vm.Paused, Is.True);
+            Assert.That(_serialOutput, Is.Empty);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0u));
+        });
+    }
+
+    [Test]
     public void OutRI_InDriverMode_IsAllowed() {
         _vm.Cpu.R1 = 18;
         _vm.LoadData([0x4a, 0x01, 123, 0x00, 0x00, 0x00], 0x100);
@@ -154,6 +192,7 @@ public class SerialOperationTest : OperationTestBase {
         Assert.Multiple(() => {
             Assert.That(_vm.Paused, Is.False);
             Assert.That(_serialOutput, Is.EqualTo(new[] { 123u }));
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 }

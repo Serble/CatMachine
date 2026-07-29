@@ -8,6 +8,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R2 = 3;
         Execute(0x4e, 0x01, 0x02);  // SHL R1, R2
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0b00000000_00000000_00000101_01010000));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -15,6 +16,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0b00000000_00000000_00000000_10101010;
         Execute(0x4f, 0x01, 0x03, 0x00, 0x00, 0x00);  // SHL R1, 3
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0b00000000_00000000_00000101_01010000));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
     
     [Test]
@@ -23,6 +25,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R2 = 3;
         Execute(0x50, 0x01, 0x02);  // SHR R1, R2
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0b00000000_00000000_00000000_00010101));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(3u));
     }
     
     [Test]
@@ -30,6 +33,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0b00000000_00000000_00000000_10101010;
         Execute(0x51, 0x01, 0x03, 0x00, 0x00, 0x00);  // SHR R1, 3
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0b00000000_00000000_00000000_00010101));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -37,6 +41,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0xDEADBEEF;
         Execute(0x4f, 0x01, 0x00, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0xDEADBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -44,6 +49,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0xDEADBEEF;
         Execute(0x51, 0x01, 0x00, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0xDEADBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -51,6 +57,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 1;
         Execute(0x4f, 0x01, 31, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0x80000000u));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -59,6 +66,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0x80000000;
         Execute(0x51, 0x01, 31, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(1u));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -67,6 +75,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0xDEADBEEF;
         Execute(0x4f, 0x01, 32, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0xDEADBEEFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -75,6 +84,7 @@ public class ShiftOperationTest : OperationTestBase {
         _vm.Cpu.R1 = 0xFFFFFFFF;
         Execute(0x51, 0x01, 1, 0x00, 0x00, 0x00);
         Assert.That(_vm.Cpu.R1, Is.EqualTo(0x7FFFFFFFu));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -90,6 +100,7 @@ public class ShiftOperationTest : OperationTestBase {
             Assert.That(_vm.Cpu.CarryFlag, Is.False);
             Assert.That(_vm.Cpu.SignFlag, Is.True);
             Assert.That(_vm.Cpu.OverflowFlag, Is.False);
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 }

@@ -65,6 +65,7 @@ public class VirtualModeMemoryTest {
         PutWord(vm, DataV, PoisonW); // poison the untranslated cell
         vm.ExecuteInstruction();
         Assert.That(vm.Cpu.R2, Is.EqualTo(Word));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
     }
 
     [Test]
@@ -74,6 +75,7 @@ public class VirtualModeMemoryTest {
         PutWord(vm, DataV, PoisonW);
         vm.ExecuteInstruction();
         Assert.That(vm.Cpu.R2, Is.EqualTo(Word));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     // ---------------------------------------------------------------------
@@ -90,6 +92,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetWord(vm, DataP), Is.EqualTo(Word), "write hit the translated cell");
             Assert.That(GetWord(vm, DataV), Is.EqualTo(PoisonW), "untranslated cell untouched");
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -102,6 +105,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetWord(vm, DataP), Is.EqualTo(Word));
             Assert.That(GetWord(vm, DataV), Is.EqualTo(PoisonW));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 
@@ -114,6 +118,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetWord(vm, DataP), Is.EqualTo(Word));
             Assert.That(GetWord(vm, DataV), Is.EqualTo(PoisonW));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 
@@ -125,6 +130,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetWord(vm, DataP), Is.EqualTo(Word));
             Assert.That(GetWord(vm, DataV), Is.EqualTo(PoisonW));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(9u));
         });
     }
 
@@ -140,6 +146,7 @@ public class VirtualModeMemoryTest {
         PutShort(vm, DataV, PoisonS);
         vm.ExecuteInstruction();
         Assert.That(vm.Cpu.R2, Is.EqualTo((uint)Short));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
     }
 
     [Test]
@@ -149,6 +156,7 @@ public class VirtualModeMemoryTest {
         PutShort(vm, DataV, PoisonS);
         vm.ExecuteInstruction();
         Assert.That(vm.Cpu.R2, Is.EqualTo((uint)Short));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -161,6 +169,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetShort(vm, DataP), Is.EqualTo(Short));
             Assert.That(GetShort(vm, DataV), Is.EqualTo(PoisonS));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -173,6 +182,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetShort(vm, DataP), Is.EqualTo(Short));
             Assert.That(GetShort(vm, DataV), Is.EqualTo(PoisonS));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(4u));
         });
     }
 
@@ -185,6 +195,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetShort(vm, DataP), Is.EqualTo(Short));
             Assert.That(GetShort(vm, DataV), Is.EqualTo(PoisonS));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 
@@ -196,6 +207,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(GetShort(vm, DataP), Is.EqualTo(Short));
             Assert.That(GetShort(vm, DataV), Is.EqualTo(PoisonS));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(7u));
         });
     }
 
@@ -211,6 +223,7 @@ public class VirtualModeMemoryTest {
         vm.Memory[DataV] = PoisonB;
         vm.ExecuteInstruction();
         Assert.That(vm.Cpu.R2, Is.EqualTo((uint)Byte8));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
     }
 
     [Test]
@@ -220,6 +233,7 @@ public class VirtualModeMemoryTest {
         vm.Memory[DataV] = PoisonB;
         vm.ExecuteInstruction();
         Assert.That(vm.Cpu.R2, Is.EqualTo((uint)Byte8));
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -232,6 +246,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(vm.Memory[DataP], Is.EqualTo(Byte8));
             Assert.That(vm.Memory[DataV], Is.EqualTo(PoisonB));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -244,6 +259,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(vm.Memory[DataP], Is.EqualTo(Byte8));
             Assert.That(vm.Memory[DataV], Is.EqualTo(PoisonB));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
         });
     }
 
@@ -256,6 +272,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(vm.Memory[DataP], Is.EqualTo(Byte8));
             Assert.That(vm.Memory[DataV], Is.EqualTo(PoisonB));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 
@@ -267,6 +284,7 @@ public class VirtualModeMemoryTest {
         Assert.Multiple(() => {
             Assert.That(vm.Memory[DataP], Is.EqualTo(Byte8));
             Assert.That(vm.Memory[DataV], Is.EqualTo(PoisonB));
+            Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
         });
     }
 
@@ -313,6 +331,7 @@ public class VirtualModeMemoryTest {
         SeedCpy(vm);
         vm.ExecuteInstruction();
         AssertCpyTranslated(vm);
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(3u));
     }
 
     [Test]
@@ -323,6 +342,7 @@ public class VirtualModeMemoryTest {
         SeedCpy(vm);
         vm.ExecuteInstruction();
         AssertCpyTranslated(vm);
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -333,6 +353,7 @@ public class VirtualModeMemoryTest {
         SeedCpy(vm);
         vm.ExecuteInstruction();
         AssertCpyTranslated(vm);
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(6u));
     }
 
     [Test]
@@ -342,6 +363,7 @@ public class VirtualModeMemoryTest {
         SeedCpy(vm);
         vm.ExecuteInstruction();
         AssertCpyTranslated(vm);
+        Assert.That(vm.Cpu.Ip, Is.EqualTo(9u));
     }
 
     // ---------------------------------------------------------------------
