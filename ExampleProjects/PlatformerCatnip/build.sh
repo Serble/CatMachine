@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MAIN_FILE="main.cat"
+MAIN_FILE="main.nip"
 NAME="main"
 
 cd $(dirname $0)

@@ -1,5 +1,7 @@
 # Cat ASM Platformer
 
+**OUTDATED, this does not current work**  
+
 This is a platformer written for the CatVM CPU in entirely CatASM.
 
 You'll notice the binary is relatively big. That's basically entirely
