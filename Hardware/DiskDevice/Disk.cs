@@ -89,6 +89,7 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
         return mode switch {
             Mode.Read => 3,
             Mode.Write => 3,
+            Mode.GetSize => 0,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
         };
     }
@@ -104,7 +105,14 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
                 _queue.Enqueue((false, args[0], args[1], args[2]));
                 break;
             }
-            
+
+            case Mode.GetSize: {
+                lock (_streamLock) {
+                    InputQueue.Enqueue((uint)(_stream.Length / BlockSize));
+                }
+                break;
+            }
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
         }
@@ -179,6 +187,7 @@ public class Disk : CommandBasedSerialDevice<Disk.Mode> {
     public enum Mode {
         Read  = 1,  // args: Mem Addr, Start block, Block Count
         Write = 2,  // args: Mem Addr, Start block, Block Count
+        GetSize = 3,// args: none
     }
     
     private class WriteCached(uint block, byte[] data) {
