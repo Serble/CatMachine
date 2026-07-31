@@ -48,8 +48,7 @@ public partial class Tokeniser {
         List<Token> tokens = [];
 
         while (ReadToken(tokens)) { }
-        
-        Console.WriteLine("Tokenisation complete: " + tokens.Count + " tokens generated.");
+
         return tokens.ToArray();
     }
 

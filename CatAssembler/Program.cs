@@ -26,7 +26,7 @@ for (int i = 1; i < args.Length; i++) {
                 Console.WriteLine("Missing value for --output flag.");
             }
             break;
-        
+
         default:
             Console.WriteLine($"Unknown flag: {args[i]}");
             break;
@@ -41,12 +41,12 @@ try {
     Analyser analyser = new(tokeniser.Tokenise());
     (IOutputSegment[] segments, Dictionary<string, string> constants, DebugTable debugSymbols) = analyser.Analyse();
     Assembler assembler = new(segments, constants);
-    
+
     FileStream outputStream = new(outputFile, FileMode.Create, FileAccess.Write);
     assembler.WriteTo(outputStream);
     outputStream.Close();
     Console.WriteLine("Assembled successfully to " + outputFile);
-    
+
     FileStream debugSymbolsStream = new(outputFile + ".debug", FileMode.Create, FileAccess.Write);
     // write json
     using StreamWriter writer = new(debugSymbolsStream);

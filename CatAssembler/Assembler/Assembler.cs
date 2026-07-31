@@ -7,7 +7,7 @@ public class Assembler(IOutputSegment[] segments, Dictionary<string, string> con
         foreach (IOutputSegment segment in segments) {
             stream.Write(segment.GetBytes(constants));
         }
-        
+
         stream.Flush();
         Console.WriteLine("Assembled " + (stream.Position - startPos) + $" bytes from {segments.Length} segments.");
     }
