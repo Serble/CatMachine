@@ -1,0 +1,421 @@
+; ---------------------------------------------------------------------------
+; EXAMPLE FIRMWARE: chain-loads a program from a disk
+;
+; The Metal machine has no firmware of its own - it starts whatever ROM it was
+; built with. This is one thing that ROM can be: a loader that goes looking for
+; something to boot, the way a BIOS does. An OS would do its own version of this,
+; with its own idea of what a bootable disk looks like.
+;
+;   1. find out what hardware is attached (through the hardware manager)
+;   2. bring the display up and show that the machine is alive
+;   3. read the boot record from block 0 of the first disk
+;   4. load the payload it points at and jump into it
+;
+; If there is nothing to boot the screen turns red and the machine halts.
+;
+; Boot record used by THIS firmware (block 0 of a disk, little endian words).
+; Nothing in the machine knows about this format; it is only an agreement between
+; this file and tools/mkbootdisk.sh:
+;   +0   magic, the ASCII bytes "CATB"
+;   +4   load address for the payload
+;   +8   payload length in 512 byte blocks, read from block 1 onwards
+;   +12  entry point address
+;
+; Boot info handed to the payload (r1 points at it on entry):
+;   +0   magic, the ASCII bytes "INFO"
+;   +4   structure version (1)
+;   +8   memory size in bytes
+;   +12  hardware manager port
+;   +16  display port
+;   +20  keyboard port
+;   +24  mouse port
+;   +28  timer port
+;   +32  boot disk port
+;   +36  number of disks attached
+; Any port the firmware could not find is 0xFFFFFFFF.
+; ---------------------------------------------------------------------------
+
+; --- hardware manager ------------------------------------------------------
+#const PORT_HWMAN,     0
+#const HWMAN_LIST,     1
+#const HWMAN_HALT,     2
+#const HWMAN_SHUTDOWN, 3
+
+; --- device types ----------------------------------------------------------
+#const TYPE_DISK,      0x96818B9A
+#const TYPE_DISPLAY,   0xFF64BEF9
+#const TYPE_KEYBOARD,  0x2EB3AD76
+#const TYPE_MOUSE,     0x25A3E57D
+#const TYPE_TIMER,     0xB1F91A0C
+
+; --- display ---------------------------------------------------------------
+#const GFX_UPDATE,     1
+#const GFX_SET_MODE,   2
+#const MODE_BUFFER512, 0x00
+#const FB_SIZE,        0x00100000   ; 512 * 512 * 4 bytes
+
+; --- disk ------------------------------------------------------------------
+#const DISK_READ,      1
+#const INT_DISK,       0x72
+#const BLOCK_SIZE,     512
+
+; --- memory layout ---------------------------------------------------------
+; The ROM itself sits at 0. Everything the firmware needs afterwards lives
+; above it, and the framebuffer goes at the very top of memory with the stack
+; growing down from underneath it.
+#const BOOT_INFO,      0x00002000
+#const SCRATCH,        0x00002200   ; one block, holds the boot record
+#const LOAD_MIN,       0x00002400   ; payloads must load above this
+
+#const BI_MAGIC,       BOOT_INFO
+#const BI_VERSION,     BOOT_INFO+4
+#const BI_MEMORY,      BOOT_INFO+8
+#const BI_HWMAN,       BOOT_INFO+12
+#const BI_DISPLAY,     BOOT_INFO+16
+#const BI_KEYBOARD,    BOOT_INFO+20
+#const BI_MOUSE,       BOOT_INFO+24
+#const BI_TIMER,       BOOT_INFO+28
+#const BI_BOOT_DISK,   BOOT_INFO+32
+#const BI_DISK_COUNT,  BOOT_INFO+36
+
+#const BR_MAGIC,       SCRATCH
+#const BR_LOAD,        SCRATCH+4
+#const BR_BLOCKS,      SCRATCH+8
+#const BR_ENTRY,       SCRATCH+12
+
+; --- misc ------------------------------------------------------------------
+#const NONE,           0xFFFFFFFF
+#const BOOT_MAGIC,     0x42544143   ; "CATB"
+#const INFO_MAGIC,     0x4F464E49   ; "INFO"
+#const COLOR_BOOTING,  0x00202840
+#const COLOR_ERROR,    0x00A02020
+
+
+main:
+    ; A reset leaves sp at the top of memory, which is how the firmware finds
+    ; out how much memory this machine has.
+    mov r7, sp
+    mov [mem_size], r7
+
+    mov r6, r7
+    sub r6, FB_SIZE
+    mov [fb_addr], r6
+    mov sp, r6              ; keep the stack out of the framebuffer
+
+    setit int_table
+
+    mov r1, msg_banner
+    int 0x80
+
+    call discover
+    call init_display
+
+    mov r1, COLOR_BOOTING
+    call fill_screen
+
+    call boot               ; only comes back if there was nothing to boot
+    jmp fail
+
+
+; ---------------------------------------------------------------------------
+; Asks the hardware manager what is attached and records the ports.
+; ---------------------------------------------------------------------------
+discover:
+    out PORT_HWMAN, HWMAN_LIST
+    in r4, PORT_HWMAN       ; number of devices
+
+    .loop:
+        cmp r4, 0
+        je .done
+        sub r4, 1
+
+        in r1, PORT_HWMAN   ; port
+        in r2, PORT_HWMAN   ; device type
+
+        cmp r2, TYPE_DISK
+        jne .not_disk
+
+        mov r3, [disk_count]
+        add r3, 1
+        mov [disk_count], r3
+
+        mov r3, [disk_port]     ; the first disk found is the boot disk
+        cmp r3, NONE
+        jne .loop
+        mov [disk_port], r1
+        jmp .loop
+
+    .not_disk:
+        cmp r2, TYPE_DISPLAY
+        jne .not_display
+        mov [gfx_port], r1
+        jmp .loop
+
+    .not_display:
+        cmp r2, TYPE_KEYBOARD
+        jne .not_keyboard
+        mov [kbd_port], r1
+        jmp .loop
+
+    .not_keyboard:
+        cmp r2, TYPE_MOUSE
+        jne .not_mouse
+        mov [mouse_port], r1
+        jmp .loop
+
+    .not_mouse:
+        cmp r2, TYPE_TIMER
+        jne .loop
+        mov [timer_port], r1
+        jmp .loop
+
+    .done:
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Puts the display into the 512x512 buffer mode with the framebuffer at the
+; top of memory. Failure is not fatal; the machine can still boot blind.
+; ---------------------------------------------------------------------------
+init_display:
+    mov r0, [gfx_port]
+    cmp r0, NONE
+    je .missing
+
+    mov r1, [fb_addr]
+    out r0, GFX_SET_MODE
+    out r0, MODE_BUFFER512
+    out r0, r1
+    in r2, r0
+    cmp r2, 0
+    jne .refused
+
+    mov [display_ok], 1
+    ret
+
+    .refused:
+    mov r1, msg_no_mode
+    int 0x80
+    ret
+
+    .missing:
+    mov r1, msg_no_display
+    int 0x80
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Fills the whole framebuffer with the colour in r1 and shows it.
+;
+; The fill doubles a single pixel with block copies rather than looping over
+; every pixel, which keeps it fast even at a modest clock speed.
+; ---------------------------------------------------------------------------
+fill_screen:
+    mov r2, [display_ok]
+    cmp r2, 0
+    je .done
+
+    mov r2, [fb_addr]
+    mov [r2], r1
+
+    mov r3, 4               ; bytes filled so far
+    .loop:
+        mov r0, r2
+        add r0, r3          ; cpy always writes to the address in r0
+        cpy r2, r3
+        add r3, r3
+        cmp r3, FB_SIZE
+        jul .loop
+
+    mov r0, [gfx_port]
+    out r0, GFX_UPDATE
+
+    .done:
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Reads the boot record, loads the payload and jumps into it. Returns to the
+; caller if this machine has nothing bootable.
+; ---------------------------------------------------------------------------
+boot:
+    mov r0, [disk_port]
+    cmp r0, NONE
+    je .no_disk
+
+    mov r1, SCRATCH
+    mov r2, 0               ; block 0
+    mov r3, 1               ; one block
+    call disk_read
+
+    mov r1, [BR_MAGIC]
+    cmp r1, BOOT_MAGIC
+    jne .not_bootable
+
+    mov r1, [BR_LOAD]
+    mov r2, [BR_BLOCKS]
+
+    cmp r2, 0
+    je .bad_record
+
+    cmp r1, LOAD_MIN        ; must not land on the firmware or its scratch
+    jul .bad_record
+
+    mov r4, r2
+    umul r4, BLOCK_SIZE
+    add r4, r1
+    mov r0, [fb_addr]       ; must not land on the framebuffer or the stack
+    cmp r4, r0
+    jug .bad_record
+
+    mov r0, [BR_ENTRY]
+    mov [boot_entry], r0
+
+    mov r3, r2              ; block count
+    mov r2, 1               ; payload starts at block 1
+    call disk_read          ; load address is still in r1
+
+    call write_boot_info
+
+    mov r1, msg_starting
+    int 0x80
+
+    mov r1, BOOT_INFO
+    mov r0, [boot_entry]
+    jmp r0
+
+    .no_disk:
+    mov r1, msg_no_disk
+    int 0x80
+    ret
+
+    .not_bootable:
+    mov r1, msg_not_bootable
+    int 0x80
+    ret
+
+    .bad_record:
+    mov r1, msg_bad_record
+    int 0x80
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Reads r3 blocks starting at block r2 into memory at r1, and waits for the
+; drive to say it is done.
+; ---------------------------------------------------------------------------
+disk_read:
+    mov [disk_ready], 0
+
+    mov r0, [disk_port]
+    out r0, DISK_READ
+    out r0, r1
+    out r0, r2
+    out r0, r3
+
+    .wait:
+        mov r0, [disk_ready]
+        cmp r0, 0
+        je .wait
+
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Leaves a description of the machine where the payload can find it.
+; ---------------------------------------------------------------------------
+write_boot_info:
+    mov [BI_MAGIC], INFO_MAGIC
+    mov [BI_VERSION], 1
+    mov [BI_HWMAN], PORT_HWMAN
+
+    mov r0, [mem_size]
+    mov [BI_MEMORY], r0
+    mov r0, [gfx_port]
+    mov [BI_DISPLAY], r0
+    mov r0, [kbd_port]
+    mov [BI_KEYBOARD], r0
+    mov r0, [mouse_port]
+    mov [BI_MOUSE], r0
+    mov r0, [timer_port]
+    mov [BI_TIMER], r0
+    mov r0, [disk_port]
+    mov [BI_BOOT_DISK], r0
+    mov r0, [disk_count]
+    mov [BI_DISK_COUNT], r0
+
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Nothing to boot: red screen, then stop the CPU.
+; ---------------------------------------------------------------------------
+fail:
+    mov r1, COLOR_ERROR
+    call fill_screen
+
+    mov r1, msg_halted
+    int 0x80
+
+    out PORT_HWMAN, HWMAN_HALT
+    .spin:
+        jmp .spin
+
+
+; ---------------------------------------------------------------------------
+; Interrupts
+; ---------------------------------------------------------------------------
+disk_isr:
+    ; Only writes memory, so the flags the interrupted code was relying on are
+    ; left alone (a kernel mode interrupt frame does not restore them).
+    mov [disk_ready], 1
+    iret
+
+int_table:
+    d8 1
+    d8 INT_DISK
+    d32 disk_isr
+
+
+; ---------------------------------------------------------------------------
+; State
+; ---------------------------------------------------------------------------
+disk_port:
+    d32 NONE
+gfx_port:
+    d32 NONE
+kbd_port:
+    d32 NONE
+mouse_port:
+    d32 NONE
+timer_port:
+    d32 NONE
+disk_count:
+    d32 0
+display_ok:
+    d32 0
+disk_ready:
+    d32 0
+mem_size:
+    d32 0
+fb_addr:
+    d32 0
+boot_entry:
+    d32 0
+
+msg_banner:
+    dstr "diskloader: looking for something to boot\n\0"
+msg_no_display:
+    dstr "diskloader: no display device\n\0"
+msg_no_mode:
+    dstr "diskloader: display refused the boot video mode\n\0"
+msg_no_disk:
+    dstr "diskloader: no disk attached\n\0"
+msg_not_bootable:
+    dstr "diskloader: disk has no boot record\n\0"
+msg_bad_record:
+    dstr "diskloader: boot record is not usable\n\0"
+msg_starting:
+    dstr "diskloader: starting payload\n\0"
+msg_halted:
+    dstr "diskloader: nothing to boot, halted\n\0"

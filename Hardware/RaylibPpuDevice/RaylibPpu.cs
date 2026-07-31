@@ -12,6 +12,16 @@ namespace RaylibPpuDevice;
 public class RaylibPpu {
     public bool DrawFps { get; set; }
 
+    /// <summary>
+    /// Whether the display window should cover the whole monitor with no decorations and hide the
+    /// host cursor. Used by CatVM.Metal so that the guest display looks like the machine's own
+    /// display instead of a window.
+    /// <p/>
+    /// This is read when the window is created, which does not happen until the guest leaves
+    /// <see cref="DisplayMode.DummyDisplay"/>, so it is safe to set right after construction.
+    /// </summary>
+    public bool Fullscreen { get; set; }
+
     public GraphicsDevice Graphics { get; private init; }
     public KeyboardInputDevice Keyboard { get; private init; }
     public MouseInputDevice Mouse { get; private init; }
@@ -199,6 +209,13 @@ public class RaylibPpu {
         Raylib.SetWindowState(ConfigFlags.ResizableWindow);
         Raylib.SetTargetFPS(1024);
         Raylib.SetExitKey(0);
+
+        if (Fullscreen) {
+            // Borderless rather than a real mode switch: the guest resolutions are tiny and rarely
+            // exist as video modes, so we take the whole monitor and letterbox into it instead.
+            Raylib.SetWindowState(ConfigFlags.BorderlessWindowMode);
+            Raylib.HideCursor();
+        }
 
         if (!vm.MemoryHandle.HasValue) {
             throw new Exception("Memory not initialized.");

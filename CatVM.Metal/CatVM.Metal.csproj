@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>CatVM.Metal</RootNamespace>
+        <AssemblyName>CatVM.Metal</AssemblyName>
+
+        <!-- Native AOT: this binary is baked into the bootable image, so it must not need a
+             .NET runtime installed alongside it. -->
+        <PublishAot>true</PublishAot>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <StripSymbols>true</StripSymbols>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\CatVM\CatVM.csproj" />
+        <ProjectReference Include="..\Hardware\DiskDevice\DiskDevice.csproj" />
+        <ProjectReference Include="..\Hardware\HardwareManagerDevice\HardwareManagerDevice.csproj" />
+        <ProjectReference Include="..\Hardware\HardwareTimerDevice\HardwareTimerDevice.csproj" />
+        <ProjectReference Include="..\Hardware\RaylibPpuDevice\RaylibPpuDevice.csproj" />
+    </ItemGroup>
+
+</Project>

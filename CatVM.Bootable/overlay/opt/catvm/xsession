@@ -1,0 +1,16 @@
+#!/bin/sh
+# The X session: nothing but the machine itself. No window manager, so the
+# display window is the only thing on screen and nothing can move or close it.
+set -eu
+
+# A physical machine's screen does not blank or go to sleep while it is running.
+xset -dpms || true
+xset s off || true
+xset s noblank || true
+
+# The machine ships its own raylib build next to the binary; this only matters if
+# the app-local search ever stops finding it.
+LD_LIBRARY_PATH=/opt/catvm${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH
+
+exec /opt/catvm/vm "$@"

@@ -1,0 +1,6 @@
+# Build artefacts and images
+build/
+*.raw
+*.img
+*.rom
+*.rom.debug

@@ -1,0 +1,220 @@
+; ---------------------------------------------------------------------------
+; EXAMPLE FIRMWARE: the program is the whole machine
+;
+; Metal starts whatever ROM it was built with, at address 0, with nothing else in
+; the way. So a program can simply be the firmware: no loader, no disk, no OS.
+; That is the games console shape - one program, burnt in, straight to the point.
+;
+; This one finds its hardware through the hardware manager, fills the screen,
+; recolours it on every keypress, and powers the machine off when Q is pressed.
+; Since it never touches a disk, the machine does not need one.
+;
+; Build it into an image with:
+;   FIRMWARE=examples/console.cat ./build.sh
+; ---------------------------------------------------------------------------
+
+; --- hardware manager ------------------------------------------------------
+#const PORT_HWMAN,     0
+#const HWMAN_LIST,     1
+#const HWMAN_HALT,     2
+#const HWMAN_SHUTDOWN, 3
+
+; --- device types ----------------------------------------------------------
+#const TYPE_DISPLAY,   0xFF64BEF9
+#const TYPE_KEYBOARD,  0x2EB3AD76
+
+; --- display ---------------------------------------------------------------
+#const GFX_UPDATE,     1
+#const GFX_SET_MODE,   2
+#const MODE_BUFFER512, 0x00
+#const FB_SIZE,        0x00100000   ; 512 * 512 * 4 bytes
+
+; --- input -----------------------------------------------------------------
+#const INT_INPUT,      0x70
+#const KEY_DOWN,       1
+#const KEY_Q,          81           ; raylib keycode for Q
+
+#const NONE,           0xFFFFFFFF
+#const COLOR_START,    0x00206020
+
+
+main:
+    ; A reset leaves sp at the top of memory, which is how a program finds out
+    ; how much memory this machine has.
+    mov r7, sp
+    mov [mem_size], r7
+
+    ; Framebuffer at the very top of memory, stack growing down below it.
+    mov r6, r7
+    sub r6, FB_SIZE
+    mov [fb_addr], r6
+    mov sp, r6
+
+    setit int_table
+
+    call discover
+    call init_display
+
+    mov r1, msg_running
+    int 0x80
+
+    mov r1, COLOR_START
+    call fill_screen
+
+    ; Everything from here happens in the input interrupt.
+    .idle:
+        jmp .idle
+
+
+; ---------------------------------------------------------------------------
+; Asks the hardware manager which ports the display and keyboard are on, rather
+; than assuming the machine's layout.
+; ---------------------------------------------------------------------------
+discover:
+    out PORT_HWMAN, HWMAN_LIST
+    in r4, PORT_HWMAN       ; number of devices
+
+    .loop:
+        cmp r4, 0
+        je .done
+        sub r4, 1
+
+        in r1, PORT_HWMAN   ; port
+        in r2, PORT_HWMAN   ; device type
+
+        cmp r2, TYPE_DISPLAY
+        jne .not_display
+        mov [gfx_port], r1
+        jmp .loop
+
+    .not_display:
+        cmp r2, TYPE_KEYBOARD
+        jne .loop
+        mov [kbd_port], r1
+        jmp .loop
+
+    .done:
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Puts the display into the 512x512 buffer mode.
+; ---------------------------------------------------------------------------
+init_display:
+    mov r0, [gfx_port]
+    cmp r0, NONE
+    je .missing
+
+    mov r1, [fb_addr]
+    out r0, GFX_SET_MODE
+    out r0, MODE_BUFFER512
+    out r0, r1
+    in r2, r0
+    cmp r2, 0
+    jne .refused
+
+    mov [display_ok], 1
+    ret
+
+    .refused:
+    mov r1, msg_no_mode
+    int 0x80
+    ret
+
+    .missing:
+    mov r1, msg_no_display
+    int 0x80
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Fills the framebuffer with the colour in r1 and shows it.
+;
+; The fill doubles a single pixel with block copies rather than looping over
+; every pixel, which keeps it fast even at a modest clock speed.
+; ---------------------------------------------------------------------------
+fill_screen:
+    mov r2, [display_ok]
+    cmp r2, 0
+    je .done
+
+    mov r2, [fb_addr]
+    mov [r2], r1
+
+    mov r3, 4
+    .loop:
+        mov r0, r2
+        add r0, r3          ; cpy always writes to the address in r0
+        cpy r2, r3
+        add r3, r3
+        cmp r3, FB_SIZE
+        jul .loop
+
+    mov r0, [gfx_port]
+    out r0, GFX_UPDATE
+
+    .done:
+    ret
+
+
+; ---------------------------------------------------------------------------
+; Input. The device queues the event type followed by its value, so both are read
+; back off the same port the interrupt came from.
+; ---------------------------------------------------------------------------
+input_isr:
+    mov r0, [kbd_port]
+    in r2, r0               ; 1 = key down, 0 = key up
+    in r3, r0               ; keycode
+
+    cmp r2, KEY_DOWN
+    jne .done
+
+    cmp r3, KEY_Q
+    je .shutdown
+
+    ; Any other key: derive a colour from the keycode.
+    mov r1, r3
+    umul r1, 0x00135713
+    and r1, 0x00FFFFFF
+    call fill_screen
+
+    .done:
+    iret
+
+    .shutdown:
+    mov r1, msg_shutdown
+    int 0x80
+
+    ; On a real machine this turns the power off.
+    mov r0, [hwman_port]
+    out r0, HWMAN_SHUTDOWN
+    iret
+
+
+int_table:
+    d8 1
+    d8 INT_INPUT
+    d32 input_isr
+
+
+hwman_port:
+    d32 PORT_HWMAN
+gfx_port:
+    d32 NONE
+kbd_port:
+    d32 NONE
+display_ok:
+    d32 0
+mem_size:
+    d32 0
+fb_addr:
+    d32 0
+
+msg_running:
+    dstr "console: running, press keys to recolour, Q to power off\n\0"
+msg_no_display:
+    dstr "console: no display device\n\0"
+msg_no_mode:
+    dstr "console: display refused the video mode\n\0"
+msg_shutdown:
+    dstr "console: shutting down\n\0"
