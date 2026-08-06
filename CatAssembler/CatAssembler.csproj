@@ -19,6 +19,9 @@
         <IncludeSource>true</IncludeSource>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        
+        <IsAotCompatible>true</IsAotCompatible>
+        <PublishAot>true</PublishAot>
     </PropertyGroup>
     <ItemGroup>
       <ProjectReference Include="..\CatData\CatData.csproj" />

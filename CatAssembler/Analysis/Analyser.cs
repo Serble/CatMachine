@@ -4,6 +4,7 @@ using System.Text;
 using CatAssembler.Assembler;
 using CatAssembler.Exceptions;
 using CatAssembler.Parser;
+using CatAssembler.Utils;
 using CatData;
 using IntegerMaths;
 
@@ -12,7 +13,7 @@ namespace CatAssembler.Analysis;
 public class Analyser {
     private const int MaxVariableDepth = 64;
     private const string AllChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    
+
     private readonly Stack<Token> _tokens = [];
     private readonly Dictionary<string, Macro> _macros = new();
 
@@ -24,11 +25,15 @@ public class Analyser {
 
     public (IOutputSegment[] segments, Dictionary<string, string> constants, DebugTable debugSymbols) Analyse() {
         int filePos = 0;
+
+        // keep multiple copies so we don't have to transform everytime we need it compacted
         Dictionary<string, (string expr, string file, int line)> constants = [];
+        Dictionary<string, string> compactConstants = [];
+
         List<(Token, IExpression)> expressions = [];  // list of expressions that are used as args (we need to validate)
         List<DebugSymbol> debugSymbols = [];
         List<IOutputSegment> segments = [];
-        
+
         while (_tokens.TryPop(out Token? token)) {
             switch (token) {
                 case LabelToken label: {
@@ -36,9 +41,10 @@ public class Analyser {
                         Fail(token, "Constant already defined: " + label.Name);
                     }
                     constants.Add(label.Name, ($"{filePos}", label.File, label.Line));
+                    compactConstants.Add(label.Name, $"{filePos}");
                     break;
                 }
-                
+
                 case DirectiveToken directive: {
                     switch (directive.Name) {
                         case "define" or "const": {
@@ -49,19 +55,21 @@ public class Analyser {
                                 Fail(directive, "Constant already defined: " + name);
                             }
                             constants.Add(name, (valueExpr.Value, directive.File, directive.Line));
+                            compactConstants.Add(name, valueExpr.Value);
                             break;
                         }
 
                         case "macro": {
                             AssertArgCount(directive, 3);
-                            
+
                             string name = AssertExpression<NameExpression>(directive, directive.Args[0]).Value;
                             NumberExpression argCountExpr = AssertNumberExpression(token, directive.Args[1]);
-                            Dictionary<string, string> mod = CompactConstants();
                             string argCountName = Guid.NewGuid().ToString();
-                            mod.Add(argCountName, argCountExpr.Value);
+                            DictAddon<string, string> mod = new(
+                                compactConstants,
+                                new KeyValuePair<string, string>(argCountName, argCountExpr.Value));
                             int argCount;
-                            
+
                             try {
                                 argCount = (int)EvaluateVariable(argCountName, mod);
                             }
@@ -70,7 +78,7 @@ public class Analyser {
                             }
 
                             MacroBodyExpression lines = AssertExpression<MacroBodyExpression>(directive, directive.Args[2]);
-                            
+
                             _macros.Add(name, new Macro(lines.Value, argCount, lines.LineNumber));
                             break;
                         }
@@ -112,27 +120,27 @@ public class Analyser {
 
                 case InstructionToken instruction: {
                     debugSymbols.Add(new DebugSymbol(filePos, instruction.Line, instruction.Raw));
-                    
+
                     if (_macros.TryGetValue(instruction.Name, out Macro? macro)) {
                         AssertArgCount(instruction, macro.ArgCount);
-                        
+
                         StringBuilder expansionIdBuilder = new();
                         for (int i = 0; i < 16; i++) {
                             expansionIdBuilder.Append(AllChars[Random.Shared.Next(AllChars.Length)]);
                         }
 
                         string expansionId = expansionIdBuilder.ToString();
-                        
+
                         string[] lines = macro.Lines.Select(line => {
                             // reverse order so $10 isn't replaced with $1's replacement
                             for (int i = macro.ArgCount; i >= 1; i--) {
                                 line = line.Replace($"${i}", instruction.Args[i - 1].RawValue);
                             }
-                            
+
                             line = line.Replace("$0", expansionId);
                             return line;
                         }).ToArray();
-                        
+
                         Tokeniser tokeniser = new(instruction.File, lines, macro.LineNumber);
                         Token[] newTokens = tokeniser.Tokenise();
                         for (int i = newTokens.Length - 1; i >= 0; i--) {
@@ -140,7 +148,7 @@ public class Analyser {
                         }
                         break;
                     }
-                    
+
                     // custom instructions
                     IOutputSegment? customInstr = FindCustomInstruction(instruction);
                     if (customInstr != null) {
@@ -150,7 +158,7 @@ public class Analyser {
                                 expressions.AddRange(instruction.Args.Select(arg => (instruction as Token, arg)));
                             }
                             
-                            if (!argSeg.ValidateArgs(instruction, instruction.Args, CompactConstants(), out string? customError)) {
+                            if (!argSeg.ValidateArgs(instruction, instruction.Args, compactConstants, out string? customError)) {
                                 Fail(instruction, $"Invalid arguments for custom instruction {instruction.Name}: {customError}");
                             }
                         }
@@ -158,7 +166,7 @@ public class Analyser {
                         segments.Add(customInstr);
                         break;
                     }
-                    
+
                     // regular instruction
                     expressions.AddRange(instruction.Args.Select(arg => (instruction as Token, arg)));
                     InstructionSpec? spec = FindInstruction(instruction);
@@ -170,7 +178,7 @@ public class Analyser {
                     filePos += 1 + spec.ArgTypes.Sum(t => t.type.SizeInBytes);
                     EncodableInstruction segment = new(spec.Id, spec.ArgTypes.Select(a => a.type).ToArray());
 
-                    if (!segment.ValidateArgs(instruction, instruction.Args, CompactConstants(), out string? error)) {
+                    if (!segment.ValidateArgs(instruction, instruction.Args, compactConstants, out string? error)) {
                         Fail(instruction, $"Invalid arguments for instruction {instruction.Name}: {error}");
                     }
                     segments.Add(segment);
@@ -178,7 +186,7 @@ public class Analyser {
                 }
             }
         }
-        
+
         // check to make sure all expressions are valid
         foreach ((Token token, IExpression expr) in expressions) {
             NumberExpression numberExpr = null!;
@@ -186,28 +194,27 @@ public class Analyser {
                 case RegisterExpression:
                     // valid
                     continue;
-                
+
                 case NumberExpression n:
                     numberExpr = n;
                     break;
-                
+
                 case NameExpression nameExpr:
                     numberExpr = nameExpr.ToNumber();
                     break;
-                
+
                 case StringExpression:
                     Fail(token, "String expressions are not valid here");
                     break;
-                
+
                 default:
                     throw new Exception("Unknown expression type: " + expr.GetType().FullName);
             }
-            
+
             // try to evaluate the expression to make sure it's valid
             string exprStr = numberExpr.Value;
-            Dictionary<string, string> modConstants = CompactConstants();
             string evalId = Guid.NewGuid().ToString();
-            modConstants.Add(evalId, exprStr);
+            DictAddon<string, string> modConstants = new(compactConstants, new KeyValuePair<string, string>(evalId, exprStr));
             try {
                 _ = EvaluateVariable(evalId, modConstants);
             } catch (Exception e) when (e is CircularDependencyException or KeyNotFoundException or InvalidOperationException) {
@@ -220,15 +227,12 @@ public class Analyser {
                           $"{constants.Count} constants, " +
                           $"{filePos} bytes.");
 
-        Dictionary<string, string> finalExpressions = CompactConstants();
-        return (segments.ToArray(), CompactConstants(), new DebugTable(debugSymbols.ToArray(), constants.ToDictionary(
+        return (segments.ToArray(), compactConstants, new DebugTable(debugSymbols.ToArray(), constants.ToDictionary(
             kv => kv.Key,
-            kv => EvaluateVariable(kv.Key, finalExpressions)
+            kv => EvaluateVariable(kv.Key, compactConstants)
         )));
-
-        Dictionary<string, string> CompactConstants() => constants.ToDictionary(kv => kv.Key, kv => kv.Value.expr);
     }
-    
+
     private NumberExpression AssertNumberExpression(Token token, IExpression expr) {
         if (expr is StringExpression) {
             Fail(token, "String expression not valid here");
@@ -241,7 +245,7 @@ public class Analyser {
         if (expr is NameExpression name) {
             return name.ToNumber();
         }
-        
+
         return AssertExpression<NumberExpression>(token, expr);
     }
 
@@ -250,13 +254,13 @@ public class Analyser {
             Fail(directive, $"Directive {directive.Name} expects {argCount} arguments, got {directive.Args.Length}");
         }
     }
-    
+
     private void AssertArgCount(InstructionToken directive, int argCount) {
         if (directive.Args.Length != argCount) {
             Fail(directive, $"Directive {directive.Name} expects {argCount} arguments, got {directive.Args.Length}");
         }
     }
-    
+
     private T AssertExpression<T>(Token token, IExpression expr) where T : IExpression {
         if (expr is not T t) {
             Fail(token, $"Expected expression of type {typeof(T).Name}, got {expr.GetType().Name}");
@@ -269,21 +273,21 @@ public class Analyser {
         if (token.Args.Any(e => e is StringExpression)) {
             Fail(token, "String expressions are not valid instruction arguments");
         }
-        
+
         InstructionSpec? instruction = Spec.Instructions.FirstOrDefault(i => 
             i.Mneumonics.Contains(token.Name) && 
             ArgsMatchExpressions(i, token.Args));
-        
+
         return instruction;
     }
-    
+
     private IOutputSegment? FindCustomInstruction(InstructionToken token) {
-        (string[] mneumonics, IOutputSegment segment) = Spec.CustomInstructions.FirstOrDefault(i => 
+        (string[] _, IOutputSegment segment) = Spec.CustomInstructions.FirstOrDefault(i => 
             i.Mneumonics.Contains(token.Name));
-        
+
         return segment;
     }
-    
+
     private static bool ArgsMatchExpressions(InstructionSpec spec, IExpression[] args) {
         if (spec.ArgTypes.Length != args.Length) {
             return false;
@@ -300,7 +304,7 @@ public class Analyser {
                 }
                 continue;
             }
-            
+
             // Immediate type
             if (args[i] is not NumberExpression && args[i] is not NameExpression) {
                 return false;
@@ -309,18 +313,18 @@ public class Analyser {
 
         return true;
     }
-    
+
     private static readonly BigInteger UIntSize = new BigInteger(uint.MaxValue) + 1;
-    public static uint EvaluateVariable(string varName, Dictionary<string, string> expressions) {
+    public static uint EvaluateVariable(string varName, IDictionary<string, string> expressions) {
         return (uint)((EvaluateVariableBigInt(varName, expressions) % UIntSize + UIntSize) % UIntSize);
     }
 
-    public static BigInteger EvaluateVariableBigInt(string varName, Dictionary<string, string> expressions, int depth = 1) {
+    public static BigInteger EvaluateVariableBigInt(string varName, IDictionary<string, string> expressions, int depth = 1) {
         if (!expressions.TryGetValue(varName, out string? expression)) {
             throw new KeyNotFoundException(varName);
         }
         Expression expr = new(expression);
-        
+
         // Prevent infinite recursion
         if (depth > MaxVariableDepth) {
             throw new CircularDependencyException();
@@ -330,7 +334,7 @@ public class Analyser {
         expr.EvaluateVariableEvent += (name, args) => {
             args.Value = EvaluateVariableBigInt(name, expressions, depth + 1);
         };
-        
+
         return expr.Eval();
     }
 

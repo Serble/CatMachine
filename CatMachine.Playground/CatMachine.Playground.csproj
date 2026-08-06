@@ -13,6 +13,7 @@
     <Compile Include="..\CatAssembler\Exceptions\**\*.cs" Link="CatAssembler\Exceptions\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\CatAssembler\Parser\**\*.cs" Link="CatAssembler\Parser\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\CatAssembler\Spec.cs" Link="CatAssembler\Spec.cs" />
+    <Compile Include="..\CatAssembler\Utils\*.cs" Link="CatAssembler\Utils\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
