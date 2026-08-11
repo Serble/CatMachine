@@ -243,7 +243,12 @@ public class CatVm {
             _eventsCts = new CancellationTokenSource();
         }
         TicksPassed = 0;
-        Runtime.Reset();
+        if (Runtime.IsRunning) {
+            Runtime.Restart();
+        }
+        else {
+            Runtime.Reset();
+        }
 
         if (Rom.Length > 0) {
             LoadData(Rom);
