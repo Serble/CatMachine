@@ -9,6 +9,9 @@ using Catnip.Compiler.Frontend;
 CatnipFrontendService frontendService = new();
 Dictionary<string, DocumentState> documents = new(StringComparer.OrdinalIgnoreCase);
 bool shutdownRequested = false;
+// Captured at initialize so references and rename can search the whole project, not just the
+// files the open document happens to include.
+string? workspaceRoot = null;
 string[] semanticTokenLegend = ["keyword", "comment", "string", "number", "operator", "function", "variable", "struct"];
 
 using Stream input = Console.OpenStandardInput();
@@ -44,12 +47,19 @@ while (TryReadMessage(input, out string? payload)) {
 
         switch (method) {
             case "initialize":
+                workspaceRoot = ExtractWorkspaceRoot(paramsElement);
+                LogStderr($"workspace root: {workspaceRoot ?? "(none)"}");
                 if (hasId) {
                     WriteResponse(output, idElement, new {
                         capabilities = new {
                             textDocumentSync = 2,
                             hoverProvider = true,
                             definitionProvider = true,
+                            implementationProvider = true,
+                            referencesProvider = true,
+                            renameProvider = new {
+                                prepareProvider = true
+                            },
                             documentSymbolProvider = true,
                             completionProvider = new {
                                 triggerCharacters = new[] { ".", "#", "$" }
@@ -68,7 +78,7 @@ while (TryReadMessage(input, out string? payload)) {
                         },
                         serverInfo = new {
                             name = "Catnip.LanguageServer",
-                            version = "0.2.0"
+                            version = "0.3.0"
                         }
                     });
                 }
@@ -102,6 +112,41 @@ while (TryReadMessage(input, out string? payload)) {
             case "textDocument/definition":
                 if (hasId) {
                     WriteResponse(output, idElement, HandleDefinition(paramsElement, documents));
+                }
+                break;
+
+            // Catnip has no separate declaration/definition split, so "go to implementation"
+            // is the same jump as "go to definition". Answering it keeps editors that offer
+            // both from reporting an error on one of them.
+            case "textDocument/implementation":
+                if (hasId) {
+                    WriteResponse(output, idElement, HandleDefinition(paramsElement, documents));
+                }
+                break;
+
+            case "textDocument/references":
+                if (hasId) {
+                    WriteResponse(output, idElement, HandleReferences(paramsElement, documents, workspaceRoot));
+                }
+                break;
+
+            case "textDocument/prepareRename":
+                if (hasId) {
+                    WriteResponse(output, idElement, HandlePrepareRename(paramsElement, documents));
+                }
+                break;
+
+            case "textDocument/rename":
+                if (hasId) {
+                    (object? renameResult, string? renameError) = HandleRename(paramsElement, documents, workspaceRoot);
+                    if (renameError != null) {
+                        // Reported as a request error so the editor shows the reason instead of
+                        // silently applying nothing.
+                        WriteErrorResponse(output, idElement, -32602, renameError);
+                    }
+                    else {
+                        WriteResponse(output, idElement, renameResult);
+                    }
                 }
                 break;
 
@@ -711,6 +756,9 @@ static IEnumerable<CatnipSymbolDefinition> ExtractTextSymbols(string text, strin
     Regex localPattern = new(@"^\s*let\s+([A-Za-z_][A-Za-z0-9_]*)\s*:", RegexOptions.Compiled);
     Regex docPattern = new(@"^\s*///\s?(.*)$", RegexOptions.Compiled);
     List<string> pendingDocLines = [];
+    // Catnip has no nested functions, so the most recent declaration above a `let` is the
+    // function that owns it. Locals need this to be scoped correctly by rename and references.
+    string? currentFunction = null;
 
     for (int line = 0; line < lines.Length; line++) {
         string lineText = lines[line];
@@ -727,6 +775,7 @@ static IEnumerable<CatnipSymbolDefinition> ExtractTextSymbols(string text, strin
         Match functionMatch = functionPattern.Match(lineText);
         if (functionMatch.Success) {
             Group nameGroup = functionMatch.Groups[1];
+            currentFunction = nameGroup.Value;
             symbols.Add(new CatnipSymbolDefinition(
                 nameGroup.Value,
                 CatnipSymbolKind.Function,
@@ -789,7 +838,7 @@ static IEnumerable<CatnipSymbolDefinition> ExtractTextSymbols(string text, strin
                 line,
                 nameGroup.Index,
                 nameGroup.Index + nameGroup.Length,
-                null,
+                currentFunction,
                 BuildDetail($"let {nameGroup.Value}", documentation)));
         }
 
@@ -805,6 +854,506 @@ static IEnumerable<CatnipSymbolDefinition> ExtractTextSymbols(string text, strin
 
         return declaration + "\n\nDocumentation:\n" + documentation;
     }
+}
+
+
+// ── References and rename ────────────────────────────────────────────────────
+//
+// The symbol index only records definitions, so occurrences are found by lexing each file in
+// the include graph and matching identifier tokens by name, skipping comments and string
+// literals. Locals and parameters are additionally confined to their enclosing function so a
+// name reused in another function is left alone.
+
+static object HandleReferences(
+    JsonElement parameters,
+    Dictionary<string, DocumentState> documents,
+    string? workspaceRoot) {
+    string uri = parameters.GetProperty("textDocument").GetProperty("uri").GetString() ?? string.Empty;
+    if (string.IsNullOrEmpty(uri)) return Array.Empty<object>();
+    if (!documents.TryGetValue(uri, out DocumentState? state)) return Array.Empty<object>();
+
+    JsonElement position = parameters.GetProperty("position");
+    int line = position.GetProperty("line").GetInt32();
+    int character = position.GetProperty("character").GetInt32();
+
+    string filePath = UriToFilePath(uri);
+    if (!TryResolveSymbolAt(state, filePath, line, character, out string name, out CatnipSymbolDefinition? definition)) {
+        return Array.Empty<object>();
+    }
+
+    bool includeDeclaration = true;
+    if (parameters.TryGetProperty("context", out JsonElement context) &&
+        context.TryGetProperty("includeDeclaration", out JsonElement includeDeclarationElement)) {
+        includeDeclaration = includeDeclarationElement.ValueKind != JsonValueKind.False;
+    }
+
+    List<(string File, int Line, int Start, int End)> occurrences =
+        FindSymbolOccurrences(state, filePath, name, definition, workspaceRoot);
+
+    return occurrences
+        .Where(occurrence => includeDeclaration || definition == null ||
+                             !(PathsMatch(occurrence.File, definition.File) && occurrence.Line == definition.Line))
+        .Select(occurrence => (object)new {
+            uri = FilePathToUri(occurrence.File),
+            range = new {
+                start = new { line = occurrence.Line, character = occurrence.Start },
+                end = new { line = occurrence.Line, character = occurrence.End }
+            }
+        })
+        .ToArray();
+}
+
+static object? HandlePrepareRename(JsonElement parameters, Dictionary<string, DocumentState> documents) {
+    string uri = parameters.GetProperty("textDocument").GetProperty("uri").GetString() ?? string.Empty;
+    if (string.IsNullOrEmpty(uri)) return null;
+    if (!documents.TryGetValue(uri, out DocumentState? state)) return null;
+
+    JsonElement position = parameters.GetProperty("position");
+    int line = position.GetProperty("line").GetInt32();
+    int character = position.GetProperty("character").GetInt32();
+
+    string filePath = UriToFilePath(uri);
+    if (!TryResolveSymbolAt(state, filePath, line, character, out string name, out CatnipSymbolDefinition? definition)) {
+        return null;
+    }
+
+    if (definition == null || DescribeRenameRefusal(definition, filePath) != null) {
+        return null;
+    }
+
+    (int start, int end)? range = GetTokenRangeAt(state.Text, line, character);
+    if (range == null) return null;
+
+    return new {
+        range = new {
+            start = new { line, character = range.Value.start },
+            end = new { line, character = range.Value.end }
+        },
+        placeholder = name
+    };
+}
+
+static (object? Result, string? Error) HandleRename(
+    JsonElement parameters,
+    Dictionary<string, DocumentState> documents,
+    string? workspaceRoot) {
+    string uri = parameters.GetProperty("textDocument").GetProperty("uri").GetString() ?? string.Empty;
+    if (string.IsNullOrEmpty(uri)) return (null, "No document specified.");
+    if (!documents.TryGetValue(uri, out DocumentState? state)) return (null, "Document is not open.");
+
+    string newName = parameters.GetProperty("newName").GetString() ?? string.Empty;
+    if (!IsValidCatnipIdentifier(newName)) {
+        return (null, $"'{newName}' is not a valid Catnip identifier.");
+    }
+
+    JsonElement position = parameters.GetProperty("position");
+    int line = position.GetProperty("line").GetInt32();
+    int character = position.GetProperty("character").GetInt32();
+
+    string filePath = UriToFilePath(uri);
+    if (!TryResolveSymbolAt(state, filePath, line, character, out string name, out CatnipSymbolDefinition? definition)) {
+        return (null, "There is nothing to rename at this position.");
+    }
+
+    if (definition == null) {
+        return (null, $"Could not find a definition for '{name}', so it cannot be renamed safely.");
+    }
+
+    string? refusal = DescribeRenameRefusal(definition, filePath);
+    if (refusal != null) {
+        return (null, refusal);
+    }
+
+    if (name == newName) {
+        return (new { changes = new Dictionary<string, object[]>() }, null);
+    }
+
+    List<(string File, int Line, int Start, int End)> occurrences =
+        FindSymbolOccurrences(state, filePath, name, definition, workspaceRoot);
+
+    if (occurrences.Count == 0) {
+        return (null, $"Found no occurrences of '{name}' to rename.");
+    }
+
+    Dictionary<string, object[]> changes = new(StringComparer.Ordinal);
+    foreach (IGrouping<string, (string File, int Line, int Start, int End)> group in
+             occurrences.GroupBy(occurrence => FilePathToUri(occurrence.File), StringComparer.OrdinalIgnoreCase)) {
+        changes[group.Key] = group
+            // Descending so that applying the edits in order cannot invalidate the offsets of
+            // later ones when the new name is a different length.
+            .OrderByDescending(occurrence => occurrence.Line)
+            .ThenByDescending(occurrence => occurrence.Start)
+            .Select(occurrence => (object)new {
+                range = new {
+                    start = new { line = occurrence.Line, character = occurrence.Start },
+                    end = new { line = occurrence.Line, character = occurrence.End }
+                },
+                newText = newName
+            })
+            .ToArray();
+    }
+
+    return (new { changes }, null);
+}
+
+/// <summary>
+/// Explains why a symbol cannot be renamed, or null when it can be.
+/// </summary>
+/// <param name="currentFilePath">
+/// The open document, which is renameable even when it has never been saved.
+/// </param>
+static string? DescribeRenameRefusal(CatnipSymbolDefinition definition, string currentFilePath) {
+    if (definition.Kind == CatnipSymbolKind.StructField) {
+        // Renaming a field correctly needs to know the type of every expression it is accessed
+        // through, which the frontend does not expose. Renaming every matching bare identifier
+        // instead would silently corrupt unrelated code, so refuse rather than guess.
+        return "Renaming struct fields is not supported: the compiler frontend does not expose " +
+               "enough type information to find field accesses reliably.";
+    }
+
+    if (definition.Kind == CatnipSymbolKind.BinaryGlobal) {
+        return "Binary globals cannot be renamed from the editor.";
+    }
+
+    // Built-in library symbols report a bare file name that is not on disk. An unsaved buffer
+    // is also absent from disk, so the open document is always treated as renameable.
+    if (!PathsMatch(definition.File, currentFilePath) &&
+        (string.IsNullOrEmpty(definition.File) || !File.Exists(definition.File))) {
+        return $"'{definition.Name}' is defined outside the project (in '{definition.File}') and cannot be renamed.";
+    }
+
+    return null;
+}
+
+/// <summary>
+/// Resolves the identifier under the cursor and its definition, if it has one.
+/// </summary>
+static bool TryResolveSymbolAt(
+    DocumentState state,
+    string filePath,
+    int line,
+    int character,
+    out string name,
+    out CatnipSymbolDefinition? definition) {
+    name = GetTokenAt(state.Text, line, character);
+    definition = null;
+    if (string.IsNullOrWhiteSpace(name)) return false;
+
+    if (name.StartsWith('$')) {
+        name = name[1..];
+    }
+    if (name.Length == 0 || !IsValidCatnipIdentifier(name)) return false;
+
+    definition = FindDefinition(GetEffectiveSymbols(state, filePath), name, filePath, line);
+    return true;
+}
+
+/// <summary>
+/// Finds every occurrence of a symbol across the files reachable from the open document,
+/// scoped to the defining function when the symbol is a local or a parameter.
+/// </summary>
+static List<(string File, int Line, int Start, int End)> FindSymbolOccurrences(
+    DocumentState state,
+    string filePath,
+    string name,
+    CatnipSymbolDefinition? definition,
+    string? workspaceRoot) {
+    List<(string File, int Line, int Start, int End)> results = [];
+
+    bool functionScoped = definition is { Kind: CatnipSymbolKind.Local or CatnipSymbolKind.Parameter, ContainerName: not null };
+
+    foreach ((string file, string text) in CollectProjectDocuments(state, filePath, workspaceRoot)) {
+        if (functionScoped && !PathsMatch(file, definition!.File)) {
+            // A local only exists inside one function in one file.
+            continue;
+        }
+
+        (int StartLine, int EndLine)? scope = null;
+        if (functionScoped) {
+            scope = TryGetFunctionRange(text, definition!.ContainerName!);
+            if (scope == null) continue;
+        }
+
+        foreach ((int occurrenceLine, int start, int end) in FindIdentifierOccurrences(text, name)) {
+            if (scope != null && (occurrenceLine < scope.Value.StartLine || occurrenceLine > scope.Value.EndLine)) {
+                continue;
+            }
+
+            results.Add((file, occurrenceLine, start, end));
+        }
+    }
+
+    return results;
+}
+
+/// <summary>
+/// Every Catnip file that could reference the symbol, keyed by full path: the whole workspace,
+/// plus anything the open document includes from outside it. The open document uses its
+/// in-memory text so unsaved edits are taken into account; the rest are read from disk, which
+/// is also what keeps their line numbers true.
+/// </summary>
+/// <remarks>
+/// Searching the workspace rather than just the include closure matters because the closure
+/// only reaches downwards. A function defined in utils.nip is called from main.nip, which
+/// includes utils.nip and not the other way round, so its call sites are invisible from
+/// utils.nip's own includes.
+/// </remarks>
+static Dictionary<string, string> CollectProjectDocuments(
+    DocumentState state,
+    string filePath,
+    string? workspaceRoot) {
+    const int maxProjectFiles = 2000;
+    Dictionary<string, string> documents = new(StringComparer.OrdinalIgnoreCase);
+
+    string fullPath;
+    try {
+        fullPath = Path.GetFullPath(filePath);
+    }
+    catch {
+        return documents;
+    }
+
+    documents[fullPath] = state.Text;
+
+    // Fall back to the open file's own directory when the client did not tell us a root.
+    string? searchRoot = workspaceRoot ?? Path.GetDirectoryName(fullPath);
+    if (searchRoot != null) {
+        try {
+            foreach (string file in Directory.EnumerateFiles(searchRoot, "*.nip", SearchOption.AllDirectories)
+                         .Take(maxProjectFiles)) {
+                AddDocument(documents, file);
+            }
+        }
+        catch {
+            // Unreadable or missing root: the include closure below is still worth collecting.
+        }
+    }
+
+    try {
+        Preprocesser preprocesser = new(fullPath, state.Text);
+        PreprocessedResult preprocessed = preprocesser.Process();
+        foreach ((string file, int _) in preprocessed.LineMappings) {
+            AddDocument(documents, file);
+        }
+    }
+    catch {
+        // Preprocessing can fail while the user is mid-edit; the files already collected are
+        // still a useful answer.
+    }
+
+    return documents;
+
+    static void AddDocument(Dictionary<string, string> documents, string file) {
+        if (string.IsNullOrEmpty(file)) return;
+
+        string path;
+        try {
+            path = Path.GetFullPath(file);
+        }
+        catch {
+            return;
+        }
+
+        // Never overwrite the open document's in-memory text with the stale copy on disk.
+        if (documents.ContainsKey(path)) return;
+        // Built-in library files are not on disk; they are not renameable anyway.
+        if (!File.Exists(path)) return;
+
+        try {
+            documents[path] = File.ReadAllText(path);
+        }
+        catch {
+            // Unreadable file: skip it rather than failing the whole request.
+        }
+    }
+}
+
+/// <summary>
+/// The workspace directory the client opened, if it told us about one.
+/// </summary>
+static string? ExtractWorkspaceRoot(JsonElement parameters) {
+    if (parameters.ValueKind != JsonValueKind.Object) return null;
+
+    if (parameters.TryGetProperty("workspaceFolders", out JsonElement folders) &&
+        folders.ValueKind == JsonValueKind.Array) {
+        foreach (JsonElement folder in folders.EnumerateArray()) {
+            if (folder.TryGetProperty("uri", out JsonElement folderUri) &&
+                folderUri.ValueKind == JsonValueKind.String &&
+                folderUri.GetString() is { Length: > 0 } folderPath) {
+                return UriToFilePath(folderPath);
+            }
+        }
+    }
+
+    if (parameters.TryGetProperty("rootUri", out JsonElement rootUri) &&
+        rootUri.ValueKind == JsonValueKind.String &&
+        rootUri.GetString() is { Length: > 0 } rootUriValue) {
+        return UriToFilePath(rootUriValue);
+    }
+
+    if (parameters.TryGetProperty("rootPath", out JsonElement rootPath) &&
+        rootPath.ValueKind == JsonValueKind.String &&
+        rootPath.GetString() is { Length: > 0 } rootPathValue) {
+        return rootPathValue;
+    }
+
+    return null;
+}
+
+/// <summary>
+/// Lexes identifier tokens out of a file, ignoring comments and string literals, and returns
+/// the ones matching <paramref name="name"/> exactly.
+/// </summary>
+static List<(int Line, int Start, int End)> FindIdentifierOccurrences(string text, string name) {
+    List<(int Line, int Start, int End)> results = [];
+    string[] lines = text.Split('\n');
+
+    for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++) {
+        string line = lines[lineIndex];
+        int i = 0;
+        while (i < line.Length) {
+            char c = line[i];
+
+            if (c == '/' && i + 1 < line.Length && line[i + 1] == '/') {
+                break;  // rest of the line is a comment
+            }
+
+            if (c == '"') {
+                i++;
+                while (i < line.Length) {
+                    if (line[i] == '\\' && i + 1 < line.Length) { i += 2; continue; }
+                    if (line[i] == '"') { i++; break; }
+                    i++;
+                }
+                continue;
+            }
+
+            if (IsIdentifierStart(c)) {
+                int start = i;
+                while (i < line.Length && IsIdentifierPart(line[i])) i++;
+                if (string.CompareOrdinal(line[start..i], name) == 0) {
+                    results.Add((lineIndex, start, i));
+                }
+                continue;
+            }
+
+            i++;
+        }
+    }
+
+    return results;
+}
+
+/// <summary>
+/// The line range of a function's declaration and body, used to scope locals and parameters.
+/// </summary>
+static (int StartLine, int EndLine)? TryGetFunctionRange(string text, string functionName) {
+    string[] lines = text.Split('\n');
+    Regex declaration = new(@"^\s*fun\s+" + Regex.Escape(functionName) + @"\s*\(", RegexOptions.Compiled);
+
+    for (int i = 0; i < lines.Length; i++) {
+        if (!declaration.IsMatch(lines[i])) continue;
+
+        int depth = 0;
+        bool sawOpeningBrace = false;
+        for (int j = i; j < lines.Length; j++) {
+            foreach (char c in StripCommentsAndStrings(lines[j])) {
+                if (c == '{') {
+                    depth++;
+                    sawOpeningBrace = true;
+                }
+                else if (c == '}') {
+                    depth--;
+                }
+            }
+
+            if (sawOpeningBrace && depth <= 0) {
+                return (i, j);
+            }
+        }
+
+        // Unbalanced braces (likely mid-edit): treat the rest of the file as the body.
+        return (i, lines.Length - 1);
+    }
+
+    return null;
+}
+
+/// <summary>
+/// Blanks out comment and string content so brace counting is not confused by braces inside
+/// them. Length is preserved so column positions stay valid.
+/// </summary>
+static string StripCommentsAndStrings(string line) {
+    StringBuilder result = new(line.Length);
+    int i = 0;
+    while (i < line.Length) {
+        char c = line[i];
+
+        if (c == '/' && i + 1 < line.Length && line[i + 1] == '/') {
+            result.Append(' ', line.Length - i);
+            break;
+        }
+
+        if (c == '"') {
+            result.Append(' ');
+            i++;
+            while (i < line.Length) {
+                if (line[i] == '\\' && i + 1 < line.Length) {
+                    result.Append("  ");
+                    i += 2;
+                    continue;
+                }
+                result.Append(' ');
+                if (line[i] == '"') {
+                    i++;
+                    break;
+                }
+                i++;
+            }
+            continue;
+        }
+
+        result.Append(c);
+        i++;
+    }
+
+    return result.ToString();
+}
+
+/// <summary>
+/// The start and end columns of the identifier under the cursor.
+/// </summary>
+static (int start, int end)? GetTokenRangeAt(string text, int line, int character) {
+    string[] lines = text.Split('\n');
+    if (line < 0 || line >= lines.Length) return null;
+
+    string lineText = lines[line];
+    if (lineText.Length == 0) return null;
+
+    int index = Math.Clamp(character, 0, lineText.Length - 1);
+    if (!IsIdentifierPart(lineText[index]) && index > 0 && IsIdentifierPart(lineText[index - 1])) index--;
+    if (!IsIdentifierPart(lineText[index])) return null;
+
+    int start = index;
+    while (start > 0 && IsIdentifierPart(lineText[start - 1])) start--;
+    int end = index;
+    while (end + 1 < lineText.Length && IsIdentifierPart(lineText[end + 1])) end++;
+
+    return (start, end + 1);
+}
+
+static bool IsValidCatnipIdentifier(string value) {
+    if (value.Length == 0) return false;
+    if (!IsIdentifierStart(value[0])) return false;
+    return value.All(IsIdentifierPart);
+}
+
+static bool IsIdentifierStart(char c) {
+    return char.IsLetter(c) || c == '_';
+}
+
+static bool IsIdentifierPart(char c) {
+    return char.IsLetterOrDigit(c) || c == '_';
 }
 
 static CatnipSymbolDefinition? FindDefinition(

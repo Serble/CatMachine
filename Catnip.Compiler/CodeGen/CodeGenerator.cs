@@ -269,6 +269,10 @@ public partial class CodeGenerator(CatProgram program) {
             GenerateFunction(function, file);
         }
         
+        // Everything from here on is data with no Catnip statement behind it, so drop the
+        // mapping rather than attributing it to the last function's closing line.
+        file.ClearSourceLocation();
+
         // Allocate global variables
         file.BlankLine();
         file.Comment("Global variable allocations");
@@ -474,6 +478,10 @@ public partial class CodeGenerator(CatProgram program) {
         
         epilogue.AppendIndented("ret");
         
+        // The epilogue belongs to the function as a whole rather than to whichever statement
+        // happened to be generated last, so point it back at the declaration.
+        epilogue.SourceLocation(function.FileInformation, true);
+
         // Now assemble the full function
         file.BlankLine();
         file.BlankLine();
@@ -481,6 +489,9 @@ public partial class CodeGenerator(CatProgram program) {
         foreach (VarNameSize param in function.Parameters) {
             file.Comment("Parameter: " + param.Name + " (" + ResolveCompileConstant(param.Size) + " bytes)");
         }
+        // Emitted before the label so the prologue and parameter setup attribute to the
+        // function's own declaration line, which is where "step into" should land.
+        file.SourceLocation(function.FileInformation);
         file.Label(function.Name);
         file.Append(prologue);
         file.Append(paramSetup);

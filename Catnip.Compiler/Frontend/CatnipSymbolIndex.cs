@@ -12,6 +12,11 @@ public enum CatnipSymbolKind {
     BinaryGlobal
 }
 
+/// <param name="Line">
+/// 0-based line number, matching how editors and the Language Server Protocol count lines.
+/// <see cref="FileInformation"/> counts from 1, so it is converted on the way in.
+/// </param>
+/// <param name="Column">0-based column number.</param>
 public sealed record CatnipSymbolDefinition(
     string Name,
     CatnipSymbolKind Kind,
@@ -208,11 +213,14 @@ public sealed class CatnipSymbolIndex {
         string? containerName,
         string? detail) {
         int column = Math.Max(0, fileInformation.Column - 1);
+        // FileInformation is 1-based; CatnipSymbolDefinition is 0-based like the LSP, so without
+        // this conversion go-to-definition lands one line below the actual definition.
+        int line = Math.Max(0, fileInformation.Line - 1);
         return new CatnipSymbolDefinition(
             name,
             kind,
             fileInformation.File,
-            Math.Max(0, fileInformation.Line),
+            line,
             column,
             column + name.Length,
             containerName,

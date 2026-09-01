@@ -211,6 +211,107 @@ public class AnalyserTest {
         Assert.That(debug.Symbols, Has.Length.EqualTo(2));
         Assert.That(debug.Symbols[0].FilePos, Is.EqualTo(0));
         Assert.That(debug.Symbols[1].FilePos, Is.EqualTo(1));
+        Assert.That(debug.Symbols[0].Line, Is.EqualTo(1));
+        Assert.That(debug.Symbols[1].Line, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void DebugSymbols_RecordTheFileEachInstructionCameFrom() {
+        // Without a file a bare line number is ambiguous the moment a project uses #include.
+        (_, _, DebugTable debug) = Analyse("nop");
+        Assert.That(debug.Symbols[0].File, Is.EqualTo("test.asm"));
+    }
+
+    [Test]
+    public void DebugSymbols_HaveNoSourceMappingForHandWrittenAssembly() {
+        (_, _, DebugTable debug) = Analyse("nop");
+        Assert.That(debug.Symbols[0].SourceFile, Is.Null);
+        // With no high-level origin, the assembly itself is what a debugger should show.
+        Assert.That(debug.Symbols[0].EffectiveLocation, Is.EqualTo(("test.asm", 1)));
+    }
+
+    // ── #line source mapping ─────────────────────────────────────────────────
+
+    [Test]
+    public void LineDirective_MapsFollowingInstructionsToTheHighLevelSource() {
+        (_, _, DebugTable debug) = Analyse("#line 12, \"main.nip\"\nnop");
+        Assert.That(debug.Symbols[0].SourceFile, Is.EqualTo("main.nip"));
+        Assert.That(debug.Symbols[0].SourceLine, Is.EqualTo(12));
+        // The assembly location is still recorded, so a generated-assembly view still works.
+        Assert.That(debug.Symbols[0].File, Is.EqualTo("test.asm"));
+        Assert.That(debug.Symbols[0].Line, Is.EqualTo(2));
+        Assert.That(debug.Symbols[0].EffectiveLocation, Is.EqualTo(("main.nip", 12)));
+    }
+
+    [Test]
+    public void LineDirective_AppliesToEveryInstructionUntilTheNextDirective() {
+        // One high-level statement usually compiles to several instructions; they must all map
+        // back to that statement rather than walking forward through the source file.
+        (_, _, DebugTable debug) = Analyse(
+            "#line 5, \"main.nip\"\n" +
+            "nop\n" +
+            "; a comment, which occupies a line but produces no instruction\n" +
+            "nop\n" +
+            "#line 6, \"main.nip\"\n" +
+            "nop");
+
+        Assert.That(debug.Symbols.Select(sym => sym.SourceLine), Is.EqualTo(new[] { 5, 5, 6 }));
+    }
+
+    [Test]
+    public void LineDirective_WithoutFileKeepsTheFileAlreadyInEffect() {
+        (_, _, DebugTable debug) = Analyse("#line 5, \"main.nip\"\nnop\n#line 9\nnop");
+        Assert.That(debug.Symbols[1].SourceFile, Is.EqualTo("main.nip"));
+        Assert.That(debug.Symbols[1].SourceLine, Is.EqualTo(9));
+    }
+
+    [Test]
+    public void LineDirective_DefaultClearsTheMapping() {
+        (_, _, DebugTable debug) = Analyse("#line 5, \"main.nip\"\nnop\n#line default\nnop");
+        Assert.That(debug.Symbols[0].SourceFile, Is.EqualTo("main.nip"));
+        Assert.That(debug.Symbols[1].SourceFile, Is.Null);
+        Assert.That(debug.Symbols[1].SourceLine, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void LineDirective_PropagatesThroughMacroExpansion() {
+        // Every line a macro expands to originates at the invocation, so the call site's
+        // high-level location applies to all of them.
+        (_, _, DebugTable debug) = Analyse(
+            "#macro twonops, 0\n" +
+            "nop\n" +
+            "nop\n" +
+            "#endmacro\n" +
+            "#line 30, \"main.nip\"\n" +
+            "twonops");
+
+        // The invocation itself also gets a symbol (it is an instruction token until the macro
+        // is matched), so this covers the invocation plus both expanded instructions.
+        Assert.That(debug.Symbols, Has.Length.EqualTo(3));
+        Assert.That(debug.Symbols.Select(sym => sym.SourceFile), Is.All.EqualTo("main.nip"));
+        Assert.That(debug.Symbols.Select(sym => sym.SourceLine), Is.All.EqualTo(30));
+    }
+
+    [Test]
+    public void LineDirective_AcceptsAbsolutePaths() {
+        // Generated assembly identifies its source by absolute path.
+        (_, _, DebugTable debug) = Analyse("#line 3, \"/home/user/project/main.nip\"\nnop");
+        Assert.That(debug.Symbols[0].SourceFile, Is.EqualTo("/home/user/project/main.nip"));
+    }
+
+    [Test]
+    public void LineDirective_RejectsMissingArguments() {
+        Assert.Throws<ParseException>(() => Analyse("#line"));
+    }
+
+    [Test]
+    public void LineDirective_RejectsNonLiteralLineNumber() {
+        Assert.Throws<ParseException>(() => Analyse("#line notanumber, \"main.nip\""));
+    }
+
+    [Test]
+    public void LineDirective_RejectsNonPositiveLineNumber() {
+        Assert.Throws<ParseException>(() => Analyse("#line 0, \"main.nip\""));
     }
 
     // ── Error cases ───────────────────────────────────────────────────────────

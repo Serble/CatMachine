@@ -16,16 +16,29 @@ public partial class Tokeniser {
     private readonly int _lineOffset;
     private string _currentGlobalLabel = "";
 
-    public Tokeniser(string file, string input, int lineOffset = 0) {
-        _file = file;
-        _contents = input.Split('\n');
-        _lineOffset = lineOffset;
-    }
-    
-    public Tokeniser(string file, string[] input, int lineOffset = 0) {
+    /// <summary>
+    /// The high-level source file that the lines being tokenised were generated from, or
+    /// <c>null</c> when this is hand-written assembly. Set by the <c>#line</c> directive, or by
+    /// the constructor when a whole block of lines shares one origin (macro expansion).
+    /// </summary>
+    private string? _sourceFile;
+
+    /// <summary>
+    /// The line within <see cref="_sourceFile"/> that the assembly being tokenised came from.
+    /// One high-level line generally expands to many assembly lines, so this stays fixed until
+    /// the next <c>#line</c> rather than advancing with the physical line.
+    /// </summary>
+    private int _sourceLine;
+
+    public Tokeniser(string file, string input, int lineOffset = 0, string? sourceFile = null, int sourceLine = 0)
+        : this(file, input.Split('\n'), lineOffset, sourceFile, sourceLine) { }
+
+    public Tokeniser(string file, string[] input, int lineOffset = 0, string? sourceFile = null, int sourceLine = 0) {
         _file = file;
         _contents = input;
         _lineOffset = lineOffset;
+        _sourceFile = sourceFile;
+        _sourceLine = sourceLine;
     }
     
     private string TransformLocalLabel(string label) {
@@ -121,7 +134,16 @@ public partial class Tokeniser {
                 
                 args = args.Append(new MacroBodyExpression(lines, lineNumber)).ToArray();
             }
-                
+
+            // #line is consumed here rather than in the analyser: it adjusts the location that
+            // *subsequent* tokens report, and by the time the analyser runs those tokens have
+            // already been given their locations. Handling it per-tokeniser also scopes it
+            // correctly, since includes and macro bodies each get their own tokeniser.
+            if (parts[0].ToLower() == "line") {
+                ApplyLineDirective(args);
+                return true;
+            }
+
             tokens.Add(Directive(raw, parts[0], args));
             return true;
         }
@@ -279,10 +301,71 @@ public partial class Tokeniser {
         return new StringExpression(raw, output.ToString());
     }
 
+    /// <summary>
+    /// Handles <c>#line &lt;line&gt;[, "&lt;file&gt;"]</c>, which marks the assembly that follows as
+    /// having been generated from the given high-level source location. The mapping applies to
+    /// every line until the next <c>#line</c> — it does not advance line by line — because a
+    /// single high-level statement usually compiles to many assembly instructions, all of which
+    /// belong to that one statement. <c>#line default</c> clears the mapping again.
+    /// </summary>
+    private void ApplyLineDirective(IExpression[] args) {
+        if (args.Length == 0) {
+            Fail("#line requires a line number or 'default'");
+        }
+
+        if (args.Length > 2) {
+            Fail("#line takes at most 2 arguments: <line>[, \"<file>\"]");
+        }
+
+        if (args[0] is NameExpression { Value: "default" }) {
+            if (args.Length != 1) {
+                Fail("#line default does not take a file argument");
+            }
+
+            _sourceFile = null;
+            _sourceLine = 0;
+            return;
+        }
+
+        if (args[0] is not NumberExpression number || !int.TryParse(number.Value, out int sourceLine)) {
+            Fail("#line requires a literal line number as its first argument");
+            return;  // unreachable, Fail throws
+        }
+
+        if (sourceLine < 1) {
+            Fail("#line requires a positive line number");
+        }
+
+        if (args.Length == 2) {
+            switch (args[1]) {
+                case StringExpression file:
+                    _sourceFile = file.Value;
+                    break;
+
+                case NameExpression name:
+                    _sourceFile = name.Value;
+                    break;
+
+                default:
+                    Fail("#line requires a string or name expression as its file argument");
+                    break;
+            }
+        }
+        else {
+            // No file given: keep mapping into whichever file is already in effect, falling back
+            // to this one so that `#line N` alone is still meaningful.
+            _sourceFile ??= _file;
+        }
+
+        _sourceLine = sourceLine;
+    }
+
     private Token Explain(Token token) {
         return token with {
             File = _file,
-            Line = _line + _lineOffset
+            Line = _line + _lineOffset,
+            SourceFile = _sourceFile,
+            SourceLine = _sourceFile == null ? 0 : _sourceLine
         };
     }
 

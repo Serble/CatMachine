@@ -7,6 +7,12 @@ namespace Catnip.Compiler.CodeGen;
 public partial class CodeGenerator {
     
     private void GenerateStatement(Statement statement, AssemblyFileBuilder file, bool indent = true, bool isLastInFunc = false) {
+        // Record where in the Catnip source this code came from, so the assembler can carry it
+        // into the debug table and a debugger can step the .nip file rather than the generated
+        // assembly. Statements without location info (compiler-synthesised ones) leave the
+        // previous mapping in place, which is the closest true answer available.
+        file.SourceLocation(statement.FileInformation, indent);
+
         switch (statement) {
             case StatementBlock block: {
                 file.Comment("Begin Statement Block", indent);

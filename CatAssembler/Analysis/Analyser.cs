@@ -119,7 +119,13 @@ public class Analyser {
                 }
 
                 case InstructionToken instruction: {
-                    debugSymbols.Add(new DebugSymbol(filePos, instruction.Line, instruction.Raw));
+                    debugSymbols.Add(new DebugSymbol(
+                        filePos,
+                        instruction.File,
+                        instruction.Line,
+                        instruction.Raw,
+                        instruction.SourceFile,
+                        instruction.SourceLine));
 
                     if (_macros.TryGetValue(instruction.Name, out Macro? macro)) {
                         AssertArgCount(instruction, macro.ArgCount);
@@ -141,7 +147,14 @@ public class Analyser {
                             return line;
                         }).ToArray();
 
-                        Tokeniser tokeniser = new(instruction.File, lines, macro.LineNumber);
+                        // Every line of the expansion originates at the invocation, so the
+                        // call site's high-level location (if any) applies to all of them.
+                        Tokeniser tokeniser = new(
+                            instruction.File,
+                            lines,
+                            macro.LineNumber,
+                            instruction.SourceFile,
+                            instruction.SourceLine);
                         Token[] newTokens = tokeniser.Tokenise();
                         for (int i = newTokens.Length - 1; i >= 0; i--) {
                             _tokens.Push(newTokens[i]);

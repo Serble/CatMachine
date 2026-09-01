@@ -89,7 +89,9 @@ Console.WriteLine("Generated assembly" + (asmOutputFile != null ? $" to {asmOutp
 // we've done our job as the compiler, now hand off to the assembler
 // If assembler errors let it bubble because it's a bug
 
-Tokeniser tokeniser = new("main", asm);
+// Name the generated assembly after the file it was (or would have been) written to, so debug
+// symbols identify it properly instead of saying "main" for every Catnip project.
+Tokeniser tokeniser = new(asmOutputFile ?? Path.ChangeExtension(outputFile, ".asm"), asm);
 CatAssembler.Analysis.Analyser asmAnalyser = new(tokeniser.Tokenise());
 (IOutputSegment[] segments, Dictionary<string, string> constants, DebugTable debugSymbols) = asmAnalyser.Analyse();
 Assembler assembler = new(segments, constants);
@@ -103,7 +105,9 @@ if (asmDebugFile != null) {
     FileStream debugSymbolsStream = new(asmDebugFile, FileMode.Create, FileAccess.Write);
     // write json
     using StreamWriter writer = new(debugSymbolsStream);
-    writer.Write(JsonSerializer.Serialize(debugSymbols, new JsonSerializerOptions {
+    // Use the table's own writer rather than the reflection serialiser so the Catnip and
+    // assembler paths emit an identical schema.
+    writer.Write(debugSymbols.ToJson(new JsonSerializerOptions {
         WriteIndented = true
     }));
     Console.WriteLine("Wrote ASM debug symbols to " + asmDebugFile);

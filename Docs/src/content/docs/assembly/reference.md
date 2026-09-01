@@ -223,6 +223,29 @@ The path is resolved relative to the directory containing the source file perfor
 
 There is no include guard – including the same file twice will produce duplicate-label errors. The convention is to include each support file exactly once from a top-level entry file.
 
+## Source Mapping (`#line`)
+
+`#line` marks the assembly that follows as having been generated from a higher-level language, so that debug symbols can point at the original source instead of the generated assembly. It is emitted automatically by the [Catnip compiler](/catnip/catnip-reference/); you only need it if you are writing your own code generator that targets Cat Assembly.
+
+```cat
+#line 42, "src/player.nip"
+    mov r1, 5
+    add r1, r2        ; both instructions map to player.nip line 42
+
+#line 43, "src/player.nip"
+    call update       ; maps to player.nip line 43
+
+#line default
+    d8 0, 0, 0, 0     ; no high-level origin
+```
+
+- The file argument is optional: `#line 43` keeps whichever file is already in effect.
+- The mapping stays in effect for **every** following line until the next `#line`, rather than advancing line by line. One high-level statement usually compiles to many instructions, and they all belong to that statement.
+- `#line default` clears the mapping again, for generated data that has no source-level origin.
+- The directive is scoped to the file it appears in. Included files and macro bodies get their own mapping; a macro expansion inherits the source location of the line that invoked it.
+
+The directive assembles to nothing – it only affects the debug symbols described below.
+
 ## Jump-Style Mnemonics
 
 The conditional jump family (`jmp`, `jz`/`je`, `jnz`/`jne`, `jul`, `jule`, `jug`, `juge`, `jil`, `jile`, `jig`, `jige`) and `call` accept a single address-shaped operand in assembly. The assembler automatically encodes the underlying two-argument form `(register, immediate)`:
@@ -240,8 +263,10 @@ Whenever the assembler produces an output file it also writes a sibling `<output
 ```json
 {
   "Symbols": [
-    { "FilePos": 0,  "Line": 12, "RawLine": "mov r1, 5" },
-    { "FilePos": 6,  "Line": 13, "RawLine": "add r1, r2" }
+    { "FilePos": 0,  "File": "main.cat", "Line": 12, "RawLine": "mov r1, 5" },
+    { "FilePos": 6,  "File": "main.cat", "Line": 13, "RawLine": "add r1, r2" },
+    { "FilePos": 12, "File": "main.asm", "Line": 40, "RawLine": "call update",
+      "SourceFile": "src/player.nip", "SourceLine": 43 }
   ],
   "Labels": {
     "main":   0,
@@ -250,9 +275,12 @@ Whenever the assembler produces an output file it also writes a sibling `<output
 }
 ```
 
-- `Symbols` records, for every assembled instruction, the byte offset in the output (`FilePos`), the original source line number, and the un-tokenised text of the line that produced it.
+- `Symbols` records, for every assembled instruction, the byte offset in the output (`FilePos`), the file and line it was assembled from (`File`, `Line`), and the un-tokenised text of the line that produced it (`RawLine`).
+- `File` is required to make sense of `Line`: in a project that uses `#include`, several files contain a line 22, so a line number alone identifies nothing.
+- `SourceFile` and `SourceLine` are present only when the instruction came from a higher-level language, and record where in *that* language it originated (see [`#line`](#source-mapping-line) above). Hand-written assembly omits them, because `File` and `Line` already point at the original source.
+- Tools should show the user `SourceFile`/`SourceLine` when present and fall back to `File`/`Line` otherwise. `DebugSymbol.EffectiveLocation` does exactly this.
 - `Labels` is a flat map from label name to its assembled address. It contains both global and local labels (with their fully-qualified names).
 
-The file is JSON for ease of consumption by external tooling. The reference VM loads it automatically when launched as `catlaunch debug --rom <rom>`, enabling source-line lookup, symbolic breakpoints (`break symbol main`, `break line 42`), and stack traces that show function names instead of bare addresses.
+The file is JSON for ease of consumption by external tooling. The reference VM loads it automatically when launched as `catlaunch debug --rom <rom>`, enabling source-line lookup, symbolic breakpoints (`break symbol main`, `break line 42`, or `break line display.cat:42` when a bare line number is ambiguous), and stack traces that show function names instead of bare addresses.
 
 The same record types live in the `CatData` project so that any other tool (Catnip compiler, future debuggers, IDE plugins) can produce or consume `.debug` files without depending on the assembler.

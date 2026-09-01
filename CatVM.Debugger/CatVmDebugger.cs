@@ -22,6 +22,18 @@ public class CatVmDebugger {
         }
     }
 
+    /// <summary>
+    /// Matches a debug symbol's file against a user-supplied filter, accepting either a full
+    /// path or just the file name so `break line display.cat:42` works without typing the path.
+    /// </summary>
+    private static bool FileMatches(string symbolFile, string filter) {
+        if (symbolFile.Equals(filter, StringComparison.OrdinalIgnoreCase)) {
+            return true;
+        }
+
+        return Path.GetFileName(symbolFile).Equals(Path.GetFileName(filter), StringComparison.OrdinalIgnoreCase);
+    }
+
     public DebugSymbol? GetSymbolAt(uint addr) {
         return _table.Symbols.FirstOrDefault(s => s.FilePos == addr);
     }
@@ -83,13 +95,25 @@ public class CatVmDebugger {
             if (symbol == null) {
                 try {
                     string name = CatVm.OperationNames[_vm.Memory[_vm.Cpu.Ip]];
-                    symbol = new DebugSymbol(0, 0, name);
+                    symbol = new DebugSymbol(0, "", 0, name);
                 }
                 catch (Exception) {
                     // ignore, just means we don't have a symbol for this instruction
                 }
             }
-            Console.WriteLine(symbol != null ? $"=> {symbol.RawLine}" : "Unknown Symbol.");
+            if (symbol == null) {
+                Console.WriteLine("Unknown Symbol.");
+            }
+            else {
+                Console.WriteLine($"=> {symbol.RawLine}");
+                (string symbolFile, int symbolLine) = symbol.EffectiveLocation;
+                if (symbolFile.Length != 0) {
+                    Console.Write($"   at {symbolFile}:{symbolLine}");
+                    // When the assembly was generated from a higher-level language, say where in
+                    // the generated assembly we are too, so the two views can be lined up.
+                    Console.WriteLine(symbol.SourceFile != null ? $" (asm {symbol.File}:{symbol.Line})" : string.Empty);
+                }
+            }
             
             Console.WriteLine("Stack trace:");
             foreach (uint frame in callStack) {
@@ -186,7 +210,7 @@ public class CatVmDebugger {
                 case "break":
                 case "breakpoint": {
                     if (parts.Length != 1 && parts.Length < 3) {
-                        Console.WriteLine("break <symbol/line/addr> <point>");
+                        Console.WriteLine("break <symbol/line/addr> <point>   (line accepts <file>:<line>)");
                         continue;
                     }
                     
@@ -341,7 +365,7 @@ public class CatVmDebugger {
                     Console.WriteLine("Debugger commands:");
                     Console.WriteLine(" step (s)                             - Step one instruction");
                     Console.WriteLine(" continue (c)                         - Continue execution until breakpoint or pause");
-                    Console.WriteLine(" breakpoint (b) <type> <arg>          - Set/remove breakpoint at symbol/line/address");
+                    Console.WriteLine(" breakpoint (b) <type> <arg>          - Set/remove breakpoint at symbol/line/address (line takes <line> or <file>:<line>)");
                     Console.WriteLine(" clear-breaks (cb)                    - Clear all breakpoints");
                     Console.WriteLine(" watch (w) <name> <type> <arg> [size] - Add a watch at symbol/line/address with optional size (1,2,4)");
                     Console.WriteLine(" remove-bugs                          - Remove all bugs from the program (not implemented)");
@@ -370,19 +394,50 @@ public class CatVmDebugger {
 
                 case "l":
                 case "line": {
-                    if (!TryParseNumber(argValue, out uint line)) {
+                    // A bare line number is ambiguous as soon as a project uses #include, so
+                    // <file>:<line> is accepted to pin it down.
+                    string fileFilter = string.Empty;
+                    string lineText = argValue;
+                    int separator = argValue.LastIndexOf(':');
+                    if (separator > 0) {
+                        fileFilter = argValue[..separator];
+                        lineText = argValue[(separator + 1)..];
+                    }
+
+                    if (!TryParseNumber(lineText, out uint line)) {
                         Console.WriteLine("Invalid line number.");
                         return null;
                     }
 
+                    List<DebugSymbol> matches = [];
                     foreach (DebugSymbol sym in _table.Symbols) {
-                        if (sym.Line != line) continue;
-                                
-                        return (uint)sym.FilePos;
+                        (string symbolFile, int symbolLine) = sym.EffectiveLocation;
+                        if (symbolLine != line) continue;
+                        if (fileFilter.Length != 0 && !FileMatches(symbolFile, fileFilter)) continue;
+                        matches.Add(sym);
                     }
 
-                    Console.WriteLine("Could not find line number in symbols table.");
-                    return null;
+                    if (matches.Count == 0) {
+                        Console.WriteLine("Could not find line number in symbols table.");
+                        return null;
+                    }
+
+                    string[] files = matches
+                        .Select(m => m.EffectiveLocation.File)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+
+                    if (files.Length > 1) {
+                        Console.WriteLine($"Line {line} is ambiguous across {files.Length} files:");
+                        foreach (string file in files) {
+                            Console.WriteLine($" - {file}:{line}");
+                        }
+                        Console.WriteLine("Disambiguate with <file>:<line>.");
+                        return null;
+                    }
+
+                    // Lowest address so the breakpoint lands on the first instruction of the line.
+                    return (uint)matches.Min(m => m.FilePos);
                 }
 
                 case "a":
