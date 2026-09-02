@@ -56,4 +56,21 @@ public record DebugSymbol(
 
         return obj;
     }
+
+    public static DebugSymbol FromJsonNode(JsonNode node) {
+        JsonObject obj = (JsonObject)node;
+        int filePos = (int)obj[nameof(FilePos)]!;
+        string file = (string)obj[nameof(File)]!;
+        int line = (int)obj[nameof(Line)]!;
+        string rawLine = (string)obj[nameof(RawLine)]!;
+        string? sourceFile = null;
+        int sourceLine = 0;
+
+        if (obj.ContainsKey(nameof(SourceFile))) {
+            sourceFile = (string)obj[nameof(SourceFile)]!;
+            sourceLine = (int)obj[nameof(SourceLine)]!;
+        }
+
+        return new DebugSymbol(filePos, file, line, rawLine, sourceFile, sourceLine);
+    }
 }

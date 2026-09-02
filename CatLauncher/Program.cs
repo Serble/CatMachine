@@ -31,7 +31,7 @@ static class Program {
                 await CleanVm(cts, devices);
                 return 0;
             }
-            
+
             case "debug": {
                 CatVm vm; List<object> devices; CancellationTokenSource cts; RunArguments result;
                 try {
@@ -41,13 +41,13 @@ static class Program {
                     Console.WriteLine(ex.Message);
                     return 1;
                 }
-                
-                CatVmDebugger debugger = new(vm, result.Rom.Path!);
+
+                TuiVmDebugger debugger = new(vm, result.Rom.Path!);
                 debugger.StartUserDebugging();
                 await CleanVm(cts, devices);
                 return 0;
             }
-            
+
             default:
                 Console.WriteLine("Invalid mode, valid modes are: run, debug");
                 return 1;

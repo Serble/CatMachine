@@ -1,67 +1,31 @@
 using System.Globalization;
-using System.Text.Json;
 using CatData;
 
 namespace CatVM.Debugger;
 
-// TODO: Account for virtual addresses
-public class CatVmDebugger {
-    private readonly CatVm _vm;
-    private readonly DebugTable _table;
+public class TuiVmDebugger {
+    public CatDebugger Debugger { get; }
+    private CatVm Vm => Debugger.Vm;
 
-    public CatVmDebugger(CatVm vm, string romPath) {
-        _vm = vm;
-
-        _table = new DebugTable([], []);
-        if (File.Exists(romPath + ".debug")) {
-            _table = JsonSerializer.Deserialize<DebugTable>(File.ReadAllText(romPath + ".debug"))!;
-            Console.WriteLine("Got debugging symbols.");
-        }
-        else {
-            Console.WriteLine($"No debugging symbols found. ({romPath}.debug)");
-        }
+    public TuiVmDebugger(CatDebugger debugger) {
+        Debugger = debugger;
     }
 
-    /// <summary>
-    /// Matches a debug symbol's file against a user-supplied filter, accepting either a full
-    /// path or just the file name so `break line display.cat:42` works without typing the path.
-    /// </summary>
-    private static bool FileMatches(string symbolFile, string filter) {
-        if (symbolFile.Equals(filter, StringComparison.OrdinalIgnoreCase)) {
-            return true;
-        }
-
-        return Path.GetFileName(symbolFile).Equals(Path.GetFileName(filter), StringComparison.OrdinalIgnoreCase);
+    public TuiVmDebugger(CatVm vm, string romPath) {
+        Debugger = new CatDebugger(vm, romPath);
     }
-
-    public DebugSymbol? GetSymbolAt(uint addr) {
-        return _table.Symbols.FirstOrDefault(s => s.FilePos == addr);
-    }
-    
-    public string? GetConstantWithValue(uint value) {
-        foreach ((string key, uint val) in _table.Labels) {
-            if (val == value) {
-                return key;
-            }
-        }
-
-        return null;
-    }
-
 
     public void StartUserDebugging() {
-        HashSet<uint> breakpoints = [];
         List<(string name, uint addr, int size)> watches = [];
-        Stack<uint> callStack = [];
-        
+
         while (true) {
             Console.WriteLine("===============================");
-            Console.WriteLine(_vm.Cpu.Dump());
-            
+            Console.WriteLine(Vm.Cpu.Dump());
+
             // print the next 7 bytes in hex from ip
             Console.Write("Mem[IP]: ");
             for (int i = 0; i < 7; i++) {
-                byte b = _vm.Read8(_vm.Cpu.Ip + (uint)i);
+                byte b = Vm.Read8(Vm.Cpu.Ip + (uint)i);
                 Console.Write($"0x{b:X2}");
 
                 if (i != 6) {
@@ -76,25 +40,25 @@ public class CatVmDebugger {
                 uint value;
                 switch (size) {
                     case 1:
-                        value = _vm.Read8(addr);
+                        value = Vm.Read8(addr);
                         Console.WriteLine($"{value} 0x{value:X2} {(sbyte)value}");
                         break;
                     case 2:
-                        value = _vm.Read16(addr);
+                        value = Vm.Read16(addr);
                         Console.WriteLine($"{value} 0x{value:X4} {(short)value}");
                         break;
                     case 4:
-                        value = _vm.ReadWord(addr);
+                        value = Vm.ReadWord(addr);
                         Console.WriteLine($"{value} 0x{value:X8} {(int)value}");
                         break;
                 }
             }
-            
+
             // try and find a symbol here
-            DebugSymbol? symbol = GetSymbolAt(_vm.Cpu.Ip);
+            DebugSymbol? symbol = Debugger.IpSymbol;
             if (symbol == null) {
                 try {
-                    string name = CatVm.OperationNames[_vm.Memory[_vm.Cpu.Ip]];
+                    string name = CatVm.OperationNames[Vm.Memory[Vm.Cpu.Ip]];
                     symbol = new DebugSymbol(0, "", 0, name);
                 }
                 catch (Exception) {
@@ -114,10 +78,10 @@ public class CatVmDebugger {
                     Console.WriteLine(symbol.SourceFile != null ? $" (asm {symbol.File}:{symbol.Line})" : string.Empty);
                 }
             }
-            
+
             Console.WriteLine("Stack trace:");
-            foreach (uint frame in callStack) {
-                string? name = GetConstantWithValue(frame);
+            foreach (uint frame in Debugger.CallStack) {
+                string? name = Debugger.GetConstantWithValue(frame);
                 Console.WriteLine(name != null ? $" - {name} (0x{frame:X8})" : $" - 0x{frame:X8}");
             }
 
@@ -125,7 +89,7 @@ public class CatVmDebugger {
             Console.Write("Debugger> ");
             string? input = Console.ReadLine();
             if (input == null) continue;
-            
+
             string[] parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) continue;
 
@@ -133,41 +97,24 @@ public class CatVmDebugger {
             switch (parts[0].ToLower()) {
                 case "s":
                 case "step": {
-                    _vm.Paused = false;
-                    ProcessInstruction(true);
-                    _vm.Paused = true;
+                    Debugger.Step();
                     break;
                 }
 
                 case "sout":
                 case "step-out": {
-                    if (callStack.Count == 0) {
+                    if (Debugger.CallStack.Count == 0) {
                         Console.WriteLine("Not in a function call.");
                         break;
                     }
-                    
-                    int initialStackDepth = callStack.Count;
-                    ContinueUntil(() => callStack.Count < initialStackDepth);
+
+                    PrintStopReason(Debugger.StepOut());
                     break;
                 }
-                
+
                 case "sover":
                 case "step-over": {
-                    byte opCode = _vm.Read8(_vm.Cpu.Ip);
-                    int initialStackDepth = callStack.Count;
-                    
-                    // Step once so the call is processed
-                    // or if it isn't a call, just step normally
-                    _vm.Paused = false;
-                    ProcessInstruction(true);
-                    _vm.Paused = true;
-                    
-                    // if it was a call, continue until we return to the same stack depth
-                    if (opCode == 0x3f) {
-                        // CALL
-                        Console.WriteLine("Stepping over function call...");
-                        ContinueUntil(() => callStack.Count <= initialStackDepth);
-                    }
+                    PrintStopReason(Debugger.StepOver());
                     break;
                 }
 
@@ -189,7 +136,7 @@ public class CatVmDebugger {
                         continue;
                     }
                     
-                    _vm.Cpu.Set((byte)register, value);
+                    Vm.Cpu.Set((byte)register, value);
                     Console.WriteLine($"Set register {register} to 0x{value:X8}");
                     break;
                 }
@@ -198,10 +145,10 @@ public class CatVmDebugger {
                     Console.WriteLine("Feature not implemented yet.");
                     break;
                 }
-                
+
                 case "cb":
                 case "clear-breaks": {
-                    breakpoints.Clear();
+                    Debugger.Breakpoints.Clear();
                     Console.WriteLine("Cleared all breakpoints.");
                     break;
                 }
@@ -213,14 +160,14 @@ public class CatVmDebugger {
                         Console.WriteLine("break <symbol/line/addr> <point>   (line accepts <file>:<line>)");
                         continue;
                     }
-                    
-                    uint? address = parts.Length == 1 ? _vm.Cpu.Ip : GetAddr(parts[1], parts[2]);
+
+                    uint? address = parts.Length == 1 ? Vm.Cpu.Ip : GetAddr(parts[1], parts[2]);
                     if (!address.HasValue) {
                         continue;
                     }
 
-                    if (!breakpoints.Add(address.Value)) {
-                        breakpoints.Remove(address.Value);
+                    if (!Debugger.Breakpoints.Add(address.Value)) {
+                        Debugger.Breakpoints.Remove(address.Value);
                         Console.WriteLine($"Removed breakpoint at 0x{address:X8}");
                         break;
                     }
@@ -231,7 +178,7 @@ public class CatVmDebugger {
 
                 case "c":
                 case "continue": {
-                    ContinueUntil(() => false);
+                    RunUntil(() => false);
                     break;
                 }
 
@@ -241,18 +188,18 @@ public class CatVmDebugger {
                         Console.WriteLine("continue-for <instructions(instr)/seconds(secs)> <count>");
                         continue;
                     }
-                    
+
                     string mode = parts[1].ToLower();
                     if (!int.TryParse(parts[2], out int count) || count <= 0) {
                         Console.WriteLine("Invalid count.");
                         continue;
                     }
-                    
+
                     switch (mode) {
                         case "instr":
                         case "instructions": {
                             int instructionsExecuted = 0;
-                            ContinueUntil(() => {
+                            RunUntil(() => {
                                 instructionsExecuted++;
                                 return instructionsExecuted >= count;
                             });
@@ -262,7 +209,7 @@ public class CatVmDebugger {
                         case "secs":
                         case "seconds": {
                             DateTime endTime = DateTime.Now.AddSeconds(count);
-                            ContinueUntil(() => DateTime.Now >= endTime);
+                            RunUntil(() => DateTime.Now >= endTime);
                             break;
                         }
 
@@ -270,7 +217,7 @@ public class CatVmDebugger {
                             Console.WriteLine("Invalid mode. Use 'instructions' or 'seconds'.");
                             break;
                     }
-                    
+
                     break;
                 }
 
@@ -296,7 +243,7 @@ public class CatVmDebugger {
                         }
                     }
 
-                    if (address.Value + size > _vm.Memory.Length) {
+                    if (address.Value + size > Vm.Memory.Length) {
                         Console.WriteLine("Watch exceeds memory bounds.");
                         continue;
                     }
@@ -310,7 +257,7 @@ public class CatVmDebugger {
                 case "dumpmem":
                 case "dump-memory": {  // dump-memory [symbol/line/addr] [point] [size]
                     uint addr = 0;
-                    
+
                     if (parts.Length >= 3) {
                         uint? address = GetAddr(parts[1], parts[2]);
                         if (!address.HasValue) {
@@ -319,28 +266,28 @@ public class CatVmDebugger {
                         addr = address.Value;
                     }
 
-                    if (addr >= _vm.Memory.Length) {
+                    if (addr >= Vm.Memory.Length) {
                         Console.WriteLine("Address out of bounds.");
                         continue;
                     }
-                    
-                    uint size = (uint)(_vm.Memory.Length - addr);
+
+                    uint size = (uint)(Vm.Memory.Length - addr);
                     if (parts.Length >= 4) {
                         if (!TryParseNumber(parts[3], out size)
                             || size <= 0 
-                            || addr + size > _vm.Memory.Length) {
-                            Console.WriteLine($"Invalid size (Must be between 0 and {_vm.Memory.Length - addr}).");
+                            || addr + size > Vm.Memory.Length) {
+                            Console.WriteLine($"Invalid size (Must be between 0 and {Vm.Memory.Length - addr}).");
                             continue;
                         }
                     }
-                    
+
                     Console.WriteLine($"Dumping memory from 0x{addr:X8} size {size} bytes.");
 
                     if (size <= 1024*1024) {  // print it in console
                         for (int i = 0; i < size; i += 16) {
                             Console.Write($"0x{addr + (uint)i:X8}: ");
                             for (int j = 0; j < 16 && i + j < size; j++) {
-                                byte b = _vm.Read8(addr + (uint)(i + j));
+                                byte b = Vm.Read8(addr + (uint)(i + j));
                                 Console.Write($"{b:X2} ");
                             }
                             Console.WriteLine();
@@ -349,17 +296,17 @@ public class CatVmDebugger {
                     else {
                         Console.WriteLine("Memory dump too large to display in console.");
                     }
-                    
+
                     const string dumpFile = "memory_dump.bin";
                     using FileStream fs = new(dumpFile, FileMode.Create, FileAccess.Write);
                     for (int i = 0; i < size; i++) {
-                        byte b = _vm.Read8(addr + (uint)i);
+                        byte b = Vm.Read8(addr + (uint)i);
                         fs.WriteByte(b);
                     }
                     Console.WriteLine($"Wrote memory dump to {dumpFile}.");
                     break;
                 }
-                
+
                 case "h":
                 case "help": {
                     Console.WriteLine("Debugger commands:");
@@ -385,7 +332,7 @@ public class CatVmDebugger {
             switch (argType.ToLower()) {
                 case "s":
                 case "symbol": {
-                    if (!_table.Labels.TryGetValue(argValue, out uint address)) {
+                    if (!Debugger.DebugTable.Labels.TryGetValue(argValue, out uint address)) {
                         Console.WriteLine("Invalid symbol.");
                         return null;
                     }
@@ -410,7 +357,7 @@ public class CatVmDebugger {
                     }
 
                     List<DebugSymbol> matches = [];
-                    foreach (DebugSymbol sym in _table.Symbols) {
+                    foreach (DebugSymbol sym in Debugger.DebugTable.Symbols) {
                         (string symbolFile, int symbolLine) = sym.EffectiveLocation;
                         if (symbolLine != line) continue;
                         if (fileFilter.Length != 0 && !FileMatches(symbolFile, fileFilter)) continue;
@@ -447,72 +394,50 @@ public class CatVmDebugger {
                     Console.WriteLine("Invalid address.");
                     return null;
                 }
-                        
+
                 default:
                     Console.WriteLine("Invalid option.");
                     return null;
             }
         }
-
-        // predicate is slightly inefficient but this is a debugger after all
-        void ContinueUntil(Func<bool> predicate) {
-            _vm.Paused = false;
-            _vm.ExecuteWithErrorHandling(() => {
-                while (true) {
-                    if (_vm.Paused) {
-                        Console.WriteLine("VM has been paused.");
-                        break;
-                    }
-                    
-                    if (breakpoints.Contains(_vm.Cpu.Ip)) {
-                        Console.WriteLine($"Breakpoint: 0x{_vm.Cpu.Ip:X8}");
-                        break;
-                    }
-                    
-                    if (predicate()) {
-                        break;
-                    }
-                    
-                    ProcessInstruction(_vm.Fast);
-                }
-            });
-            _vm.Paused = true;
-        }
-
-        void ProcessInstruction(bool fast) {
-            byte opCode = _vm.Read8(_vm.Cpu.Ip);
-            switch (opCode) {
-                case 0x3f: {
-                    // CALL
-                    byte addrReg = _vm.Read8(_vm.Cpu.Ip + 1);
-                    uint targetAddr = addrReg == 0xFF ? 0 : _vm.Cpu.Get(addrReg);
-                    uint offset = _vm.ReadWord(_vm.Cpu.Ip + 2);
-                    callStack.Push(targetAddr + offset);
-                    break;
-                }
-
-                case 0x40: {
-                    // RET
-                    if (callStack.Count > 0) {
-                        callStack.Pop();
-                    }
-                    else {
-                        Console.WriteLine("Call stack underflow on RET.");
-                    }
-
-                    break;
-                }
-            }
-            
-            _vm.ExecuteInstruction(fast);
-        }
     }
-    
+
     private static bool TryParseNumber(string str, out uint value) {
         str = str.Trim();
         if (str.StartsWith("0x")) {
             return uint.TryParse(str[2..], NumberStyles.HexNumber, null, out value);
         }
         return uint.TryParse(str, out value);
+    }
+
+    /// <summary>
+    /// Matches a debug symbol's file against a user-supplied filter, accepting either a full
+    /// path or just the file name so `break line display.cat:42` works without typing the path.
+    /// </summary>
+    private static bool FileMatches(string symbolFile, string filter) {
+        if (symbolFile.Equals(filter, StringComparison.OrdinalIgnoreCase)) {
+            return true;
+        }
+
+        return Path.GetFileName(symbolFile).Equals(Path.GetFileName(filter), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void PrintStopReason(CatDebugger.StopReason reason) {
+        switch (reason) {
+            case CatDebugger.StopReason.Breakpoint:
+                Console.WriteLine($"Breakpoint: 0x{Vm.Cpu.Ip:X8}");
+                break;
+
+            case CatDebugger.StopReason.PausedVm:
+                Console.WriteLine("VM has been paused.");
+                break;
+
+            case CatDebugger.StopReason.Predicate:
+                break;
+        }
+    }
+
+    private void RunUntil(Func<bool> predicate) {
+        PrintStopReason(Debugger.RunUntil(predicate));
     }
 }
