@@ -1,0 +1,188 @@
+{
+  "name": "catvm-debug",
+  "displayName": "CatVM Debugger",
+  "description": "Debug Cat Assembly and Catnip programs on the CatVM virtual machine (Debug Adapter Protocol via catlaunch dap), with syntax highlighting for .cat and .nip files.",
+  "version": "0.1.0",
+  "publisher": "serble",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Serble/CatMachine"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onDebugResolve:catvm"
+  ],
+  "scripts": {
+    "sync-grammars": "cp ../catasm.tmLanguage.json ../catnip.tmLanguage.json syntaxes/",
+    "package": "npx @vscode/vsce package"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "catasm",
+        "aliases": ["Cat Assembly", "catasm"],
+        "extensions": [".cat"],
+        "configuration": "./language-configuration-catasm.json"
+      },
+      {
+        "id": "catnip",
+        "aliases": ["Catnip", "catnip"],
+        "extensions": [".nip"],
+        "configuration": "./language-configuration-catnip.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "catasm",
+        "scopeName": "source.catasm",
+        "path": "./syntaxes/catasm.tmLanguage.json"
+      },
+      {
+        "language": "catnip",
+        "scopeName": "source.catnip",
+        "path": "./syntaxes/catnip.tmLanguage.json"
+      }
+    ],
+    "breakpoints": [
+      { "language": "catasm" },
+      { "language": "catnip" }
+    ],
+    "configuration": {
+      "title": "CatVM",
+      "properties": {
+        "catvm.catlaunchPath": {
+          "type": "string",
+          "default": "catlaunch",
+          "description": "Command used to start the CatVM launcher. Defaults to the globally installed `catlaunch` tool; may contain arguments, e.g. `dotnet run --project /path/to/CatMachine/CatLauncher/CatLauncher.csproj --` to debug against a source checkout."
+        }
+      }
+    },
+    "debuggers": [
+      {
+        "type": "catvm",
+        "label": "CatVM",
+        "languages": ["catasm", "catnip"],
+        "configurationAttributes": {
+          "launch": {
+            "required": ["program"],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Path of the ROM to debug. Debug symbols are read from `<program>.debug` unless `debugTable` is set.",
+                "default": "${workspaceFolder}/bin/main.bin"
+              },
+              "debugTable": {
+                "type": "string",
+                "description": "Path of the `.debug` symbols file, when it is not next to the ROM (nipcompile -d)."
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory for the VM. Hardware devices are discovered from `<cwd>/hardware`.",
+                "default": "${workspaceFolder}"
+              },
+              "devices": {
+                "type": "array",
+                "description": "Serial devices to attach, as `catlaunch run -d` would take them: \"RaylibPpu\", \"DiskDevice path:disk.img\", or {\"name\": \"DiskDevice\", \"args\": {\"path\": \"disk.img\"}}.",
+                "items": {
+                  "anyOf": [
+                    { "type": "string" },
+                    {
+                      "type": "object",
+                      "required": ["name"],
+                      "properties": {
+                        "name": { "type": "string" },
+                        "args": { "type": "object" }
+                      }
+                    }
+                  ]
+                },
+                "default": []
+              },
+              "memory": {
+                "type": "integer",
+                "description": "Memory size in bytes (default 16 MiB)."
+              },
+              "ops": {
+                "type": "integer",
+                "description": "Target cycles per second when not running fast (default 100000)."
+              },
+              "fast": {
+                "type": "boolean",
+                "description": "Run without cycle timing.",
+                "default": true
+              },
+              "testInts": {
+                "type": "boolean",
+                "description": "Enable the testing interrupts (0x90 print number).",
+                "default": false
+              },
+              "dumpErrors": {
+                "type": "boolean",
+                "description": "Print VM exception details to the debug console.",
+                "default": false
+              },
+              "disableHardwareManager": {
+                "type": "boolean",
+                "description": "Do not attach the HardwareManager device on port 0.",
+                "default": false
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Stop at the first instruction.",
+                "default": true
+              },
+              "sourceView": {
+                "type": "string",
+                "enum": ["auto", "assembly"],
+                "description": "`auto` shows Catnip source lines when the ROM was compiled from Catnip; `assembly` always shows the assembly.",
+                "default": "auto"
+              },
+              "extraArgs": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Additional `catlaunch run` arguments passed through verbatim."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "catvm",
+            "request": "launch",
+            "name": "Debug ROM",
+            "program": "${workspaceFolder}/bin/main.bin",
+            "cwd": "${workspaceFolder}",
+            "devices": [],
+            "fast": true,
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "CatVM: Launch ROM",
+            "description": "Debug an assembled ROM on CatVM",
+            "body": {
+              "type": "catvm",
+              "request": "launch",
+              "name": "Debug ROM",
+              "program": "^\"\\${workspaceFolder}/bin/main.bin\"",
+              "cwd": "^\"\\${workspaceFolder}\"",
+              "preLaunchTask": "build",
+              "devices": ["RaylibPpu"],
+              "fast": true,
+              "stopOnEntry": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

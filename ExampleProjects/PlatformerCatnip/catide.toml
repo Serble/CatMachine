@@ -1,0 +1,10 @@
+[project]
+name = "Platformer"
+entry = "main.nip"
+output = "bin/main.bin"
+asm_output = "bin/main.asm"
+
+[run]
+devices = ["RaylibPpu"]
+args = []
+fast = true

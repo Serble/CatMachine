@@ -1,0 +1,9 @@
+[project]
+name = "Snake2"
+entry = "main.cat"
+output = "bin/main.bin"
+
+[run]
+devices = ["RaylibPpu"]
+args = []
+fast = false

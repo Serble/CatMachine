@@ -1,4 +1,3 @@
-using System.Globalization;
 using CatData;
 
 namespace CatVM.Debugger;
@@ -13,6 +12,9 @@ public class TuiVmDebugger {
 
     public TuiVmDebugger(CatVm vm, string romPath) {
         Debugger = new CatDebugger(vm, romPath);
+        Console.WriteLine(Debugger.HasDebugSymbols
+            ? "Got debugging symbols."
+            : $"No debugging symbols found. ({romPath}.debug)");
     }
 
     public void StartUserDebugging() {
@@ -80,9 +82,11 @@ public class TuiVmDebugger {
             }
 
             Console.WriteLine("Stack trace:");
-            foreach (uint frame in Debugger.CallStack) {
-                string? name = Debugger.GetConstantWithValue(frame);
-                Console.WriteLine(name != null ? $" - {name} (0x{frame:X8})" : $" - 0x{frame:X8}");
+            foreach (CallFrame frame in Debugger.CallStack) {
+                string? name = Debugger.Index.CodeLabelAt(frame.Callee) ?? Debugger.GetConstantWithValue(frame.Callee);
+                Console.WriteLine(name != null
+                    ? $" - {name} (0x{frame.Callee:X8}) called from 0x{frame.CallSite:X8}"
+                    : $" - 0x{frame.Callee:X8} called from 0x{frame.CallSite:X8}");
             }
 
             Console.WriteLine("===============================");
@@ -273,7 +277,7 @@ public class TuiVmDebugger {
 
                     uint size = (uint)(Vm.Memory.Length - addr);
                     if (parts.Length >= 4) {
-                        if (!TryParseNumber(parts[3], out size)
+                        if (!DebugTableIndex.TryParseNumber(parts[3], out size)
                             || size <= 0 
                             || addr + size > Vm.Memory.Length) {
                             Console.WriteLine($"Invalid size (Must be between 0 and {Vm.Memory.Length - addr}).");
@@ -351,32 +355,20 @@ public class TuiVmDebugger {
                         lineText = argValue[(separator + 1)..];
                     }
 
-                    if (!TryParseNumber(lineText, out uint line)) {
+                    if (!DebugTableIndex.TryParseNumber(lineText, out uint line)) {
                         Console.WriteLine("Invalid line number.");
                         return null;
                     }
 
-                    List<DebugSymbol> matches = [];
-                    foreach (DebugSymbol sym in Debugger.DebugTable.Symbols) {
-                        (string symbolFile, int symbolLine) = sym.EffectiveLocation;
-                        if (symbolLine != line) continue;
-                        if (fileFilter.Length != 0 && !FileMatches(symbolFile, fileFilter)) continue;
-                        matches.Add(sym);
-                    }
-
-                    if (matches.Count == 0) {
+                    LineResolution resolution = Debugger.Index.ResolveLine(fileFilter, (int)line);
+                    if (resolution.Matches.Length == 0) {
                         Console.WriteLine("Could not find line number in symbols table.");
                         return null;
                     }
 
-                    string[] files = matches
-                        .Select(m => m.EffectiveLocation.File)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToArray();
-
-                    if (files.Length > 1) {
-                        Console.WriteLine($"Line {line} is ambiguous across {files.Length} files:");
-                        foreach (string file in files) {
+                    if (resolution.IsAmbiguous) {
+                        Console.WriteLine($"Line {line} is ambiguous across {resolution.Files.Length} files:");
+                        foreach (string file in resolution.Files) {
                             Console.WriteLine($" - {file}:{line}");
                         }
                         Console.WriteLine("Disambiguate with <file>:<line>.");
@@ -384,13 +376,13 @@ public class TuiVmDebugger {
                     }
 
                     // Lowest address so the breakpoint lands on the first instruction of the line.
-                    return (uint)matches.Min(m => m.FilePos);
+                    return resolution.Address;
                 }
 
                 case "a":
                 case "address":
                 case "addr": {
-                    if (TryParseNumber(argValue, out uint address)) return address;
+                    if (DebugTableIndex.TryParseNumber(argValue, out uint address)) return address;
                     Console.WriteLine("Invalid address.");
                     return null;
                 }
@@ -400,26 +392,6 @@ public class TuiVmDebugger {
                     return null;
             }
         }
-    }
-
-    private static bool TryParseNumber(string str, out uint value) {
-        str = str.Trim();
-        if (str.StartsWith("0x")) {
-            return uint.TryParse(str[2..], NumberStyles.HexNumber, null, out value);
-        }
-        return uint.TryParse(str, out value);
-    }
-
-    /// <summary>
-    /// Matches a debug symbol's file against a user-supplied filter, accepting either a full
-    /// path or just the file name so `break line display.cat:42` works without typing the path.
-    /// </summary>
-    private static bool FileMatches(string symbolFile, string filter) {
-        if (symbolFile.Equals(filter, StringComparison.OrdinalIgnoreCase)) {
-            return true;
-        }
-
-        return Path.GetFileName(symbolFile).Equals(Path.GetFileName(filter), StringComparison.OrdinalIgnoreCase);
     }
 
     private void PrintStopReason(CatDebugger.StopReason reason) {
@@ -433,6 +405,18 @@ public class TuiVmDebugger {
                 break;
 
             case CatDebugger.StopReason.Predicate:
+                break;
+
+            case CatDebugger.StopReason.Fault:
+                Console.WriteLine($"CPU fault: {Debugger.LastFault} at 0x{Vm.Cpu.Ip:X8}" +
+                                  (Debugger.FaultHandledByGuest ? " (guest handler installed, now at its entry)" : " (no guest handler, VM halted)"));
+                if (Debugger.LastFaultException != null) {
+                    Console.WriteLine($"  {Debugger.LastFaultException.Message}");
+                }
+                break;
+
+            case CatDebugger.StopReason.Shutdown:
+                Console.WriteLine("The guest shut the machine down.");
                 break;
         }
     }

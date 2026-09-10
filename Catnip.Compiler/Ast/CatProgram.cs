@@ -6,7 +6,7 @@ public record CatProgram(
     Function[] Functions,
     BinaryGlobal[] BinaryGlobals);
 
-public record VarNameSize(string Name, CompileTimeValue Size);
+public record VarNameSize(string Name, CompileTimeValue Size, FileInformation? FileInformation = null);
 
 public record FileInformation(string File, int Line, int Column);
 

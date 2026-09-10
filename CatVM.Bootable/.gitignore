@@ -4,3 +4,5 @@ build/
 *.img
 *.rom
 *.rom.debug
+*.img2
+*.tar.xz

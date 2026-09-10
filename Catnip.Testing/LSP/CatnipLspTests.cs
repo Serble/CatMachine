@@ -579,4 +579,106 @@ public class CatnipLspTests {
             File.Delete(file);
         }
     }
+
+    [Test]
+    public void Definition_StructField_LandsOnTheFieldNotTheHeader() {
+        using LspTestClient client = new();
+        client.Initialize();
+
+        string source = """
+                        struct Thing {
+                            a: 4;
+                            b: 2;
+                        }
+                        fun main() {
+                            let foo:$Thing;
+                            foo[Thing#b]:2 = 42;
+                        }
+                        """;
+
+        string file = Path.Combine(Path.GetTempPath(), $"catnip-field-{Guid.NewGuid():N}.nip");
+        File.WriteAllText(file, source);
+        try {
+            string uri = new Uri(file).ToString();
+            client.SendNotification("textDocument/didOpen", new {
+                textDocument = new { uri, languageId = "catnip", version = 1, text = source }
+            });
+            client.WaitForNotification("textDocument/publishDiagnostics");
+
+            string[] lines = source.Split('\n');
+            int usageChar = lines[6].IndexOf("Thing#b", StringComparison.Ordinal) + "Thing#".Length;
+            JsonElement definition = client.SendRequest("textDocument/definition", new {
+                textDocument = new { uri },
+                position = new { line = 6, character = usageChar }
+            });
+            JsonElement first = definition.EnumerateArray().First();
+            JsonElement start = first.GetProperty("range").GetProperty("start");
+            Assert.Multiple(() => {
+                Assert.That(first.GetProperty("uri").GetString(), Is.EqualTo(uri));
+                Assert.That(start.GetProperty("line").GetInt32(), Is.EqualTo(2));
+                Assert.That(start.GetProperty("character").GetInt32(), Is.EqualTo(lines[2].IndexOf('b')));
+                Assert.That(first.GetProperty("range").GetProperty("end").GetProperty("character").GetInt32(),
+                    Is.EqualTo(lines[2].IndexOf('b') + 1));
+            });
+
+            // The declaration itself resolves too, and to the field rather than to nothing.
+            JsonElement hover = client.SendRequest("textDocument/hover", new {
+                textDocument = new { uri },
+                position = new { line = 2, character = lines[2].IndexOf('b') }
+            });
+            Assert.That(hover.GetProperty("contents").GetProperty("value").GetString(), Does.Contain("Thing#b"));
+        }
+        finally {
+            File.Delete(file);
+        }
+    }
+
+    [Test]
+    public void Definition_LibrarySymbol_UsesTheLibraryScheme_AndItsSourceCanBeFetched() {
+        using LspTestClient client = new();
+        JsonElement capabilities = client.Initialize().GetProperty("capabilities");
+        Assert.That(capabilities.GetProperty("experimental").GetProperty("librarySource").GetBoolean(), Is.True);
+
+        string source = """
+                        #include "ppu.nip"
+                        fun main() {
+                            let mode:$TileMode;
+                        }
+                        """;
+
+        string file = Path.Combine(Path.GetTempPath(), $"catnip-library-{Guid.NewGuid():N}.nip");
+        File.WriteAllText(file, source);
+        try {
+            string uri = new Uri(file).ToString();
+            client.SendNotification("textDocument/didOpen", new {
+                textDocument = new { uri, languageId = "catnip", version = 1, text = source }
+            });
+            client.WaitForNotification("textDocument/publishDiagnostics");
+
+            int usageChar = source.Split('\n')[2].IndexOf("TileMode", StringComparison.Ordinal);
+            JsonElement definition = client.SendRequest("textDocument/definition", new {
+                textDocument = new { uri },
+                position = new { line = 2, character = usageChar }
+            });
+            JsonElement first = definition.EnumerateArray().First();
+            string libraryUri = first.GetProperty("uri").GetString()!;
+            Assert.That(libraryUri, Is.EqualTo("catnip-library:///ppu.nip"));
+
+            JsonElement library = client.SendRequest("catnip/librarySource", new { uri = libraryUri });
+            string text = library.GetProperty("text").GetString()!;
+            Assert.Multiple(() => {
+                Assert.That(library.GetProperty("name").GetString(), Is.EqualTo("ppu.nip"));
+                Assert.That(text, Does.Contain("struct TileMode"));
+                // The location points into the text that was served.
+                int line = first.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32();
+                Assert.That(text.Split('\n')[line], Does.Contain("TileMode"));
+            });
+
+            JsonElement unknown = client.SendRequest("catnip/librarySource", new { uri = "catnip-library:///nope.nip" });
+            Assert.That(unknown.ValueKind, Is.EqualTo(JsonValueKind.Null));
+        }
+        finally {
+            File.Delete(file);
+        }
+    }
 }

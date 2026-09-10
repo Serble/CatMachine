@@ -10,3 +10,14 @@ riderModule.iml
 **/output.bin
 **/output.bin.debug
 **/BenchmarkDotNet.Artifacts
+
+# CatIDE per-user workspace state (window layout, breakpoints).
+# catide.toml itself is the project definition and stays tracked.
+.catide/
+
+# Stryker mutation testing reports
+**/StrykerOutput/
+
+# VS Code extension packaging
+node_modules/
+*.vsix

@@ -57,6 +57,7 @@ export default defineConfig({
 						{ label: 'Virtual Mode', slug: 'vm/virtual-mode' },
 						{ label: 'Interrupts', slug: 'vm/interrupts' },
 						{ label: 'Serial Protocol', slug: 'vm/serial-protocol' },
+						{ label: 'Debugging', slug: 'vm/debugging' },
 					],
 				},
 				{

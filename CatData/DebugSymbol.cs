@@ -60,7 +60,9 @@ public record DebugSymbol(
     public static DebugSymbol FromJsonNode(JsonNode node) {
         JsonObject obj = (JsonObject)node;
         int filePos = (int)obj[nameof(FilePos)]!;
-        string file = (string)obj[nameof(File)]!;
+        // Debug files written before the File field existed only carry a line number; load them
+        // anyway so an old ROM can still be debugged, with file matching falling back to nothing.
+        string file = obj[nameof(File)] is JsonNode fileNode ? (string)fileNode! : string.Empty;
         int line = (int)obj[nameof(Line)]!;
         string rawLine = (string)obj[nameof(RawLine)]!;
         string? sourceFile = null;

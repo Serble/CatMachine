@@ -117,11 +117,11 @@ public static class CodeParser {
         from leading in Ignored
         from memberName in Parse.Letter.Or(Parse.Char('_'))
             .Then(first => Parse.LetterOrDigit.Or(Parse.Char('_')).Many()
-                .Select(rest => first + new string(rest.ToArray()))).Token()
+                .Select(rest => first + new string(rest.ToArray()))).Positioned().Token()
         from colon in Parse.Char(':').Token()
         from size in CompileTimeValueParser
         from trailing in Ignored
-        select new VarNameSize(memberName, size);
+        select new VarNameSize(memberName.Value, size, memberName.Position);
 
     public static readonly Parser<IEnumerable<ParsedElement>> Program = Element.AtLeastOnce().End();
     

@@ -102,13 +102,18 @@ public sealed class CatnipSymbolIndex {
                     }
 
                     foreach (VarNameSize field in structure.Fields) {
-                        if (structure.FileInformation == null) continue;
+                        // A field is located at its own line, so that jumping to `Thing#b` lands
+                        // on `b` rather than on the struct header; the header is only the
+                        // fallback for an AST built without field positions.
+                        FileInformation? position = field.FileInformation ?? structure.FileInformation;
+                        if (position == null) continue;
                         index.Add(FromFileInformation(
                             $"{structure.Name}#{field.Name}",
                             CatnipSymbolKind.StructField,
-                            structure.FileInformation,
+                            position,
                             structure.Name,
-                            $"field {field.Name}"));
+                            $"field {field.Name}",
+                            field.Name.Length));
                     }
 
                     break;
@@ -125,11 +130,12 @@ public sealed class CatnipSymbolIndex {
                     }
 
                     foreach (VarNameSize parameter in function.Parameters) {
-                        if (function.FileInformation == null) continue;
+                        FileInformation? position = parameter.FileInformation ?? function.FileInformation;
+                        if (position == null) continue;
                         index.Add(FromFileInformation(
                             parameter.Name,
                             CatnipSymbolKind.Parameter,
-                            function.FileInformation,
+                            position,
                             function.Name,
                             $"{parameter.Name}:{parameter.Size}"));
                     }
@@ -206,12 +212,18 @@ public sealed class CatnipSymbolIndex {
         }
     }
 
+    /// <param name="spanLength">
+    /// How many characters the definition covers at its position: the name's length, unless the
+    /// name is a qualified one like <c>Thing#b</c> positioned at the bare field, in which case
+    /// it is the field's.
+    /// </param>
     private static CatnipSymbolDefinition FromFileInformation(
         string name,
         CatnipSymbolKind kind,
         FileInformation fileInformation,
         string? containerName,
-        string? detail) {
+        string? detail,
+        int? spanLength = null) {
         int column = Math.Max(0, fileInformation.Column - 1);
         // FileInformation is 1-based; CatnipSymbolDefinition is 0-based like the LSP, so without
         // this conversion go-to-definition lands one line below the actual definition.
@@ -222,7 +234,7 @@ public sealed class CatnipSymbolIndex {
             fileInformation.File,
             line,
             column,
-            column + name.Length,
+            column + (spanLength ?? name.Length),
             containerName,
             detail);
     }

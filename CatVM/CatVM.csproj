@@ -7,18 +7,12 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Version>1.0.0</Version>
         <IsAotCompatible>true</IsAotCompatible>
+        <PackageId>CatMachine.VM</PackageId>
+        <Title>CatVM Core</Title>
+        <Authors>Serble</Authors>
+        <Description>CatMachine VM core library with full AOT support, supports running an application.</Description>
+        <PackageProjectUrl>https://catvm.dev</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/Serble/CatMachine/raw/refs/heads/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/Serble/CatMachine</RepositoryUrl>
     </PropertyGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\CatData\CatData.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <None Remove="Extensions\RealityCoProcessor\Shaders\default.frag" />
-      <None Remove="Extensions\RealityCoProcessor\Shaders\default.vert" />
-      <None Remove="Extensions\Renderer\Shaders\SpriteFragment.frag" />
-      <None Remove="Extensions\Renderer\Shaders\TileFragment.frag" />
-      <None Remove="Extensions\Renderer\Shaders\TileVertex.vert" />
-    </ItemGroup>
-
 </Project>

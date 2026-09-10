@@ -1,5 +1,6 @@
 ﻿using CatArgs;
 using CatVM;
+using CatVM.DebugAdapter;
 using CatVM.Debugger;
 using CatVM.Serial;
 
@@ -10,7 +11,8 @@ static class Program {
         if (args.Length == 0) {
             string command = Environment.CommandLine.Split(' ', 2)[0];
             Console.WriteLine($"{command} run <args>\n" +
-                              $"{command} debug <args>");
+                              $"{command} debug <args>\n" +
+                              $"{command} dap          (Debug Adapter Protocol server on stdio; settings come from the launch request)");
             return 1;
         }
 
@@ -48,13 +50,21 @@ static class Program {
                 return 0;
             }
 
+            case "dap": {
+                if (args.Length > 1) {
+                    Console.Error.WriteLine("catlaunch dap takes no arguments; launch settings come from the DAP launch request.");
+                }
+
+                return DapServer.Run(Console.OpenStandardInput(), Console.OpenStandardOutput(), new LauncherVmFactory());
+            }
+
             default:
-                Console.WriteLine("Invalid mode, valid modes are: run, debug");
+                Console.WriteLine("Invalid mode, valid modes are: run, debug, dap");
                 return 1;
         }
     }
 
-    private static (CatVm vm, List<object> devices, CancellationTokenSource cts, RunArguments args) SetupVm(IEnumerable<string> args) {
+    internal static (CatVm vm, List<object> devices, CancellationTokenSource cts, RunArguments args) SetupVm(IEnumerable<string> args) {
         Reflection.LoadAssemblies(Path.Join(Directory.GetCurrentDirectory(), "hardware"));
         Reflection.LoadAssemblies(Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
             "catmachine/hardware"));
@@ -150,7 +160,7 @@ static class Program {
         return (vm, devices, cts, result);
     }
     
-    private static async Task CleanVm(CancellationTokenSource cts, List<object> devices) {
+    internal static async Task CleanVm(CancellationTokenSource cts, List<object> devices) {
         if (!cts.IsCancellationRequested) {
             await cts.CancelAsync();
         }

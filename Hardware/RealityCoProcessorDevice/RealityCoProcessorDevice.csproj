@@ -20,6 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\CatData\CatData.csproj" />
       <ProjectReference Include="..\..\CatVM\CatVM.csproj" />
     </ItemGroup>
 

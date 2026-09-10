@@ -88,6 +88,56 @@ VS Code (`settings.json`) example:
 }
 ```
 
+### Debug Adapter (VS Code, Neovim, CatIDE)
+
+`catlaunch dap` runs a [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/)
+server over stdio for both Cat Assembly and Catnip programs: breakpoints on source lines, labels and
+addresses; stepping by line or by instruction; the call stack; registers and flags; memory and
+disassembly views; and watch/hover expressions (`r0`, `player_x`, `[player_x]:2`, `sp + 8`).
+When a ROM was compiled from Catnip its `.debug` file maps every instruction back to the `.nip`
+line, so Catnip is debugged at source level with the generated assembly available as a second view
+(`"sourceView": "assembly"` switches to it).
+
+All settings come from the `launch` request and mirror `catlaunch run`:
+
+| Attribute | Meaning |
+|---|---|
+| `program` | ROM path (required); symbols are read from `<program>.debug` |
+| `debugTable` | `.debug` file when it is not beside the ROM |
+| `cwd` | working directory; hardware devices are discovered from `<cwd>/hardware` |
+| `devices` | `["RaylibPpu", "DiskDevice path:disk.img"]`, the same form as `-d` |
+| `memory`, `ops`, `fast`, `testInts`, `dumpErrors`, `disableHardwareManager` | the matching launcher flags |
+| `stopOnEntry` | stop at the first instruction (default true) |
+| `sourceView` | `auto` or `assembly` |
+| `extraArgs` | further launcher arguments, verbatim |
+
+**VS Code**: install the extension in `EditorConfigs/vscode` (see its README), then add a
+`"type": "catvm"` launch configuration.
+
+**Neovim** (`nvim-dap`):
+
+```lua
+local dap = require('dap')
+dap.adapters.catvm = { type = 'executable', command = 'catlaunch', args = { 'dap' } }
+local launch = {
+  {
+    type = 'catvm', request = 'launch', name = 'Debug ROM',
+    program = '${workspaceFolder}/bin/main.bin',
+    cwd = '${workspaceFolder}',
+    devices = { 'RaylibPpu' },
+    fast = true, stopOnEntry = true,
+  },
+}
+dap.configurations.catasm = launch
+dap.configurations.catnip = launch
+vim.filetype.add({ extension = { cat = 'catasm', nip = 'catnip' } })
+```
+
+**CatIDE** and other editors spawn `catlaunch dap` and speak DAP over stdio; a project's run
+configuration maps onto the launch attributes one to one.
+
+Set `CATVM_DAP_STDERR_VERBOSE=1` to log every message to stderr.
+
 ### CatLLVM
 **Low priority project**
 

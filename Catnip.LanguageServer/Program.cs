@@ -74,11 +74,19 @@ while (TryReadMessage(input, out string? payload)) {
                                     tokenModifiers = Array.Empty<string>()
                                 },
                                 full = true
+                            },
+                            // Locations inside the built-in libraries use the `catnip-library:`
+                            // scheme, and the text behind one is served by `catnip/librarySource`.
+                            experimental = new {
+                                librarySource = true,
+                                libraryUriScheme = "catnip-library"
                             }
                         },
                         serverInfo = new {
                             name = "Catnip.LanguageServer",
-                            version = "0.3.0"
+                            // 0.4.0: `catnip-library:` URIs, `catnip/librarySource`, and
+                            // struct fields located at their own line.
+                            version = "0.4.0"
                         }
                     });
                 }
@@ -127,6 +135,12 @@ while (TryReadMessage(input, out string? payload)) {
             case "textDocument/references":
                 if (hasId) {
                     WriteResponse(output, idElement, HandleReferences(paramsElement, documents, workspaceRoot));
+                }
+                break;
+
+            case "catnip/librarySource":
+                if (hasId) {
+                    WriteResponse(output, idElement, HandleLibrarySource(paramsElement));
                 }
                 break;
 
@@ -1366,6 +1380,16 @@ static CatnipSymbolDefinition? FindDefinition(
         token = token[1..];
     }
 
+    // The cursor on a field's own declaration — `b: 2;` inside a struct — reads as the bare
+    // field name, which is indexed as `Struct#b` at exactly this line. Checked first, because
+    // a local or global that happens to share the name would otherwise win.
+    CatnipSymbolDefinition? declaredField = candidates.FirstOrDefault(s =>
+        s.Kind == CatnipSymbolKind.StructField &&
+        s.Name.EndsWith("#" + token, StringComparison.Ordinal) &&
+        PathsMatch(s.File, currentFile) &&
+        s.Line == currentLine);
+    if (declaredField != null) return declaredField;
+
     List<CatnipSymbolDefinition> matching = candidates.Where(s => s.Name == token).ToList();
     if (matching.Count == 0 && token.Contains('#')) {
         string structName = token.Split('#', 2)[0];
@@ -1538,8 +1562,40 @@ static string UriToFilePath(string uriString) {
 }
 
 static string FilePathToUri(string filePath) {
-    if (!Path.IsPathRooted(filePath)) return filePath;
+    if (!Path.IsPathRooted(filePath)) {
+        // A built-in library is an embedded resource, not a file, so it gets a URI of its own
+        // scheme; the text behind it is served by `catnip/librarySource`.
+        string fileName = Path.GetFileName(filePath);
+        return IsBuiltinLibraryName(fileName) ? LibraryUri(fileName) : filePath;
+    }
     return new Uri(Path.GetFullPath(filePath)).ToString();
+}
+
+static bool IsBuiltinLibraryName(string fileName) {
+    return fileName is "std.nip" or "ppu.nip" or "hardware.nip";
+}
+
+// The scheme is spelled out in `LibraryUri`, `LibraryNameFromUri` and the `initialize` reply
+// rather than held in one constant: this file is top-level statements, where a constant below
+// the main loop is an unreachable local rather than something the functions can share.
+static string LibraryUri(string fileName) {
+    return $"catnip-library:///{fileName}";
+}
+
+static string? LibraryNameFromUri(string uriString) {
+    if (!Uri.TryCreate(uriString, UriKind.Absolute, out Uri? uri)) return null;
+    if (!string.Equals(uri.Scheme, "catnip-library", StringComparison.OrdinalIgnoreCase)) return null;
+    string name = uri.AbsolutePath.TrimStart('/');
+    return IsBuiltinLibraryName(name) ? name : null;
+}
+
+static object? HandleLibrarySource(JsonElement parameters) {
+    string uri = parameters.TryGetProperty("uri", out JsonElement uriElement)
+        ? uriElement.GetString() ?? string.Empty
+        : string.Empty;
+    string? name = LibraryNameFromUri(uri);
+    if (name == null || !TryReadBuiltinLibrary(name, out string? text) || text == null) return null;
+    return new { uri = LibraryUri(name), name, text };
 }
 
 static void PublishDiagnostics(Stream output, string uri, IReadOnlyList<CatnipDiagnostic> diagnostics) {

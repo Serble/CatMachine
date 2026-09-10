@@ -1,0 +1,152 @@
+{
+  "name": "Catnip",
+  "scopeName": "source.catnip",
+  "fileTypes": ["nip"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#preprocessor" },
+    { "include": "#inlineAsm" },
+    { "include": "#string" },
+    { "include": "#char" },
+    { "include": "#macroSubstitution" },
+    { "include": "#symbolOps" },
+    { "include": "#keyword" },
+    { "include": "#constant" },
+    { "include": "#number" },
+    { "include": "#size" },
+    { "include": "#operator" },
+    { "include": "#brackets" }
+  ],
+  "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.catnip",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "preprocessor": {
+      "patterns": [
+        {
+          "name": "keyword.control.directive.catnip",
+          "match": "^\\s*#\\w+"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.catnip",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.catnip",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "char": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.catnip",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.catnip",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.catnip",
+          "match": "\\b0x[0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.catnip",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "name": "keyword.control.catnip",
+          "match": "\\b(fun|struct|global|let|return|if|else|while)\\b"
+        }
+      ]
+    },
+    "constant": {
+      "patterns": [
+        {
+          "name": "constant.language.catnip",
+          "match": "\\bnull\\b"
+        }
+      ]
+    },
+    "macroSubstitution": {
+      "patterns": [
+        {
+          "name": "variable.other.macro-substitution.catnip",
+          "match": "\\$\\{[A-Za-z0-9_]+\\}"
+        }
+      ]
+    },
+    "symbolOps": {
+      "patterns": [
+        {
+          "name": "storage.type.symbol-size.catnip",
+          "match": "\\$[A-Za-z_][A-Za-z0-9_]*"
+        },
+        {
+          "name": "entity.name.type.struct-field.catnip",
+          "match": "[A-Za-z_][A-Za-z0-9_]*#[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "operator": {
+      "patterns": [
+        {
+          "name": "keyword.operator.catnip",
+          "match": "~\\*|~/|~%|~<|~>|==|!=|<=|>=|[+\\-*/%<>=&^|!~]"
+        }
+      ]
+    },
+    "inlineAsm": {
+      "patterns": [
+        {
+          "name": "meta.embedded.block.catasm.catnip",
+          "begin": "^\\s*~~~\\s",
+          "end": "^\\s*~~~\\s*$",
+          "patterns": [
+            { "include": "source.catasm" }
+          ]
+        }
+      ]
+    },
+    "brackets": {
+      "patterns": [
+        {
+          "name": "punctuation.section.brackets.catnip",
+          "match": "[\\[\\]{}()]"
+        }
+      ]
+    },
+    "size": {
+      "patterns": [
+        {
+          "name": "constant.numeric.size-specifier.catnip",
+          "match": ":\\d+"
+        }
+      ]
+    }
+  }
+}

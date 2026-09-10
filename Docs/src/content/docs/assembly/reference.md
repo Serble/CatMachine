@@ -283,4 +283,6 @@ Whenever the assembler produces an output file it also writes a sibling `<output
 
 The file is JSON for ease of consumption by external tooling. The reference VM loads it automatically when launched as `catlaunch debug --rom <rom>`, enabling source-line lookup, symbolic breakpoints (`break symbol main`, `break line 42`, or `break line display.cat:42` when a bare line number is ambiguous), and stack traces that show function names instead of bare addresses.
 
+The same file drives the editor debugger (`catlaunch dap`, see [Debugging](/vm/debugging/)): source-line breakpoints, stepping and stack traces in VS Code, Neovim or CatIDE all resolve through it.
+
 The same record types live in the `CatData` project so that any other tool (Catnip compiler, future debuggers, IDE plugins) can produce or consume `.debug` files without depending on the assembler.

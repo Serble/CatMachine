@@ -171,6 +171,14 @@ public class CatVm {
 
     public event Action? OnShutdown;
 
+    /// <summary>
+    /// Raised from <see cref="ExecuteWithErrorHandling"/> when a CLR exception thrown by
+    /// <see cref="ExecuteInstruction"/> is about to be converted into a guest CPU exception
+    /// interrupt. Debuggers use it to report "the guest faulted" instead of silently
+    /// continuing into the guest's handler.
+    /// </summary>
+    public event Action<Exception, SpecialInterrupts>? OnCpuFault;
+
 #endregion
 
     private readonly int _memoryBytes;
@@ -578,29 +586,29 @@ public class CatVm {
             action();
         }
         catch (DivideByZeroException e) {
-            DumpError(e);
-            Interrupt(SpecialInterrupts.DivideByZero);
+            HandleFault(e, SpecialInterrupts.DivideByZero);
         }
         catch (MemoryOutOfRange e) {
-            DumpError(e);
-            Interrupt(SpecialInterrupts.PageFault);
+            HandleFault(e, SpecialInterrupts.PageFault);
         }
         catch (InvalidOpcodeException e) {
-            DumpError(e);
-            Interrupt(SpecialInterrupts.InvalidInstruction);
+            HandleFault(e, SpecialInterrupts.InvalidInstruction);
         }
         catch (IndexOutOfRangeException e) {
-            DumpError(e);
-            Interrupt(SpecialInterrupts.PageFault);
+            HandleFault(e, SpecialInterrupts.PageFault);
         }
         catch (ArgumentException e) {
-            DumpError(e);
-            Interrupt(SpecialInterrupts.PageFault);
+            HandleFault(e, SpecialInterrupts.PageFault);
         }
         catch (Exception e) {
-            DumpError(e);
-            Interrupt(SpecialInterrupts.InvalidInstruction);
+            HandleFault(e, SpecialInterrupts.InvalidInstruction);
         }
+    }
+
+    private void HandleFault(Exception e, SpecialInterrupts kind) {
+        DumpError(e);
+        OnCpuFault?.Invoke(e, kind);
+        Interrupt(kind);
     }
 
     private void DumpError(Exception e) {

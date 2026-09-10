@@ -43,7 +43,7 @@ public class TextFileArgument(bool required, bool positional, string[] names, st
         catch (Exception ex) when (ex is ArgumentException or PathTooLongException or DirectoryNotFoundException or
                                        IOException or UnauthorizedAccessException or FileNotFoundException or
                                        SecurityException) {
-            throw new ArgumentException(names[0] + ": File could not be read");
+            throw new ArgumentException(Names[0] + ": File could not be read");
         }
     }
 }
