@@ -43,30 +43,35 @@ public static class StackOperation {
     
     public static void PopR(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         uint value = vm.StackPop();
-        vm.Cpu.Set(destReg, value);
         vm.Cpu.Ip += 2;
+        dest = value;
     }
     
     public static void Pop8R(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         byte value = vm.StackPop8();
-        vm.Cpu.Set(destReg, value);
         vm.Cpu.Ip += 2;
+        dest = value;
     }
     
     public static void Pop16R(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         ushort value = vm.StackPop16();
-        vm.Cpu.Set(destReg, value);
         vm.Cpu.Ip += 2;
+        dest = value;
     }
     
     public static void Call(CatVm vm) {
         byte addressReg = vm.Read8(vm.Cpu.Ip + 1);
         uint offset = vm.ReadWord(vm.Cpu.Ip + 2);
+        // resolve the target before pushing so a bad register faults without touching the stack
+        uint target = JmpOperation.Target(vm, addressReg, offset);
         vm.StackPush(vm.Cpu.Ip + 6);
-        JmpOperation.Jmp(vm, addressReg, offset);
+        vm.Cpu.Ip = target;
     }
     
     public static void Ret(CatVm vm) {

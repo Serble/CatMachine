@@ -10,9 +10,10 @@ public static class SerialOperation {
         if (!vm.TryPrivileged()) {
             return;
         }
-        
-        vm.Cpu.Set(destReg, vm.GetSerialDevice(port).Input(vm));
+
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 3;
+        dest = vm.GetSerialDevice(port).Input(vm);
     }
     
     public static void InRI(CatVm vm) {
@@ -22,9 +23,10 @@ public static class SerialOperation {
         if (!vm.TryPrivileged()) {
             return;
         }
-        
-        vm.Cpu.Set(destReg, vm.GetSerialDevice(port).Input(vm));
+
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 6;
+        dest = vm.GetSerialDevice(port).Input(vm);
     }
     
     public static void OutRR(CatVm vm) {
@@ -36,9 +38,9 @@ public static class SerialOperation {
         if (!vm.TryPrivileged()) {
             return;
         }
-        
-        vm.GetSerialDevice(port).Output(vm, data);
+
         vm.Cpu.Ip += 3;
+        vm.GetSerialDevice(port).Output(vm, data);
     }
     
     public static void OutRI(CatVm vm) {
@@ -49,9 +51,9 @@ public static class SerialOperation {
         if (!vm.TryPrivileged()) {
             return;
         }
-        
-        vm.GetSerialDevice(port).Output(vm, data);
+
         vm.Cpu.Ip += 6;
+        vm.GetSerialDevice(port).Output(vm, data);
     }
     
     public static void OutIR(CatVm vm) {
@@ -62,9 +64,9 @@ public static class SerialOperation {
         if (!vm.TryPrivileged()) {
             return;
         }
-        
-        vm.GetSerialDevice(port).Output(vm, data);
+
         vm.Cpu.Ip += 6;
+        vm.GetSerialDevice(port).Output(vm, data);
     }
     
     public static void OutII(CatVm vm) {
@@ -74,8 +76,8 @@ public static class SerialOperation {
         if (!vm.TryPrivileged()) {
             return;
         }
-        
-        vm.GetSerialDevice(port).Output(vm, data);
+
         vm.Cpu.Ip += 9;
+        vm.GetSerialDevice(port).Output(vm, data);
     }
 }

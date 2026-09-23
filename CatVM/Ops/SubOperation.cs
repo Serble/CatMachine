@@ -5,21 +5,25 @@ public static class SubOperation {
     public static void SubRR(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte srcReg = vm.Read8(vm.Cpu.Ip + 2);
-        uint left = vm.Cpu.Get(destReg);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
+        uint left = dest;
         uint right = vm.Cpu.Get(srcReg);
-        Sub(vm, destReg, left, right);
+        uint result = Sub(vm, left, right);
         vm.Cpu.Ip += 3;
+        dest = result;
     }
     
     public static void SubRI(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         uint immediate = vm.ReadWord(vm.Cpu.Ip + 2);
-        uint left = vm.Cpu.Get(destReg);
-        Sub(vm, destReg, left, immediate);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
+        uint left = dest;
+        uint result = Sub(vm, left, immediate);
         vm.Cpu.Ip += 6;
+        dest = result;
     }
 
-    public static void Sub(CatVm vm, byte destReg, uint a, uint b) {
+    public static uint Sub(CatVm vm, uint a, uint b) {
         uint result = a - b;
         int sResult = (int)result;
         
@@ -28,6 +32,6 @@ public static class SubOperation {
         vm.Cpu.OverflowFlag = ((a ^ b) & (a ^ result)) >> 31 == 1;
         vm.Cpu.CarryFlag = a < b;
         
-        vm.Cpu.Set(destReg, result);
+        return result;
     }
 }

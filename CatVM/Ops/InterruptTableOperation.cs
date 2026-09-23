@@ -31,7 +31,8 @@ public static class InterruptTableOperation {
             return;
         }
         
-        vm.Cpu.Set(reg, vm.Cpu.It);
+        ref uint dest = ref vm.Cpu.RegRef(reg);
         vm.Cpu.Ip += 2;
+        dest = vm.Cpu.It;
     }
 }

@@ -6,15 +6,17 @@ public static class MovOperation {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte srcReg = vm.Read8(vm.Cpu.Ip + 2);
         uint value = vm.Cpu.Get(srcReg);
-        vm.Cpu.Set(destReg, value);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 3;
+        dest = value;
     }
 
     public static void MovRI(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         uint immediate = vm.ReadWord(vm.Cpu.Ip + 2);
-        vm.Cpu.Set(destReg, immediate);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 6;
+        dest = immediate;
     }
 
     // Move from memory (pointer in register) to register
@@ -22,16 +24,20 @@ public static class MovOperation {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte ptrReg = vm.Read8(vm.Cpu.Ip + 2);
         uint address = vm.Cpu.Get(ptrReg);
-        vm.Cpu.Set(destReg, vm.ReadWord(address));
+        uint value = vm.ReadWord(address);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 3;
+        dest = value;
     }
 
     // Move from memory (immediate address) to register
     public static void MovRIP(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         uint address = vm.ReadWord(vm.Cpu.Ip + 2);
-        vm.Cpu.Set(destReg, vm.ReadWord(address));
+        uint value = vm.ReadWord(address);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 6;
+        dest = value;
     }
 
     public static void MovRPR(CatVm vm) {
@@ -84,16 +90,20 @@ public static class MovOperation {
     public static void BMovRIP(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         uint address = vm.ReadWord(vm.Cpu.Ip + 2);
-        vm.Cpu.Set(destReg, vm.Read8(address));
+        uint value = vm.Read8(address);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 6;
+        dest = value;
     }
 
     public static void BMovRRP(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte ptrReg = vm.Read8(vm.Cpu.Ip + 2);
         uint address = vm.Cpu.Get(ptrReg);
-        vm.Cpu.Set(destReg, vm.Read8(address));
+        uint value = vm.Read8(address);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 3;
+        dest = value;
     }
 
     public static void BMovIPI(CatVm vm) {
@@ -131,16 +141,20 @@ public static class MovOperation {
     public static void SMovRIP(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         uint address = vm.ReadWord(vm.Cpu.Ip + 2);
-        vm.Cpu.Set(destReg, vm.Read16(address));
+        uint value = vm.Read16(address);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 6;
+        dest = value;
     }
 
     public static void SMovRRP(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte ptrReg = vm.Read8(vm.Cpu.Ip + 2);
         uint address = vm.Cpu.Get(ptrReg);
-        vm.Cpu.Set(destReg, vm.Read16(address));
+        uint value = vm.Read16(address);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
         vm.Cpu.Ip += 3;
+        dest = value;
     }
 
     public static void SMovIPI(CatVm vm) {

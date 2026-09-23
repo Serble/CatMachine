@@ -48,4 +48,20 @@ public class HardwareManagerTest {
             Assert.That(pairs[17], Is.EqualTo(0x99u));
         });
     }
+
+    [Test]
+    public void ResetSystem_ViaOutInstruction_LeavesIpAtZero() {
+        _vm.RegisterSerialDevice(16, new HardwareManager());
+        // OUT 16, ResetSystem — placed away from 0 so a clobbered IP (0x20 + 9) is distinguishable
+        _vm.LoadData([0x4c, 16, 0x00, 0x00, 0x00, (byte)HardwareManager.Mode.ResetSystem, 0x00, 0x00, 0x00], 0x20);
+        _vm.Cpu.Ip = 0x20;
+        _vm.Cpu.R1 = 0xAAAA;
+
+        _vm.ExecuteInstruction();
+
+        Assert.Multiple(() => {
+            Assert.That(_vm.Cpu.R1, Is.EqualTo(0u), "Reset should have run");
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0u), "Instruction's IP advance must not clobber the reset");
+        });
+    }
 }

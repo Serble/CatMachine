@@ -5,19 +5,21 @@ public static class XorOperation {
     public static void XorRR(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte srcReg = vm.Read8(vm.Cpu.Ip + 2);
-        uint left = vm.Cpu.Get(destReg);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
+        uint left = dest;
         uint right = vm.Cpu.Get(srcReg);
         uint result = left ^ right;
-        vm.Cpu.Set(destReg, result);
         vm.Cpu.Ip += 3;
+        dest = result;
     }
     
     public static void XorRI(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         uint immediate = vm.ReadWord(vm.Cpu.Ip + 2);
-        uint left = vm.Cpu.Get(destReg);
+        ref uint dest = ref vm.Cpu.RegRef(destReg);
+        uint left = dest;
         uint result = left ^ immediate;
-        vm.Cpu.Set(destReg, result);
         vm.Cpu.Ip += 6;
+        dest = result;
     }
 }

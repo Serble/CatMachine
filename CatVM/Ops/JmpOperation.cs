@@ -30,7 +30,12 @@ public static class JmpOperation {
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Jmp(CatVm vm, byte addrReg, uint offset) {
+        vm.Cpu.Ip = Target(vm, addrReg, offset);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Target(CatVm vm, byte addrReg, uint offset) {
         uint address = addrReg == 0xFF ? 0 : vm.Cpu.Get(addrReg);
-        vm.Cpu.Ip = address + offset;
+        return address + offset;
     }
 }

@@ -210,6 +210,57 @@ public class MovOperationTest : OperationTestBase {
         Assert.That(_vm.Paused, Is.True);
     }
 
+    // ---- Moving into IP ----
+    // MOV IP, x is a jump, the instruction's own IP advance must not be added on top.
+
+    private static IEnumerable<TestCaseData> MovIntoIpInstructions() {
+        yield return new TestCaseData(new byte[] { 0x00, 0x09, 0x01 })  // MOV IP, R1
+            .SetName("MovRR_IntoIp_LeavesIpAtValue");
+        yield return new TestCaseData(new byte[] { 0x01, 0x09, 0x05, 0x00, 0x00, 0x00 })  // MOV IP, 5
+            .SetName("MovRI_IntoIp_LeavesIpAtValue");
+        yield return new TestCaseData(new byte[] { 0x02, 0x09, 0x02 })  // MOV IP, [R2]
+            .SetName("MovRRP_IntoIp_LeavesIpAtValue");
+        yield return new TestCaseData(new byte[] { 0x03, 0x09, 0x30, 0x00, 0x00, 0x00 })  // MOV IP, [0x30]
+            .SetName("MovRIP_IntoIp_LeavesIpAtValue");
+        yield return new TestCaseData(new byte[] { 0x08, 0x09, 0x02 })  // MOV16 IP, [R2]
+            .SetName("SMovRRP_IntoIp_LeavesIpAtValue");
+        yield return new TestCaseData(new byte[] { 0x09, 0x09, 0x30, 0x00, 0x00, 0x00 })  // MOV16 IP, [0x30]
+            .SetName("SMovRIP_IntoIp_LeavesIpAtValue");
+        yield return new TestCaseData(new byte[] { 0x0E, 0x09, 0x02 })  // MOV8 IP, [R2]
+            .SetName("BMovRRP_IntoIp_LeavesIpAtValue");
+        yield return new TestCaseData(new byte[] { 0x0F, 0x09, 0x30, 0x00, 0x00, 0x00 })  // MOV8 IP, [0x30]
+            .SetName("BMovRIP_IntoIp_LeavesIpAtValue");
+    }
+
+    [TestCaseSource(nameof(MovIntoIpInstructions))]
+    public void Mov_IntoIp_LeavesIpAtValue(byte[] program) {
+        _vm.Cpu.R1 = 5;
+        _vm.Cpu.R2 = 0x30;
+        _vm.Memory[0x30] = 5;  // [0x30] = 5 as a word, short or byte
+
+        Execute(program);
+
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(5u));
+    }
+
+    [Test]
+    public void TestMovIntoIp_FaultingRead_LeavesIpAtInstruction() {
+        _vm.LoadData([0x03, 0x09, 0x00, 0xF0, 0xFF, 0xFF], 0x20); // MOV IP, [0xFFFFF000]
+        _vm.Cpu.Ip = 0x20;
+
+        Assert.Catch(() => _vm.ExecuteInstruction(fast: true));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x20u));
+    }
+
+    [Test]
+    public void TestMovInvalidDestReg_LeavesIpAtInstruction() {
+        _vm.LoadData([0x01, 0x20, 0x05, 0x00, 0x00, 0x00], 0x20); // MOV <reg 0x20>, 5
+        _vm.Cpu.Ip = 0x20;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => _vm.ExecuteInstruction(fast: true));
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x20u));
+    }
+
     [Test]
     public void TestMovUnalignedAddress_Works() {
         // 32-bit access at an odd address should work (Unsafe.WriteUnaligned).

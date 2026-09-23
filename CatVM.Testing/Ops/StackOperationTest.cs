@@ -133,6 +133,26 @@ public class StackOperationTest : OperationTestBase {
     }
 
     [Test]
+    public void TestCallInvalidAddrReg_FaultsWithoutPushing() {
+        uint spBefore = _vm.Cpu.Sp;
+        _vm.LoadData([0x3f, 0x20, 0x00, 0x00, 0x00, 0x00], 0x20);  // CALL <reg 0x20>, 0
+        _vm.Cpu.Ip = 0x20;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => _vm.ExecuteInstruction(fast: true));
+        Assert.Multiple(() => {
+            Assert.That(_vm.Cpu.Ip, Is.EqualTo(0x20u));
+            Assert.That(_vm.Cpu.Sp, Is.EqualTo(spBefore), "Return address must not be pushed");
+        });
+    }
+
+    [Test]
+    public void TestCallViaSp_UsesSpBeforePush() {
+        uint spBefore = _vm.Cpu.Sp;
+        Execute(0x3f, 0x08, 0x00, 0x00, 0x00, 0x00);  // CALL SP, 0
+        Assert.That(_vm.Cpu.Ip, Is.EqualTo(spBefore));
+    }
+
+    [Test]
     public void TestPushDecrementsSpByCorrectWidth() {
         uint spBefore = _vm.Cpu.Sp;
         Execute(0x21, 0x78, 0x56, 0x34, 0x12);  // PUSH 0x12345678

@@ -38,7 +38,8 @@ public static class KspOperation {
             return;
         }
 
-        vm.Cpu.Set(reg, vm.Cpu.Ksp);
+        ref uint dest = ref vm.Cpu.RegRef(reg);
         vm.Cpu.Ip += 2;
+        dest = vm.Cpu.Ksp;
     }
 }

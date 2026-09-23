@@ -8,23 +8,27 @@ public static class DivOperation {
     public static void DivRR(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte remReg = vm.Read8(vm.Cpu.Ip + 2);
-        uint dividend = vm.Cpu.Get(destReg);
-        uint divisor = vm.Cpu.Get(remReg);
+        ref uint quotientDest = ref vm.Cpu.RegRef(destReg);
+        ref uint remainderDest = ref vm.Cpu.RegRef(remReg);
+        uint dividend = quotientDest;
+        uint divisor = remainderDest;
         (uint quotient, uint remainder) = Divide(dividend, divisor);
-        vm.Cpu.Set(destReg, quotient);
-        vm.Cpu.Set(remReg, remainder);
         vm.Cpu.Ip += 3;
+        quotientDest = quotient;
+        remainderDest = remainder;
     }
     
     public static void IDivRR(CatVm vm) {
         byte destReg = vm.Read8(vm.Cpu.Ip + 1);
         byte remReg = vm.Read8(vm.Cpu.Ip + 2);
-        int dividend = (int)vm.Cpu.Get(destReg);
-        int divisor = (int)vm.Cpu.Get(remReg);
+        ref uint quotientDest = ref vm.Cpu.RegRef(destReg);
+        ref uint remainderDest = ref vm.Cpu.RegRef(remReg);
+        int dividend = (int)quotientDest;
+        int divisor = (int)remainderDest;
         (uint quotient, uint remainder) = Divide(dividend, divisor);
-        vm.Cpu.Set(destReg, quotient);
-        vm.Cpu.Set(remReg, remainder);
         vm.Cpu.Ip += 3;
+        quotientDest = quotient;
+        remainderDest = remainder;
     }
     
     // TODO: Don't return tuples here for performance reasons
