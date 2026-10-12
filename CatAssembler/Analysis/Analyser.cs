@@ -282,21 +282,21 @@ public class Analyser {
         return t;
     }
 
-    private InstructionSpec? FindInstruction(InstructionToken token) {
+    private static InstructionSpec? FindInstruction(InstructionToken token) {
         if (token.Args.Any(e => e is StringExpression)) {
             Fail(token, "String expressions are not valid instruction arguments");
         }
 
         InstructionSpec? instruction = Spec.Instructions.FirstOrDefault(i => 
-            i.Mneumonics.Contains(token.Name) && 
+            i.Mneumonics.Any(n => n.Equals(token.Name, StringComparison.InvariantCultureIgnoreCase)) && 
             ArgsMatchExpressions(i, token.Args));
 
         return instruction;
     }
 
-    private IOutputSegment? FindCustomInstruction(InstructionToken token) {
+    private static IOutputSegment? FindCustomInstruction(InstructionToken token) {
         (string[] _, IOutputSegment segment) = Spec.CustomInstructions.FirstOrDefault(i => 
-            i.Mneumonics.Contains(token.Name));
+            i.Mneumonics.Any(n => n.Equals(token.Name, StringComparison.InvariantCultureIgnoreCase)));
 
         return segment;
     }
